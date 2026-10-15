@@ -19,9 +19,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+const handleCheckout = async (e: React.SyntheticEvent) => {
+    e.preventDefault();    
     if (!playerId.trim()) {
       alert("សូមបញ្ចូល Roblox User ID / Username!");
       return;
@@ -41,18 +40,19 @@ export default function HomePage() {
       ]);
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("Supabase Error:", error);
         alert("មានបញ្ហាក្នុងការបញ្ជាទិញ: " + error.message);
       } else {
-        setShowQR(true); // <--- Triggers the payment QR modal!
+        setShowQR(true);
       }
-    } catch (err: any) {
-      console.error("Unexpected error:", err);
-      alert("មានបញ្ហាផ្សេងៗ: " + err.message);
+    } catch (err: unknown) {
+      console.error("Unexpected Error:", err);
+      const errorMessage = err instanceof Error ? err.message : "An error occurred";
+      alert("មានបញ្ហាផ្សេងៗ: " + errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+     };
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
@@ -112,10 +112,11 @@ export default function HomePage() {
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">
               ២. ព័ត៌មានគណនី (Account Details)
             </h3>
-            <label className="block text-xs text-gray-400 mb-2">
+             <label htmlFor="player-id" className="block text-xs text-gray-400 mb-2">
               បញ្ចូល Roblox Username / User ID:
-            </label>
+             </label>
             <input
+              id="player-id"
               type="text"
               required
               placeholder="ឧទាហរណ៍: GamerKH123"
@@ -153,7 +154,7 @@ export default function HomePage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 px-6 rounded-xl transition text-base"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 px-6 rounded-xl transition text-base cursor-pointer"
           >
             {loading ? "កំពុងដំណើរការ..." : `ទូទាត់ប្រាក់ ($${selectedPackage.price.toFixed(2)})`}
           </button>
@@ -168,12 +169,14 @@ export default function HomePage() {
                 សូមស្កែន QR Code ដើម្បីទូទាត់ប្រាក់ <b>${selectedPackage.price.toFixed(2)}</b> តាមធនាគារ (KHQR / ABA)
               </p>
 
-              {/* KHQR Image */}
-              {/* eslint-disable @next/next/no-img-element */}
-             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BakongKHQR_TopUpKH_${selectedPackage.price}`}
-              alt="KHQR Code"
-              className="w-44 h-44 mx-auto"/>              
+              {/* KHQR Code */}
+              <div className="bg-white p-4 rounded-xl inline-block border-2 border-emerald-500">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BakongKHQR_TopUpKH_${selectedPackage.price}`}
+                  alt="KHQR Code"
+                  className="w-44 h-44 mx-auto"
+                />
               </div>
 
               <div className="text-xs text-gray-400 font-mono">
@@ -182,11 +185,12 @@ export default function HomePage() {
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setShowQR(false);
                   setPlayerId("");
                 }}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-sm"
+                className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-sm cursor-pointer"
               >
                 បិទ (Close)
               </button>

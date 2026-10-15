@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+// @ts-expect-error bakong-khqr missing types
 import { BakongKHQR, IndividualInfo } from "bakong-khqr";
 import QRCode from "qrcode";
 

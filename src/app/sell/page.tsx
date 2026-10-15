@@ -23,8 +23,8 @@ export default function SellPage() {
           title: title.trim(),
           category,
           delivery_method: delivery,
-          price: parseFloat(price),
-          stock: parseInt(stock, 10),
+          price: Number.parseFloat(price),
+          stock: Number.parseInt(stock, 10),
           contact_number: contact.trim(),
         },
       ]);

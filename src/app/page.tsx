@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-// Roblox packages matching your database setup
 const ROBLOX_PACKAGES = [
   { id: "rbx-80", name: "80 Robux", price: 0.99 },
   { id: "rbx-400", name: "400 Robux", price: 4.99 },
@@ -19,9 +18,7 @@ export default function HomePage() {
   const [selectedPackage, setSelectedPackage] = useState(ROBLOX_PACKAGES[1]);
   const [loading, setLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
 
-  // Submit order directly to Supabase backend
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!playerId.trim()) {
@@ -47,7 +44,6 @@ export default function HomePage() {
       alert("មានបញ្ហាក្នុងការបញ្ជាទិញ: " + error.message);
     } else {
       setShowQR(true);
-      setOrderSuccess(true);
     }
   };
 
@@ -85,7 +81,7 @@ export default function HomePage() {
         </div>
 
         <form onSubmit={handleCheckout} className="space-y-6">
-          {/* Step 1: Roblox Game Selected */}
+          {/* Step 1: Game Selection */}
           <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl">
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">
               ១. ហ្គេមដែលបានជ្រើស (Game)
@@ -165,7 +161,7 @@ export default function HomePage() {
                 សូមស្កែន QR Code ដើម្បីទូទាត់ប្រាក់ <b>${selectedPackage.price.toFixed(2)}</b> តាមធនាគារ (KHQR / ABA)
               </p>
 
-              {/* KHQR Placeholder Image / Code */}
+              {/* Dynamic KHQR Image */}
               <div className="bg-white p-4 rounded-xl inline-block border-2 border-emerald-500">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BakongKHQR_TopUpKH_${selectedPackage.price}`}

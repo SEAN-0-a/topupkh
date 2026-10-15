@@ -1,14 +1,10 @@
-import { Battambang } from "next/font/google";
+import type { Metadata } from "next";
 import "./globals.css";
 
-const battambang = Battambang({
-  weight: ["400", "700"],
-  subsets: ["khmer"],
-});
-
-export const metadata = {
-  title: "TopUpKH - ផ្សារទិញលក់ Roblox និងទំនិញឌីជីថល",
-  description: "ទិញ លក់ Robux, ហ្គេមបាស, និងគណនីហ្គេម ដោយសុវត្ថិភាព",
+export const metadata: Metadata = {
+  title: "TopUpKH - Roblox Top-Up Marketplace Cambodia",
+  description: "Fast and reliable Roblox Robux top-ups in Cambodia. Direct recharge using KHQR payment.",
+  keywords: ["Roblox", "Robux", "TopUpKH", "Cambodia", "KHQR", "Game Top Up"],
 };
 
 export default function RootLayout({
@@ -18,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="km">
-      <body className={battambang.className}>{children}</body>
+      <body className="bg-black text-white antialiased min-h-screen">
+        {children}
+      </body>
     </html>
   );
 }

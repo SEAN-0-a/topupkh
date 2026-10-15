@@ -21,6 +21,7 @@ export default function HomePage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!playerId.trim()) {
       alert("សូមបញ្ចូល Roblox User ID / Username!");
       return;
@@ -28,22 +29,28 @@ export default function HomePage() {
 
     setLoading(true);
 
-    const { error } = await supabase.from("orders").insert([
-      {
-        player_id: playerId,
-        game_name: "Roblox",
-        package_name: selectedPackage.name,
-        price: selectedPackage.price,
-        status: "PENDING",
-      },
-    ]);
+    try {
+      const { error } = await supabase.from("orders").insert([
+        {
+          player_id: playerId.trim(),
+          game_name: "Roblox",
+          package_name: selectedPackage.name,
+          price: selectedPackage.price,
+          status: "PENDING",
+        },
+      ]);
 
-    setLoading(false);
-
-    if (error) {
-      alert("មានបញ្ហាក្នុងការបញ្ជាទិញ: " + error.message);
-    } else {
-      setShowQR(true);
+      if (error) {
+        console.error("Supabase error:", error);
+        alert("មានបញ្ហាក្នុងការបញ្ជាទិញ: " + error.message);
+      } else {
+        setShowQR(true); // <--- Triggers the payment QR modal!
+      }
+    } catch (err: any) {
+      console.error("Unexpected error:", err);
+      alert("មានបញ្ហាផ្សេងៗ: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,13 +168,12 @@ export default function HomePage() {
                 សូមស្កែន QR Code ដើម្បីទូទាត់ប្រាក់ <b>${selectedPackage.price.toFixed(2)}</b> តាមធនាគារ (KHQR / ABA)
               </p>
 
-              {/* Dynamic KHQR Image */}
-              <div className="bg-white p-4 rounded-xl inline-block border-2 border-emerald-500">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BakongKHQR_TopUpKH_${selectedPackage.price}`}
-                  alt="KHQR Code"
-                  className="w-44 h-44 mx-auto"
-                />
+              {/* KHQR Image */}
+              {/* eslint-disable @next/next/no-img-element */}
+             <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BakongKHQR_TopUpKH_${selectedPackage.price}`}
+              alt="KHQR Code"
+              className="w-44 h-44 mx-auto"/>              
               </div>
 
               <div className="text-xs text-gray-400 font-mono">

@@ -7,7 +7,10 @@ import Link from "next/link";
 interface Order {
   id: number;
   player_id: string;
-  amount: number;
+  game_name?: string;
+  package_name?: string;
+  price?: number;
+  amount?: number;
   status: string;
   created_at: string;
 }
@@ -16,21 +19,24 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Load orders safely inside useEffect to avoid React render warnings
   useEffect(() => {
     let isMounted = true;
 
     async function loadOrders() {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (isMounted) {
-        if (!error && data) {
-          setOrders(data);
+        if (isMounted) {
+          if (!error && data) {
+            setOrders(data);
+          }
+          setLoading(false);
         }
-        setLoading(false);
+      } catch {
+        if (isMounted) setLoading(false);
       }
     }
 
@@ -41,20 +47,26 @@ export default function AdminOrdersPage() {
     };
   }, []);
 
-  // 2. Update order status and refresh state directly
   const markCompleted = async (orderId: number) => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "completed" })
-      .eq("id", orderId);
-
-    if (!error) {
-      alert("បានបញ្ជាក់ការប្រគល់ទំនិញជោគជ័យ! (Order Completed)");
-      const { data } = await supabase
+    try {
+      const { error } = await supabase
         .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (data) setOrders(data);
+        .update({ status: "COMPLETED" })
+        .eq("id", orderId);
+
+      if (!error) {
+        alert("បានបញ្ជាក់ការប្រគល់ទំនិញជោគជ័យ! (Order Completed)");
+        const { data } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (data) setOrders(data);
+      } else {
+        alert("មានបញ្ហា: " + error.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update order";
+      alert("Error: " + msg);
     }
   };
 
@@ -79,10 +91,15 @@ export default function AdminOrdersPage() {
         {!loading && orders.length > 0 && (
           <div className="space-y-3">
             {orders.map((order) => {
-              const isDone = order.status === "completed";
+              const isDone =
+                order.status?.toUpperCase() === "COMPLETED" ||
+                order.status?.toUpperCase() === "DONE";
+
               const badgeClass = isDone
                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                 : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20";
+
+              const orderPrice = order.price ?? order.amount ?? 0;
 
               return (
                 <div
@@ -94,10 +111,15 @@ export default function AdminOrdersPage() {
                       Order #{order.id}
                     </div>
                     <div className="font-bold text-white">
-                      Roblox ID: {order.player_id}
+                      Player ID: {order.player_id}
                     </div>
+                    {order.game_name && (
+                      <div className="text-xs text-gray-300">
+                        Game: {order.game_name} ({order.package_name ?? ""})
+                      </div>
+                    )}
                     <div className="text-emerald-400 font-mono text-sm">
-                      ${order.amount.toFixed(2)} USD
+                      ${Number(orderPrice).toFixed(2)} USD
                     </div>
                   </div>
 

@@ -1,29 +1,24 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Battambang } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const battambang = Battambang({
+  weight: ["400", "700"],
+  subsets: ["khmer"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "TopUpKH - Roblox Market",
-  description: "Buy Robux, Pets, and Items instantl",
+export const metadata = {
+  title: "TopUpKH - ផ្សារទិញលក់ Roblox និងទំនិញឌីជីថល",
+  description: "ទិញ លក់ Robux, ហ្គេមបាស, និងគណនីហ្គេម ដោយសុវត្ថិភាព",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="km">
+      <body className={battambang.className}>{children}</body>
     </html>
   );
 }

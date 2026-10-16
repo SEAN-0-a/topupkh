@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TopUpKH - Roblox Top-Up Marketplace Cambodia",
-  description: "Fast and reliable Roblox Robux top-ups in Cambodia. Direct recharge using KHQR payment.",
-  keywords: ["Roblox", "Robux", "TopUpKH", "Cambodia", "KHQR", "Game Top Up"],
+  title: "TopUpKH - Secure Digital Marketplace",
+  description: "Escrow-protected digital top-ups and gift cards",
 };
 
 export default function RootLayout({
@@ -13,9 +16,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="km">
-      <body className="bg-black text-white antialiased min-h-screen">
-        {children}
+    <html lang="en">
+      <body className={`${inter.className} bg-black text-white min-h-screen antialiased`}>
+        <Navbar />
+        <main className="py-6">{children}</main>
       </body>
     </html>
   );

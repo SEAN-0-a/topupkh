@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 interface KHQRModalProps {
   amount: number;
@@ -28,6 +29,15 @@ export default function KHQRModal({
       .eq("id", orderId);
 
     if (!error) {
+      // Send instant Telegram alert
+      await sendTelegramNotification(
+        `🔔 *NEW ESCROW PAYMENT SUBMITTED*\n\n` +
+        `📦 *Order ID:* #${orderId}\n` +
+        `💵 *Amount:* $${amount} USD\n` +
+        `📝 *Required ABA Remark:* "ORDER #${orderId}"\n\n` +
+        `👉 Check your ABA App and verify in Admin Escrow Queue!`
+      );
+
       onSuccess();
     } else {
       alert("Error updating order status. Please try again.");
@@ -46,11 +56,15 @@ export default function KHQRModal({
           <span className="text-emerald-400 font-bold">${amount} USD</span>
         </p>
 
-         {/* Static ABA QR Display */}
-          <div className="bg-white p-4 rounded-xl inline-block my-2 shadow-inner">
+        {/* Static ABA QR Display */}
+        <div className="bg-white p-4 rounded-xl inline-block my-2 shadow-inner">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/aba-qr.jpg" alt="ABA KHQR Code" className="w-60 h-60 mx-auto object-contain" />
-          </div>
+          <img
+            src="/aba-qr.jpg"
+            alt="ABA KHQR Code"
+            className="w-60 h-60 mx-auto object-contain"
+          />
+        </div>
 
         {/* Remark Requirement Reminder */}
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl text-left">

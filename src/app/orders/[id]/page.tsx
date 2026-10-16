@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -22,13 +22,8 @@ export default function BuyerOrderDetailsPage() {
   const [copied, setCopied] = useState<boolean>(false);
   const [confirming, setConfirming] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrderDetails();
-    }
-  }, [orderId]);
-
-  async function fetchOrderDetails() {
+  const fetchOrderDetails = useCallback(async () => {
+    if (!orderId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("orders")
@@ -40,13 +35,16 @@ export default function BuyerOrderDetailsPage() {
       setOrder(data);
     }
     setLoading(false);
-  }
+  }, [orderId]);
+
+  useEffect(() => {
+    void fetchOrderDetails();
+  }, [fetchOrderDetails]);
 
   async function handleConfirmReceipt() {
     if (!order) return;
     setConfirming(true);
 
-    // Release funds from escrow and complete transaction
     const { error } = await supabase
       .from("orders")
       .update({ status: "completed" })

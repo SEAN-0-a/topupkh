@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 interface Order {
@@ -15,17 +16,13 @@ interface Order {
 }
 
 export default function AdminEscrowPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    fetchPendingOrders();
-  }, []);
 
   async function fetchPendingOrders() {
     setLoading(true);
 
-    // Fetch orders that are awaiting payment check
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -38,8 +35,22 @@ export default function AdminEscrowPage() {
     setLoading(false);
   }
 
+  useEffect(() => {
+    async function checkAuthAndFetch() {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      fetchPendingOrders();
+    }
+
+    checkAuthAndFetch();
+  }, [router]);
+
   async function handleApproveEscrow(orderId: number) {
-    // Approve full payment -> move status to in_escrow so seller can deliver safely
     const { error } = await supabase
       .from("orders")
       .update({ status: "in_escrow" })
@@ -54,7 +65,6 @@ export default function AdminEscrowPage() {
   }
 
   async function handleReject(orderId: number) {
-    // Reject order -> wrong payment amount or fake submission
     const { error } = await supabase
       .from("orders")
       .update({ status: "cancelled" })
@@ -73,7 +83,7 @@ export default function AdminEscrowPage() {
       <h1 className="text-2xl font-bold mb-6">Escrow Verification Queue</h1>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading pending payments...</p>
+        <p className="text-gray-400 text-sm">Checking authentication & loading orders...</p>
       ) : orders.length === 0 ? (
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center text-gray-400">
           <p className="text-sm">No pending orders awaiting payment check.</p>
@@ -81,7 +91,6 @@ export default function AdminEscrowPage() {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
-            // Automatically get whichever price column exists in Supabase
             const orderAmount =
               order.amount ?? order.total_price ?? order.price ?? 0;
 

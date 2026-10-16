@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// @ts-expect-error bakong-khqr missing types
-import { BakongKHQR, IndividualInfo } from "bakong-khqr";
+import { BakongKHQR } from "bakong-khqr";
 import QRCode from "qrcode";
 
 interface KHQRModalProps {
@@ -19,19 +18,19 @@ export default function KHQRModal({ amount, orderId, onClose, onSuccess }: KHQRM
   useEffect(() => {
     async function generateQR() {
       try {
-        const info: IndividualInfo = {
-          bakongAccountID: process.env.NEXT_PUBLIC_BAKONG_ACCOUNT_ID || "seller@abaa",
+        const info = {
+          bakongAccountID: process.env.NEXT_PUBLIC_BAKONG_ACCOUNT_ID || "010951946@abaa",
           merchantName: process.env.NEXT_PUBLIC_BAKONG_MERCHANT_NAME || "TopUpKH Store",
           merchantCity: process.env.NEXT_PUBLIC_BAKONG_MERCHANT_CITY || "Phnom Penh",
+          acquiringBank: "ABA Bank",
           accountInformation: `Order #${orderId}`,
         };
 
-        // 1. Generate standard EMVCo KHQR string
+        // Generate standard EMVCo KHQR string
         const khqr = new BakongKHQR();
         const response = khqr.generateIndividual(info, { usd: amount });
 
         if (response?.data?.qr) {
-          // 2. Convert string to Data URL image
           const url = await QRCode.toDataURL(response.data.qr, {
             width: 300,
             margin: 2,
@@ -50,48 +49,43 @@ export default function KHQRModal({ amount, orderId, onClose, onSuccess }: KHQRM
   }, [amount, orderId]);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-900 border border-red-500/30 rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
-        <div className="flex justify-between items-center border-b border-gray-800 pb-3">
-          <h2 className="text-lg font-bold text-red-500 flex items-center gap-2">
-            🇰🇭 KHQR Payment
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white text-sm cursor-pointer"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl relative">
+        <h2 className="text-xl font-bold text-white mb-1">ស្កែន QR Code ដើម្បីទូទាត់</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Scan to pay <span className="text-emerald-400 font-bold">${amount} USD</span> via Bakong / ABA
+        </p>
+
+        <div className="bg-white p-4 rounded-xl inline-block my-2 shadow-inner">
+          {loading ? (
+            <div className="w-60 h-60 flex items-center justify-center text-gray-500 text-sm">
+              កំពុងបង្កើត QR Code...
+            </div>
+          ) : qrImageUrl ? (
+            <img src={qrImageUrl} alt="Bakong KHQR Code" className="w-60 h-60 mx-auto" />
+          ) : (
+            <div className="w-60 h-60 flex items-center justify-center text-red-500 text-sm">
+              មិនអាចបង្កើត QR Code បានទេ
+            </div>
+          )}
         </div>
 
-        {loading ? (
-          <p className="text-gray-400 text-sm py-8">Generating KHQR...</p>
-        ) : qrImageUrl ? (
-          <div className="space-y-4">
-            <div className="bg-white p-4 rounded-xl inline-block shadow-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrImageUrl} alt="KHQR Code" className="w-60 h-60 mx-auto" />
-            </div>
+        <p className="text-xs text-gray-400 my-3">Order ID: #{orderId}</p>
 
-            <div>
-              <div className="text-2xl font-bold text-emerald-400 font-mono">
-                ${amount.toFixed(2)} USD
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Scan with ABA, ACLEDA, Sathapana, or Bakong App
-              </p>
-            </div>
-
-            <button
-              onClick={onSuccess}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2.5 rounded-xl transition-all text-sm cursor-pointer"
-            >
-              I Have Completed Payment
-            </button>
-          </div>
-        ) : (
-          <p className="text-red-400 text-sm">Failed to create QR Code.</p>
-        )}
+        <div className="space-y-2 mt-4">
+          <button
+            onClick={onSuccess}
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2.5 rounded-xl cursor-pointer text-sm transition-all"
+          >
+            ខ្ញុំបានទូទាត់រួចរាល់ (I Have Completed Payment)
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl cursor-pointer text-xs transition-all"
+          >
+            បោះបង់ (Cancel)
+          </button>
+        </div>
       </div>
     </div>
   );

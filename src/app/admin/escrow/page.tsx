@@ -5,10 +5,13 @@ import { supabase } from "@/lib/supabase";
 
 interface Order {
   id: number;
-  amount: number;
+  amount?: number;
+  total_price?: number;
+  price?: number;
   status: string;
   created_at: string;
-  user_id: string;
+  user_id?: string;
+  item_name?: string;
 }
 
 export default function AdminEscrowPage() {
@@ -21,10 +24,12 @@ export default function AdminEscrowPage() {
 
   async function fetchPendingOrders() {
     setLoading(true);
+
+    // Fetch orders that are awaiting payment check
     const { data, error } = await supabase
       .from("orders")
       .select("*")
-      .eq("status", "pending_verification")
+      .in("status", ["pending_verification", "pending", "pending_payment"])
       .order("created_at", { ascending: false });
 
     if (!error && data) {
@@ -34,7 +39,7 @@ export default function AdminEscrowPage() {
   }
 
   async function handleApproveEscrow(orderId: number) {
-    // Move status to in_escrow so seller knows it's safe to deliver
+    // Approve full payment -> move status to in_escrow so seller can deliver safely
     const { error } = await supabase
       .from("orders")
       .update({ status: "in_escrow" })
@@ -49,6 +54,7 @@ export default function AdminEscrowPage() {
   }
 
   async function handleReject(orderId: number) {
+    // Reject order -> wrong payment amount or fake submission
     const { error } = await supabase
       .from("orders")
       .update({ status: "cancelled" })
@@ -57,6 +63,8 @@ export default function AdminEscrowPage() {
     if (!error) {
       alert(`Order #${orderId} rejected.`);
       fetchPendingOrders();
+    } else {
+      alert("Failed to reject order.");
     }
   }
 
@@ -65,42 +73,59 @@ export default function AdminEscrowPage() {
       <h1 className="text-2xl font-bold mb-6">Escrow Verification Queue</h1>
 
       {loading ? (
-        <p className="text-gray-400">Loading pending payments...</p>
+        <p className="text-gray-400 text-sm">Loading pending payments...</p>
       ) : orders.length === 0 ? (
-        <p className="text-gray-400">No pending orders awaiting payment check.</p>
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center text-gray-400">
+          <p className="text-sm">No pending orders awaiting payment check.</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div>
-                <p className="font-bold text-lg">Order #{order.id}</p>
-                <p className="text-sm text-emerald-400 font-semibold">
-                  Required Amount: ${order.amount} USD
-                </p>
-                <p className="text-xs text-gray-500">
-                  Check your ABA app for Remark: "ORDER #{order.id}"
-                </p>
-              </div>
+          {orders.map((order) => {
+            // Automatically get whichever price column exists in Supabase
+            const orderAmount =
+              order.amount ?? order.total_price ?? order.price ?? 0;
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleApproveEscrow(order.id)}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2 rounded-lg text-sm transition-all"
-                >
-                  Confirm Full Payment Received
-                </button>
-                <button
-                  onClick={() => handleReject(order.id)}
-                  className="bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium px-3 py-2 rounded-lg text-xs transition-all"
-                >
-                  Reject / Wrong Amount
-                </button>
+            return (
+              <div
+                key={order.id}
+                className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg text-white">
+                      Order #{order.id}
+                    </span>
+                    {order.item_name && (
+                      <span className="text-xs text-gray-400 bg-gray-800 px-2.5 py-1 rounded-md">
+                        {order.item_name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-emerald-400 font-semibold mt-1">
+                    Required Amount: ${orderAmount} USD
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Check your ABA app for Remark: &quot;ORDER #{order.id}&quot;
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleApproveEscrow(order.id)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+                  >
+                    Confirm Full Payment Received
+                  </button>
+                  <button
+                    onClick={() => handleReject(order.id)}
+                    className="bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium px-3.5 py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+                  >
+                    Reject / Wrong Amount
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

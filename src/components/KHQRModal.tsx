@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 interface KHQRModalProps {
   amount: number;
@@ -9,41 +10,69 @@ interface KHQRModalProps {
   onSuccess: () => void;
 }
 
-export default function KHQRModal({ amount, orderId, onClose, onSuccess }: KHQRModalProps) {
+export default function KHQRModal({
+  amount,
+  orderId,
+  onClose,
+  onSuccess,
+}: KHQRModalProps) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleConfirmPayment() {
+    setLoading(true);
+
+    // Update order status to pending_verification so Admin can check ABA App
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "pending_verification" })
+      .eq("id", orderId);
+
+    if (!error) {
+      onSuccess();
+    } else {
+      alert("Error updating order status. Please try again.");
+    }
+
+    setLoading(false);
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl relative">
-        <h2 className="text-xl font-bold text-white mb-1">ស្កែន QR Code ដើម្បីទូទាត់</h2>
-        <p className="text-xs text-gray-400 mb-4">
-          Scan to pay <span className="text-emerald-400 font-bold">${amount} USD</span> via Bakong / ABA
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl">
+        <h2 className="text-xl font-bold text-white">Complete Payment</h2>
+
+        <p className="text-xs text-gray-400">
+          Scan to pay{" "}
+          <span className="text-emerald-400 font-bold">${amount} USD</span>
         </p>
 
-        {/* Display your saved static ABA QR image */}
-        <div className="bg-white p-4 rounded-xl inline-block my-2 shadow-inner">
-          <img
-            src="/aba-qr.jpg" 
-            alt="ABA KHQR Code" 
-            className="w-60 h-60 mx-auto object-contain"
-          />
+         {/* Static ABA QR Display */}
+          <div className="bg-white p-4 rounded-xl inline-block my-2 shadow-inner">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/aba-qr.jpg" alt="ABA KHQR Code" className="w-60 h-60 mx-auto object-contain" />
+          </div>
+
+        {/* Remark Requirement Reminder */}
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl text-left">
+          <p className="font-semibold text-amber-400">⚠️ Important Note:</p>
+          <p className="mt-1 text-[11px] leading-relaxed">
+            Please type <span className="font-bold underline">ORDER #{orderId}</span> into the ABA transfer remark/note field before confirming payment.
+          </p>
         </div>
 
-        <p className="text-xs text-gray-400 my-1">Order ID: #{orderId}</p>
-        <p className="text-[11px] text-amber-400 mb-3">
-          *សូមបញ្ចូល Order ID #{orderId} ទៅក្នុង Remark ពេលទូទាត់
-        </p>
-
-        <div className="space-y-2 mt-4">
-          <button
-            onClick={onSuccess}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2.5 rounded-xl cursor-pointer text-sm transition-all"
-          >
-            ខ្ញុំបានទូទាត់រួចរាល់ (I Have Completed Payment)
-          </button>
+        <div className="flex gap-2 pt-2">
           <button
             onClick={onClose}
-            className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl cursor-pointer text-xs transition-all"
+            className="w-1/2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
           >
-            បោះបង់ (Cancel)
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirmPayment}
+            disabled={loading}
+            className="w-1/2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+          >
+            {loading ? "Verifying..." : "I Have Paid"}
           </button>
         </div>
       </div>

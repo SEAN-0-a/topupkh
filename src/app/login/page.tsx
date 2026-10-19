@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -10,120 +11,157 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  async function handleOAuthLogin(provider: "google" | "facebook") {
+    await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/marketplace` },
+    });
+  }
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setErrorMessage("");
-
-    if (isSignUp) {
-      // Handle User Sign Up
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        setErrorMessage(error.message);
-      } else {
-        alert("Account created successfully! You can now log in.");
-        setIsSignUp(false);
-      }
-    } else {
-      // Handle User Login
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setErrorMessage(error.message);
-      } else {
-        router.push("/");
-        router.refresh();
-      }
+    if (!turnstileToken) {
+      setErrorMsg("Please complete the Cloudflare security verification.");
+      return;
     }
 
-    setLoading(false);
+    setLoading(true);
+    setErrorMsg("");
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("Check your email for the confirmation link!");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        router.push("/marketplace");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Authentication failed";
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4 text-white">
-      <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#1a1528] relative overflow-hidden p-4">
+      {/* Background FX */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#2a1e45] via-[#1a1528] to-[#0e0a17] opacity-90" />
+
+      {/* Main Login Card */}
+      <div className="relative z-10 w-full max-w-md bg-[#1d2029] border border-gray-800 rounded-2xl shadow-2xl p-8 space-y-6">
         
-        {/* Title */}
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl font-bold">
-            {isSignUp ? "Create an Account" : "Welcome Back"}
-          </h1>
-          <p className="text-xs text-gray-400">
-            {isSignUp
-              ? "Sign up to start placing or fulfilling orders"
-              : "Log in to manage your orders and escrow pipeline"}
-          </p>
+        {/* Brand Logo */}
+        <div className="flex items-center justify-center gap-2 text-2xl font-black text-white">
+          <div className="w-8 h-8 bg-amber-400 rounded-lg flex items-center justify-center text-black font-bold text-lg">
+            ⚡
+          </div>
+          <span>TopUpKH</span>
         </div>
 
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl">
-            {errorMessage}
+        <h1 className="text-xl font-bold text-white text-center">
+          {isSignUp ? "Create an account" : "Sign in"}
+        </h1>
+
+        {/* OAuth Buttons */}
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            onClick={() => handleOAuthLogin("google")}
+            className="w-full bg-[#272b38] hover:bg-[#323747] text-gray-200 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-gray-700/50"
+          >
+            <span>🌐</span> Sign in with Google
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => handleOAuthLogin("facebook")}
+            className="w-full bg-[#272b38] hover:bg-[#323747] text-gray-200 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-gray-700/50"
+          >
+            <span>📘</span> Continue with Facebook
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="relative flex items-center justify-center">
+          <div className="border-t border-gray-800 w-full" />
+          <span className="bg-[#1d2029] px-3 text-[11px] text-gray-500 uppercase font-semibold absolute">
+            Or
+          </span>
+        </div>
+
+        {/* Form Error Banner */}
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl text-xs text-center">
+            {errorMsg}
           </div>
         )}
 
-        {/* Auth Form */}
+        {/* Email Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Email Address</label>
+            <label className="block text-xs font-semibold text-gray-300 mb-1">
+              Email address
+            </label>
             <input
               type="email"
-              required
+              placeholder="name@host.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white placeholder-gray-600"
+              required
+              className="w-full bg-[#14161d] border border-gray-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Password</label>
+            <label className="block text-xs font-semibold text-gray-300 mb-1">
+              Password
+            </label>
             <input
               type="password"
-              required
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white placeholder-gray-600"
+              required
+              className="w-full bg-[#14161d] border border-gray-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none transition-all"
+            />
+          </div>
+
+          {/* Cloudflare Turnstile Bot Security Widget */}
+          <div className="flex justify-center my-2">
+            <Turnstile
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+              onSuccess={(token) => setTurnstileToken(token)}
+              options={{ theme: "dark" }}
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold py-3 rounded-xl text-sm transition-all cursor-pointer shadow-lg shadow-emerald-500/10 mt-2"
+            disabled={loading || !turnstileToken}
+            className="w-full bg-amber-400 hover:bg-amber-300 text-black font-extrabold py-3 rounded-xl text-xs transition-all cursor-pointer shadow-lg disabled:opacity-50"
           >
-            {loading
-              ? "Processing..."
-              : isSignUp
-              ? "Sign Up"
-              : "Log In"}
+            {loading ? "Processing..." : isSignUp ? "Create Account" : "Next"}
           </button>
         </form>
 
-        {/* Toggle Login vs Sign Up */}
-        <div className="text-center pt-2 border-t border-gray-800">
+        {/* Footer Toggle */}
+        <p className="text-center text-xs text-gray-400">
+          {isSignUp ? "Already have an account?" : "New user?"}{" "}
           <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setErrorMessage("");
-            }}
-            className="text-xs text-gray-400 hover:text-white transition-colors underline cursor-pointer"
+            type="button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-amber-400 font-bold hover:underline cursor-pointer ml-1"
           >
-            {isSignUp
-              ? "Already have an account? Log in"
-              : "Don't have an account? Sign up"}
+            {isSignUp ? "Sign in" : "Create an account"}
           </button>
-        </div>
+        </p>
 
       </div>
     </div>

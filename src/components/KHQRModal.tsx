@@ -22,14 +22,16 @@ export default function KHQRModal({
   async function handleConfirmPayment() {
     setLoading(true);
 
-    // Update order status to pending_verification so Admin can check ABA App
     const { error } = await supabase
       .from("orders")
       .update({ status: "pending_verification" })
       .eq("id", orderId);
 
     if (!error) {
-      // Send instant Telegram alert
+      // Check if environment variables are loaded
+      console.log("Bot Token:", process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN);
+      console.log("Chat ID:", process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID);
+
       await sendTelegramNotification(
         `🔔 *NEW ESCROW PAYMENT SUBMITTED*\n\n` +
         `📦 *Order ID:* #${orderId}\n` +

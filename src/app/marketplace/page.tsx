@@ -7,13 +7,15 @@ import { supabase } from "@/lib/supabase";
 interface Listing {
   id: number;
   title: string;
-  game_name: string;
+  game_name?: string;
   category: string;
-  trade_method: string;
+  trade_method?: string;
+  delivery_method?: string;
   price: number;
   stock: number;
   roblox_username?: string;
   description?: string;
+  status?: string;
 }
 
 const ROBLOX_GAMES = [
@@ -28,7 +30,7 @@ const ROBLOX_GAMES = [
   "Accounts",
 ];
 
-const CATEGORIES = ["All Categories", "Robux", "In-Game Items", "Accounts", "Gift Cards"];
+const CATEGORIES = ["All Categories", "Robux & Currency", "Robux", "In-Game Items", "Accounts", "Gift Cards"];
 
 export default function MarketplacePage() {
   const router = useRouter();
@@ -42,15 +44,16 @@ export default function MarketplacePage() {
   useEffect(() => {
     async function fetchListings() {
       setLoading(true);
+      
+      // Removed .eq("status", "active") so all table rows load immediately
       let query = supabase
         .from("listings")
         .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
+        .order("id", { ascending: false });
 
       if (selectedGame !== "All Games") {
         if (selectedGame === "Robux (Currency)") {
-          query = query.eq("category", "Robux");
+          query = query.eq("category", "Robux & Currency");
         } else {
           query = query.eq("game_name", selectedGame);
         }
@@ -63,6 +66,8 @@ export default function MarketplacePage() {
       const { data, error } = await query;
       if (!error && data) {
         setListings(data);
+      } else if (error) {
+        console.error("Error fetching listings:", error);
       }
       setLoading(false);
     }
@@ -71,7 +76,7 @@ export default function MarketplacePage() {
   }, [selectedGame, selectedCategory]);
 
   const filteredListings = listings.filter((item) =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+    (item.title || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -150,7 +155,7 @@ export default function MarketplacePage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    {item.game_name}
+                    {item.game_name || item.category || "Roblox"}
                   </span>
                   <span className="text-[10px] text-gray-400">Stock: {item.stock}</span>
                 </div>
@@ -165,7 +170,9 @@ export default function MarketplacePage() {
               <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
                 <div>
                   <span className="text-xs text-gray-400 block">Price</span>
-                  <span className="text-base font-bold text-emerald-400">${item.price.toFixed(2)} USD</span>
+                  <span className="text-base font-bold text-emerald-400">
+                    ${typeof item.price === "number" ? item.price.toFixed(2) : item.price} USD
+                  </span>
                 </div>
 
                 <button

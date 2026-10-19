@@ -51,30 +51,34 @@ export default function AdminEscrowPage() {
   }, [router]);
 
   async function handleApproveEscrow(orderId: number) {
+    // Optimistically update local state so card vanishes immediately
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
+
     const { error } = await supabase
       .from("orders")
       .update({ status: "in_escrow" })
       .eq("id", orderId);
 
-    if (!error) {
-      alert(`Order #${orderId} verified and moved to Escrow!`);
+    if (error) {
+      // Revert if database update failed
       fetchPendingOrders();
-    } else {
-      alert("Failed to update status.");
+      console.error("Failed to update status:", error);
     }
   }
 
   async function handleReject(orderId: number) {
+    // Optimistically update local state so card vanishes immediately
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
+
     const { error } = await supabase
       .from("orders")
       .update({ status: "cancelled" })
       .eq("id", orderId);
 
-    if (!error) {
-      alert(`Order #${orderId} rejected.`);
+    if (error) {
+      // Revert if database update failed
       fetchPendingOrders();
-    } else {
-      alert("Failed to reject order.");
+      console.error("Failed to reject order:", error);
     }
   }
 

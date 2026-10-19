@@ -14,6 +14,7 @@ interface Order {
   delivered_code?: string;
   seller_id?: string;
   user_id?: string;
+  game_username?: string;
   created_at: string;
 }
 
@@ -42,6 +43,10 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const [newMessage, setNewMessage] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
 
+  // Game ID State
+  const [gameUsername, setGameUsername] = useState("");
+  const [savingGameId, setSavingGameId] = useState(false);
+
   useEffect(() => {
     async function initOrderAndChat() {
       // 1. Get current user
@@ -57,6 +62,9 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
       if (!orderError && orderData) {
         setOrder(orderData);
+        if (orderData.game_username) {
+          setGameUsername(orderData.game_username);
+        }
       }
 
       // 3. Fetch chat history
@@ -75,13 +83,21 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
     initOrderAndChat();
 
-    // Real-time order status subscription
+    // Real-time order status subscription (listening for * handles inserts and updates)
     const orderChannel = supabase
       .channel(`order-${orderId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
-        (payload) => setOrder(payload.new as Order)
+        { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const updated = payload.new as Order;
+            setOrder(updated);
+            if (updated.game_username) {
+              setGameUsername(updated.game_username);
+            }
+          }
+        }
       )
       .subscribe();
 
@@ -102,6 +118,37 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       supabase.removeChannel(chatChannel);
     };
   }, [orderId]);
+
+  async function handleSaveGameId(e: React.FormEvent) {
+    e.preventDefault();
+    if (!gameUsername.trim() || !order || !currentUser) return;
+
+    setSavingGameId(true);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ game_username: gameUsername.trim() })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      await supabase.from("order_messages").insert([
+        {
+          order_id: order.id,
+          sender_id: currentUser,
+          message: `🎮 Buyer submitted Roblox Username / Game ID: ${gameUsername.trim()}`,
+          is_support: true,
+        },
+      ]);
+
+      alert("Game ID saved successfully!");
+    } catch (err) {
+      console.error("Error saving game ID:", err);
+      alert("Failed to save Game ID.");
+    } finally {
+      setSavingGameId(false);
+    }
+  }
 
   async function handleConfirmAndRelease() {
     if (!order || !order.seller_id) {
@@ -149,7 +196,6 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           })
           .eq("user_id", order.seller_id);
       } else {
-        // Create initial wallet if none exists
         await supabase.from("seller_wallets").insert([
           {
             user_id: order.seller_id,
@@ -189,10 +235,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
     setActionLoading(true);
 
     try {
-      // 1. Mark order as disputed
       await supabase.from("orders").update({ status: "disputed" }).eq("id", order.id);
 
-      // 2. Insert Dispute Alert into Chat
       await supabase.from("order_messages").insert([
         {
           order_id: order.id,
@@ -269,6 +313,32 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      {/* Game Username / ID Submission Form for Buyer */}
+      {isBuyer && (
+        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl space-y-3">
+          <h2 className="text-sm font-bold text-emerald-400">🎮 Submit Your Roblox Username / Game ID</h2>
+          <p className="text-xs text-gray-300">
+            Provide your exact Roblox display or username so the seller can add or trade with you in-game.
+          </p>
+          <form onSubmit={handleSaveGameId} className="flex gap-2 pt-1">
+            <input
+              type="text"
+              placeholder="e.g. RobloxUser123"
+              value={gameUsername}
+              onChange={(e) => setGameUsername(e.target.value)}
+              className="flex-1 bg-black/50 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              type="submit"
+              disabled={savingGameId}
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              {savingGameId ? "Saving..." : "Save Game ID"}
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* Buyer Escrow Actions Bar */}
       {(order.status === "in_escrow" || order.status === "delivered") && isBuyer && (
         <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-3xl p-6 shadow-xl space-y-3">
@@ -321,7 +391,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Message History */}
-        <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-none">
+        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
           {messages.length === 0 ? (
             <div className="text-center py-12 text-gray-500 text-xs">
               No messages yet. Chat with the seller/buyer here to coordinate your Roblox trade!

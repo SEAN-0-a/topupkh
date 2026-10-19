@@ -1,112 +1,81 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+interface OrderPageProps {
+  params: Promise<{ id: string }>;
+}
+
+interface Listing {
+  title?: string;
+}
+
 interface Order {
-  id: number;
+  id: string | number;
+  status?: string;
+  roblox_username?: string;
   amount?: number;
-  total_price?: number;
-  price?: number;
-  status: string;
-  item_name?: string;
-  delivered_code?: string;
-  seller_id?: string;
-  user_id?: string;
-  game_username?: string;
-  created_at: string;
+  listings?: Listing;
 }
 
 interface Message {
-  id: number;
-  sender_id: string;
-  message: string;
-  image_url?: string;
-  is_support?: boolean;
-  created_at: string;
+  id: string | number;
+  sender_id?: string;
+  sender_email?: string;
+  message?: string;
 }
 
-const PLATFORM_FEE_PERCENT = 0.07; // 7% Platform Commission
-
-export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
-  const { id: orderId } = use(params);
+export default function OrderDetailsPage({ params }: OrderPageProps) {
+  const resolvedParams = use(params);
+  const orderId = resolvedParams.id;
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<boolean>(false);
-
-  // Chat State
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [sendingMsg, setSendingMsg] = useState(false);
-
-  // Game ID State
-  const [gameUsername, setGameUsername] = useState("");
-  const [savingGameId, setSavingGameId] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
 
   useEffect(() => {
-    async function initOrderAndChat() {
-      // 1. Get current user
+    async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUser(user.id);
+      setCurrentUser(user);
 
-      // 2. Fetch order details
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
-        .select("*")
+        .select("*, listings(*)")
         .eq("id", orderId)
         .single();
 
       if (!orderError && orderData) {
         setOrder(orderData);
-        if (orderData.game_username) {
-          setGameUsername(orderData.game_username);
-        }
       }
 
-      // 3. Fetch chat history
-      const { data: chatData, error: chatError } = await supabase
+      const { data: msgData } = await supabase
         .from("order_messages")
         .select("*")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true });
 
-      if (!chatError && chatData) {
-        setMessages(chatData);
+      if (msgData) {
+        setMessages(msgData);
       }
 
       setLoading(false);
     }
 
-    initOrderAndChat();
+    init();
 
-    // Real-time order status subscription (listening for * handles inserts and updates)
-    const orderChannel = supabase
+    const channel = supabase
       .channel(`order-${orderId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
-        (payload) => {
-          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-            const updated = payload.new as Order;
-            setOrder(updated);
-            if (updated.game_username) {
-              setGameUsername(updated.game_username);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    // Real-time chat messages subscription
-    const chatChannel = supabase
-      .channel(`chat-${orderId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "order_messages", filter: `order_id=eq.${orderId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "order_messages",
+          filter: `order_id=eq.${orderId}`,
+        },
         (payload) => {
           setMessages((prev) => [...prev, payload.new as Message]);
         }
@@ -114,306 +83,93 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       .subscribe();
 
     return () => {
-      supabase.removeChannel(orderChannel);
-      supabase.removeChannel(chatChannel);
+      supabase.removeChannel(channel);
     };
   }, [orderId]);
 
-  async function handleSaveGameId(e: React.FormEvent) {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gameUsername.trim() || !order || !currentUser) return;
+    if (!newMessage.trim()) return;
 
-    setSavingGameId(true);
-    try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ game_username: gameUsername.trim() })
-        .eq("id", order.id);
-
-      if (error) throw error;
-
-      await supabase.from("order_messages").insert([
-        {
-          order_id: order.id,
-          sender_id: currentUser,
-          message: `🎮 Buyer submitted Roblox Username / Game ID: ${gameUsername.trim()}`,
-          is_support: true,
-        },
-      ]);
-
-      alert("Game ID saved successfully!");
-    } catch (err) {
-      console.error("Error saving game ID:", err);
-      alert("Failed to save Game ID.");
-    } finally {
-      setSavingGameId(false);
-    }
-  }
-
-  async function handleConfirmAndRelease() {
-    if (!order || !order.seller_id) {
-      alert("Order or Seller information missing.");
-      return;
-    }
-
-    const confirmRelease = confirm(
-      "Are you sure you received your Roblox item/Robux? This will release funds to the seller."
-    );
-    if (!confirmRelease) return;
-
-    setActionLoading(true);
-
-    const totalOrderAmount = order.amount ?? order.total_price ?? order.price ?? 0;
-    const platformCommission = totalOrderAmount * PLATFORM_FEE_PERCENT;
-    const sellerPayout = totalOrderAmount - platformCommission;
-
-    try {
-      // 1. Update Order Status to completed
-      const { error: orderError } = await supabase
-        .from("orders")
-        .update({ status: "completed" })
-        .eq("id", order.id);
-
-      if (orderError) throw orderError;
-
-      // 2. Fetch seller wallet
-      const { data: walletData } = await supabase
-        .from("seller_wallets")
-        .select("*")
-        .eq("user_id", order.seller_id)
-        .single();
-
-      if (walletData) {
-        const updatedAvailable = (walletData.available_balance || 0) + sellerPayout;
-        const updatedPending = Math.max(0, (walletData.pending_escrow || 0) - totalOrderAmount);
-
-        await supabase
-          .from("seller_wallets")
-          .update({
-            available_balance: updatedAvailable,
-            pending_escrow: updatedPending,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", order.seller_id);
-      } else {
-        await supabase.from("seller_wallets").insert([
-          {
-            user_id: order.seller_id,
-            available_balance: sellerPayout,
-            pending_escrow: 0,
-          },
-        ]);
-      }
-
-      // 3. Post System Confirmation in Chat
-      if (currentUser) {
-        await supabase.from("order_messages").insert([
-          {
-            order_id: order.id,
-            sender_id: currentUser,
-            message: `🎉 Buyer confirmed delivery! Released $${sellerPayout.toFixed(2)} USD to seller wallet (7% platform fee retained).`,
-            is_support: true,
-          },
-        ]);
-      }
-
-      setOrder((prev) => (prev ? { ...prev, status: "completed" } : prev));
-    } catch (err) {
-      console.error("Error releasing funds:", err);
-      alert("Failed to confirm order. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleOpenDispute() {
-    if (!order || !currentUser) return;
-
-    const confirmDispute = confirm("Do you want to report an issue? An Admin will step in to inspect the trade chat.");
-    if (!confirmDispute) return;
-
-    setActionLoading(true);
-
-    try {
-      await supabase.from("orders").update({ status: "disputed" }).eq("id", order.id);
-
-      await supabase.from("order_messages").insert([
-        {
-          order_id: order.id,
-          sender_id: currentUser,
-          message: "⚠️ DISPUTE OPENED: Buyer reported an issue. Escrow Admin has been alerted to review chat logs and screenshots.",
-          is_support: true,
-        },
-      ]);
-
-      setOrder((prev) => (prev ? { ...prev, status: "disputed" } : prev));
-    } catch (err) {
-      console.error("Error opening dispute:", err);
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleSendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newMessage.trim() || !currentUser) return;
-
-    setSendingMsg(true);
     const { error } = await supabase.from("order_messages").insert([
       {
-        order_id: parseInt(orderId),
-        sender_id: currentUser,
+        order_id: orderId,
+        sender_id: currentUser?.id || null,
+        sender_email: currentUser?.email || "Anonymous User",
         message: newMessage.trim(),
       },
     ]);
 
     if (!error) {
       setNewMessage("");
-    } else {
-      console.error("Error sending message:", error);
     }
-    setSendingMsg(false);
-  }
+  };
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto p-8 text-center text-gray-400 text-xs">Loading order details...</div>;
+    return <div className="text-center py-20 text-slate-400">Loading order and chat...</div>;
   }
 
   if (!order) {
-    return <div className="max-w-2xl mx-auto p-8 text-center text-red-400 text-xs">Order not found.</div>;
+    return <div className="text-center py-20 text-slate-400">Order not found.</div>;
   }
-
-  const orderAmount = order.amount ?? order.total_price ?? order.price ?? 0;
-  const isBuyer = currentUser === order.user_id;
 
   return (
     <div className="max-w-4xl mx-auto p-6 text-white space-y-6">
-      
-      {/* Top Banner & Status */}
-      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <button
-            onClick={() => router.push("/marketplace")}
-            className="text-xs text-emerald-400 hover:underline mb-2 inline-block cursor-pointer"
-          >
-            ← Back to Marketplace
-          </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">Order #{order.id}</h1>
-            <span className="text-xs bg-gray-800 text-gray-300 px-2.5 py-1 rounded-md">
-              {order.item_name || "Roblox Trade"}
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Status: <span className="text-emerald-400 font-semibold capitalize">{order.status.replace("_", " ")}</span>
-          </p>
+      {/* Order Summary Header */}
+      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-bold text-emerald-400">🛡️ Escrow Trade #{order.id}</h1>
+          <span className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-3 py-1 rounded-full text-xs font-bold">
+            {order.status}
+          </span>
         </div>
-        <div className="text-right">
-          <span className="text-2xl font-bold text-emerald-400">${orderAmount.toFixed(2)} USD</span>
+
+        <div className="bg-gray-800/50 rounded-2xl p-4 flex flex-col sm:flex-row justify-between gap-4">
+          <div>
+            <h2 className="font-bold text-base text-white">{order.listings?.title}</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Roblox Username: <span className="text-white font-semibold">{order.roblox_username}</span>
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-gray-400 block">Total Escrow Amount</span>
+            <span className="text-lg font-extrabold text-emerald-400">${order.amount} USD</span>
+          </div>
         </div>
       </div>
 
-      {/* Game Username / ID Submission Form for Buyer */}
-      {isBuyer && (
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl space-y-3">
-          <h2 className="text-sm font-bold text-emerald-400">🎮 Submit Your Roblox Username / Game ID</h2>
-          <p className="text-xs text-gray-300">
-            Provide your exact Roblox display or username so the seller can add or trade with you in-game.
-          </p>
-          <form onSubmit={handleSaveGameId} className="flex gap-2 pt-1">
-            <input
-              type="text"
-              placeholder="e.g. RobloxUser123"
-              value={gameUsername}
-              onChange={(e) => setGameUsername(e.target.value)}
-              className="flex-1 bg-black/50 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-            <button
-              type="submit"
-              disabled={savingGameId}
-              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              {savingGameId ? "Saving..." : "Save Game ID"}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Buyer Escrow Actions Bar */}
-      {(order.status === "in_escrow" || order.status === "delivered") && isBuyer && (
-        <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-3xl p-6 shadow-xl space-y-3">
-          <h2 className="text-sm font-bold text-emerald-400">🛡️ Escrow Protection Active</h2>
-          <p className="text-xs text-gray-300">
-            Once you receive your Robux / Roblox items in-game, click below to release funds to the seller.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              onClick={handleConfirmAndRelease}
-              disabled={actionLoading}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-2xl text-xs transition-all cursor-pointer shadow-lg disabled:opacity-50"
-            >
-              {actionLoading ? "Processing Release..." : "✅ Confirm Receipt & Release Funds"}
-            </button>
-            <button
-              onClick={handleOpenDispute}
-              disabled={actionLoading}
-              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-semibold px-5 py-3 rounded-2xl text-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              ⚠️ Report Issue / Dispute
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Completed Banner */}
-      {order.status === "completed" && (
-        <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-3xl p-4 text-center">
-          <p className="text-xs text-emerald-400 font-semibold">
-            🎉 Order Completed successfully! Escrow funds have been released to seller wallet.
-          </p>
-        </div>
-      )}
-
-      {/* Disputed Banner */}
-      {order.status === "disputed" && (
-        <div className="bg-red-950/20 border border-red-800/40 rounded-3xl p-4 text-center">
-          <p className="text-xs text-red-400 font-semibold">
-            ⚠️ Order under dispute. An Escrow Admin will review the chat logs to decide on refund/payout.
-          </p>
-        </div>
-      )}
-
-      {/* Built-in Chat Box */}
-      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col h-[500px]">
-        <div className="border-b border-gray-800 pb-3 mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-emerald-400">💬 Trade Chat & Proof Upload</h2>
-          <span className="text-[10px] text-gray-500">Monitored by Escrow Admin</span>
+      {/* Eldorado Style Live Chat Box */}
+      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 flex flex-col h-[500px]">
+        <div className="border-b border-gray-800 pb-3 mb-4">
+          <h2 className="font-bold text-sm text-white">💬 Order Support & Trade Chat</h2>
+          <p className="text-[11px] text-gray-400">Communicate directly with your trading partner safely inside escrow.</p>
         </div>
 
-        {/* Message History */}
-        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+        {/* Message History Feed */}
+        <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-none">
           {messages.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 text-xs">
-              No messages yet. Chat with the seller/buyer here to coordinate your Roblox trade!
+            <div className="text-center py-20 text-gray-500 text-xs">
+              No messages yet. Send a message to start coordinating your trade!
             </div>
           ) : (
             messages.map((msg) => {
-              const isMe = msg.sender_id === currentUser;
+              const isMe = currentUser && msg.sender_id === currentUser.id;
               return (
-                <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                >
+                  <span className="text-[10px] text-gray-500 mb-1 px-1">
+                    {msg.sender_email || "User"}
+                  </span>
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs shadow-md ${
-                      msg.is_support
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        : isMe
-                        ? "bg-emerald-500 text-black font-medium"
-                        : "bg-gray-800 text-white border border-gray-700"
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
+                      isMe
+                        ? "bg-emerald-500 text-black font-medium rounded-br-none"
+                        : "bg-gray-800 text-white rounded-bl-none border border-gray-700/50"
                     }`}
                   >
-                    <p>{msg.message}</p>
-                    <span className={`text-[9px] block mt-1 text-right ${isMe ? "text-black/60" : "text-gray-400"}`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+                    {msg.message}
                   </div>
                 </div>
               );
@@ -421,25 +177,23 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           )}
         </div>
 
-        {/* Message Input Form */}
+        {/* Message Input Box */}
         <form onSubmit={handleSendMessage} className="mt-4 pt-3 border-t border-gray-800 flex gap-2">
           <input
             type="text"
-            placeholder="Type a message or share Roblox username..."
+            placeholder="Type your message here..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 bg-black/50 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
-            disabled={sendingMsg}
-            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50"
+            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer shadow"
           >
             Send
           </button>
         </form>
       </div>
-
     </div>
   );
 }

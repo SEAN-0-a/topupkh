@@ -38,8 +38,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         
         {/* Brand Logo */}
-        <Link href="/marketplace" className="text-lg font-bold text-emerald-400 flex items-center gap-2">
-          <span>🎮</span> TopUpKH <span className="hidden sm:inline text-xs font-normal text-gray-400">P2P Roblox Escrow</span>
+        <Link href="/" className="text-lg font-bold text-emerald-400 flex items-center gap-2">
+          <span>🎮</span> TopUpKH <span className="hidden sm:inline text-xs font-normal text-gray-400">Gaming Marketplace</span>
         </Link>
 
         {/* Navigation Links */}
@@ -53,9 +53,17 @@ export default function Navbar() {
             {t("Marketplace", "ផ្សារទំនិញ")}
           </Link>
           <Link
-            href="/sell"
+            href="/orders"
             className={`transition-all ${
-              pathname === "/sell" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"
+              pathname === "/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"
+            }`}
+          >
+            {t("My Orders", "កំណត់ត្រាទិញ")}
+          </Link>
+          <Link
+            href="/seller/orders"
+            className={`transition-all ${
+              pathname === "/seller/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"
             }`}
           >
             {t("Sell Items", "លក់ Roblox")}

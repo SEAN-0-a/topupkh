@@ -1,189 +1,142 @@
-"use client";
+import Link from "next/link";
+import MarketplaceFilters from "@/components/MarketplaceFilters";
+import ProductCard from "@/components/ProductCard";
+import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
+import type { CatalogQuery } from "@/lib/catalog";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+type Params = { [key: string]: string | string[] | undefined };
 
-interface Listing {
-  id: number;
-  title: string;
-  game_name?: string;
-  category: string;
-  trade_method?: string;
-  delivery_method?: string;
-  price: number;
-  stock: number;
-  roblox_username?: string;
-  description?: string;
-  status?: string;
+function first(params: Params, key: string): string | undefined {
+  const v = params[key];
+  return Array.isArray(v) ? v[0] : v;
 }
 
-const ROBLOX_GAMES = [
-  "All Games",
-  "Blox Fruits",
-  "Robux (Currency)",
-  "Adopt Me!",
-  "Murder Mystery 2",
-  "Pet Simulator 99",
-  "Da Hood",
-  "Toilet Tower Defense",
-  "Accounts",
-];
+function toNumber(v: string | undefined): number | undefined {
+  if (!v) return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
 
-const CATEGORIES = ["All Categories", "Robux & Currency", "Robux", "In-Game Items", "Accounts", "Gift Cards"];
+export default async function MarketplacePage({
+  searchParams,
+}: {
+  searchParams: Promise<Params>;
+}) {
+  // Next.js 16: searchParams is a Promise and MUST be awaited
+  const params = await searchParams;
 
-export default function MarketplacePage() {
-  const router = useRouter();
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const query: CatalogQuery = {
+    q: first(params, "q"),
+    game: first(params, "game"),
+    category: first(params, "category"),
+    minPrice: toNumber(first(params, "min")),
+    maxPrice: toNumber(first(params, "max")),
+    delivery: first(params, "delivery") as CatalogQuery["delivery"],
+    sort: first(params, "sort") as CatalogQuery["sort"],
+    page: Math.max(1, Number(first(params, "page") ?? "1") || 1),
+    perPage: 12,
+  };
 
-  const [selectedGame, setSelectedGame] = useState("All Games");
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [games, categories] = await Promise.all([listGames(), listActiveCategories()]);
 
-  useEffect(() => {
-    async function fetchListings() {
-      setLoading(true);
-      
-      // Removed .eq("status", "active") so all table rows load immediately
-      let query = supabase
-        .from("listings")
-        .select("*")
-        .order("id", { ascending: false });
+  let result;
+  let error: string | null = null;
+  try {
+    result = await listProducts(query);
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Something went wrong loading products.";
+    result = { items: [], total: 0, page: 1, perPage: query.perPage ?? 12, totalPages: 1 };
+  }
 
-      if (selectedGame !== "All Games") {
-        if (selectedGame === "Robux (Currency)") {
-          query = query.eq("category", "Robux & Currency");
-        } else {
-          query = query.eq("game_name", selectedGame);
-        }
-      }
+  const gameName = games.find((g) => g.slug === query.game)?.name;
+  const categoryName = categories.find((c) => c.slug === query.category)?.name;
 
-      if (selectedCategory !== "All Categories") {
-        query = query.eq("category", selectedCategory);
-      }
-
-      const { data, error } = await query;
-      if (!error && data) {
-        setListings(data);
-      } else if (error) {
-        console.error("Error fetching listings:", error);
-      }
-      setLoading(false);
+  function pageHref(page: number) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      const first = Array.isArray(v) ? v[0] : v;
+      if (first != null && first !== "") sp.set(k, String(first));
     }
-
-    fetchListings();
-  }, [selectedGame, selectedCategory]);
-
-  const filteredListings = listings.filter((item) =>
-    (item.title || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    sp.set("page", String(page));
+    return `/marketplace?${sp.toString()}`;
+  }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 text-white space-y-6">
-      
-      {/* Header & Create Listing Action */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-900 border border-gray-800 p-6 rounded-3xl">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-white">
+      {/* header */}
+      <div className="flex flex-col justify-between gap-3 rounded-3xl border border-gray-800 bg-gray-900 p-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-400">🎮 Roblox P2P Marketplace</h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Buy & sell Robux, Blox Fruits, Adopt Me pets, and accounts directly with Cambodian gamers.
+          <h1 className="text-2xl font-bold text-emerald-400">🎮 Marketplace</h1>
+          <p className="mt-1 text-xs text-gray-400">
+            {gameName
+              ? `${gameName}${categoryName ? ` · ${categoryName}` : ""}`
+              : "All games & categories"}{" "}
+            — {result.total} approved product{result.total === 1 ? "" : "s"}
           </p>
         </div>
-        <button
-          onClick={() => router.push("/sell")}
-          className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-3 rounded-2xl text-xs transition-all cursor-pointer shadow-lg"
-        >
-          + Post Roblox Listing
-        </button>
+        <form action="/marketplace" className="flex gap-2">
+          <input
+            name="q"
+            defaultValue={query.q ?? ""}
+            type="search"
+            placeholder="Search products…"
+            className="w-56 rounded-xl border border-gray-800 bg-black px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
+          >
+            Search
+          </button>
+        </form>
       </div>
 
-      {/* Game Filter Buttons Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {ROBLOX_GAMES.map((game) => (
-          <button
-            key={game}
-            onClick={() => setSelectedGame(game)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              selectedGame === game
-                ? "bg-emerald-500 text-black font-bold"
-                : "bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700"
-            }`}
-          >
-            {game}
-          </button>
+      <MarketplaceFilters games={games} categories={categories} />
+
+      {error && (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+          {error}
+        </div>
+      )}
+
+      {result.items.length === 0 && !error && (
+        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center text-sm text-gray-400">
+          No products match these filters yet.
+          <div className="mt-1 text-xs text-gray-500">
+            Try clearing filters, or check back — every listing must pass admin approval first.
+          </div>
+        </div>
+      )}
+
+      {/* results */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {result.items.map((p) => (
+          <ProductCard key={p.id} product={p} />
         ))}
       </div>
 
-      {/* Search and Category Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <input
-          type="text"
-          placeholder="Search items e.g. Kitsune Fruit, 1000 Robux..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-        />
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-        >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Listings Grid */}
-      {loading ? (
-        <div className="text-center py-12 text-gray-400 text-xs">Loading Roblox listings...</div>
-      ) : filteredListings.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center text-gray-400">
-          <p className="text-sm font-semibold">No listings found for this selection.</p>
-          <p className="text-xs text-gray-500 mt-1">Be the first Cambodian seller to list an item here!</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredListings.map((item) => (
-            <div
-              key={item.id}
-              className="bg-gray-900 border border-gray-800 hover:border-emerald-500/50 rounded-2xl p-4 shadow-lg flex flex-col justify-between transition-all"
+      {/* pagination */}
+      {result.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pb-10">
+          {result.page > 1 && (
+            <Link
+              href={pageHref(result.page - 1)}
+              className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    {item.game_name || item.category || "Roblox"}
-                  </span>
-                  <span className="text-[10px] text-gray-400">Stock: {item.stock}</span>
-                </div>
-
-                <h3 className="font-bold text-sm text-white line-clamp-1">{item.title}</h3>
-                
-                <p className="text-xs text-gray-400 line-clamp-2">
-                  {item.description || "In-game delivery handled securely via Escrow."}
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-gray-400 block">Price</span>
-                  <span className="text-base font-bold text-emerald-400">
-                    ${typeof item.price === "number" ? item.price.toFixed(2) : item.price} USD
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => router.push(`/checkout?listing_id=${item.id}`)}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-3.5 py-2 rounded-xl text-xs transition-all cursor-pointer"
-                >
-                  Buy Now
-                </button>
-              </div>
-            </div>
-          ))}
+              ← Prev
+            </Link>
+          )}
+          <span className="text-xs text-gray-400">
+            Page {result.page} / {result.totalPages}
+          </span>
+          {result.page < result.totalPages && (
+            <Link
+              href={pageHref(result.page + 1)}
+              className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
+            >
+              Next →
+            </Link>
+          )}
         </div>
       )}
     </div>

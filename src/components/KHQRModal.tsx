@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { sendTelegramNotification } from "@/lib/telegram";
 
 interface KHQRModalProps {
   amount: number;
   orderId: number;
   onClose: () => void;
-  onSuccess: () => void;
+  /** opens AFTER the user confirms — parent calls the secure server action */
+  onSuccess: () => void | Promise<void>;
 }
 
 export default function KHQRModal({
@@ -21,17 +21,11 @@ export default function KHQRModal({
 
   async function handleConfirmPayment() {
     setLoading(true);
-
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "pending_verification" })
-      .eq("id", orderId);
-
-    if (!error) {
-      // Check if environment variables are loaded
-      console.log("Bot Token:", process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN);
-      console.log("Chat ID:", process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID);
-
+    try {
+      // NOTE: the client MUST NOT be trusted to record payment. It only
+      // notifies the seller-side bot and then calls the parent's secure
+      // server action (submit_payment_claim RPC) which flips the order to
+      // `pending_verification` inside the database.
       await sendTelegramNotification(
         `🔔 *NEW ESCROW PAYMENT SUBMITTED*\n\n` +
         `📦 *Order ID:* #${orderId}\n` +
@@ -39,13 +33,10 @@ export default function KHQRModal({
         `📝 *Required ABA Remark:* "ORDER #${orderId}"\n\n` +
         `👉 Check your ABA App and verify in Admin Escrow Queue!`
       );
-
-      onSuccess();
-    } else {
-      alert("Error updating order status. Please try again.");
+      await onSuccess();
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (

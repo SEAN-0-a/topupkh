@@ -1,6 +1,4 @@
-# TopUpKH Setup Guide
-
-A Cambodian gaming marketplace (Eldorado-inspired) for Roblox creator assets,
+# TopUpKH Setup GuideA Cambodian gaming marketplace (Eldorado-inspired) for Roblox creator assets,
 creator services and game passes — with KHQR payment, buyer–seller chat,
 support tickets and an admin commission ledger.
 
@@ -41,9 +39,23 @@ npx tsc --noEmit   # TypeScript check
 1. Create a project at https://supabase.com (pick the Singapore region —
    closest to Cambodia).
 2. Save the database password somewhere safe.
-3. SQL Editor → New query → paste **all of
-   `supabase/migrations/0001_marketplace_schema.sql`** → Run.
-4. Then paste **all of `supabase/migrations/0002_order_lifecycle.sql`** → Run.
+3. SQL Editor → New query → run migrations **in this exact order** (one file
+   per run):
+
+   1. `supabase/migrations/0001a_legacy_rename_and_compat.sql`
+      *(renames old prototype tables — `listings`, `orders`, `seller_wallets`,
+      `payout_requests` — to `legacy_*`, keeping the data, and creates
+      compatibility views so old pages keep working; no-op on fresh projects)*
+   2. `supabase/migrations/0001_marketplace_schema.sql`
+   3. `supabase/migrations/0002_order_lifecycle.sql`
+
+   Quick fix only: if you hit
+   `"Could not find the table public.games in the schema cache"` or
+   `"tables games and eligibility_rules are missing"`, running
+   `supabase/migrations/0003_games_table.sql` then
+   `supabase/migrations/0004_games_categories_eligibility.sql` (0004 includes
+   games too, so 0004 alone also works) fixes the homepage game/category
+   sections — but you still need steps 1–3 above for the full marketplace.
 
 What this creates:
 

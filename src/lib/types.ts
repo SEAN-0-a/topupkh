@@ -79,6 +79,7 @@ export type Product = {
   game_id: number;
   experience_id: number | null;
   category_id: number;
+  template_id: number | null;
   title: string;
   description: string;
   image_url: string | null;

@@ -3,6 +3,7 @@ import MarketplaceFilters from "@/components/MarketplaceFilters";
 import ProductCard from "@/components/ProductCard";
 import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { CatalogQuery } from "@/lib/catalog";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Params = { [key: string]: string | string[] | undefined };
 
@@ -39,10 +40,32 @@ export default async function MarketplacePage({
 
   const [games, categories] = await Promise.all([listGames(), listActiveCategories()]);
 
+  // If the tab points at a category that exists but FAILED eligibility review,
+  // show a compliance notice instead of pretending to search.
+  let prohibitedNotice: { name: string; reason: string } | null = null;
+  if (query.category && !categories.some((c) => c.slug === query.category)) {
+    const supabase = await createSupabaseServerClient();
+    const { data: cat } = await supabase
+      .from("product_categories")
+      .select("name, description")
+      .eq("slug", query.category)
+      .single<{ name: string; description: string | null }>();
+    if (cat) {
+      prohibitedNotice = {
+        name: cat.name,
+        reason:
+          cat.description ??
+          "This category failed the marketplace eligibility review.",
+      };
+    }
+  }
+
   let result;
   let error: string | null = null;
   try {
-    result = await listProducts(query);
+    result = prohibitedNotice
+      ? { items: [], total: 0, page: 1, perPage: 12, totalPages: 1 }
+      : await listProducts(query);
   } catch (e) {
     error = e instanceof Error ? e.message : "Something went wrong loading products.";
     result = { items: [], total: 0, page: 1, perPage: query.perPage ?? 12, totalPages: 1 };
@@ -92,6 +115,28 @@ export default async function MarketplacePage({
       </div>
 
       <MarketplaceFilters games={games} categories={categories} />
+
+      {prohibitedNotice && (
+        <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6">
+          <h2 className="text-sm font-bold text-red-300">
+            🚫 &ldquo;{prohibitedNotice.name}&rdquo; is not available for trading on TopUpKH
+          </h2>
+          <p className="mt-2 text-xs leading-relaxed text-red-200/80">
+            {prohibitedNotice.reason}. This is a platform policy enforced in the database — listings
+            in this category cannot be published or purchased. If you believe an exception applies
+            (e.g. you hold written authorization), contact support to have an admin review the
+            eligibility rule.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <Link href="/marketplace" className="rounded-xl bg-gray-800 px-4 py-2 text-xs font-semibold hover:bg-gray-700">
+              Browse available categories
+            </Link>
+            <Link href="/support" className="rounded-xl border border-gray-700 px-4 py-2 text-xs font-semibold text-gray-300 hover:border-emerald-500">
+              Contact support
+            </Link>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">

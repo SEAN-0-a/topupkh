@@ -1,36 +1,91 @@
 -- =============================================================================
 -- TopUpKH — Cambodian Gaming Marketplace
--- Migration 0001: Core schema, RLS policies, seeds
+-- Migration 0001: Core schema, RLS policies, seeds   (v2 — fully re-runnable)
 -- =============================================================================
 -- HOW TO RUN:
---   1. Open your Supabase project -> SQL Editor
---   2. Paste this whole file and run it.
---   It is idempotent-safe for a fresh project. If you already have tables from
---   the old prototype (listings, orders, seller_wallets...), see the
---   "LEGACY TABLES" note at the bottom before re-running.
+--   1. If your live project still has the OLD PROTOTYPE tables
+--      (orders with different columns, listings, seller_wallets,
+--      payout_requests) → run 0001a_legacy_rename_and_compat.sql FIRST.
+--   2. Open Supabase -> SQL Editor, paste this whole file, run it.
+--
+-- WHY THE OLD VERSION FAILED (root cause of the 42P01 you saw):
+--   Every `create type/table/policy/trigger` here was a plain CREATE. If any
+--   statement failed (e.g. legacy `orders` table still existing), the whole
+--   script rolled back and NOTHING was created — then migration 0002
+--   immediately failed with `relation "public.orders" does not exist`.
+--   v2 makes every statement idempotent (create if not exists / drop if
+--   exists first), so you can re-run this file any number of times and it
+--   always leaves a complete, consistent schema behind.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 0. Enums
+-- LEGACY GUARD — must run BEFORE this file if the old prototype exists.
+-- The prototype's `orders` table has no `public_ref` column; the new one does.
 -- -----------------------------------------------------------------------------
-create type user_role      as enum ('buyer', 'seller', 'support', 'admin');
-create type product_status as enum ('draft', 'pending_review', 'approved', 'rejected', 'paused');
-create type delivery_method as enum ('in_game', 'instructions', 'digital_file', 'creator_services');
-create type order_status    as enum ('pending_payment', 'paid', 'processing', 'delivering', 'completed', 'cancelled', 'refunded', 'disputed');
-create type payment_status  as enum ('pending', 'confirmed', 'failed', 'cancelled', 'refunded');
-create type seller_status   as enum ('pending', 'approved', 'suspended', 'rejected');
-create type ticket_status   as enum ('open', 'in_progress', 'resolved', 'closed');
-create type ticket_priority as enum ('low', 'normal', 'high', 'urgent');
-create type ticket_category as enum ('payment_issue', 'delivery_problem', 'refund_request', 'account_issue', 'report_seller', 'other');
-create type dispute_status  as enum ('open', 'evidence_review', 'resolved_buyer', 'resolved_seller', 'resolved_split', 'closed');
-create type payout_status   as enum ('requested', 'approved', 'processing', 'paid', 'rejected');
-create type ledger_entry_type as enum ('sale', 'platform_commission', 'refund', 'payout', 'payout_fee', 'adjustment');
-create type eligibility_status as enum ('allowed', 'prohibited', 'needs_review');
+do $$
+begin
+  if to_regclass('public.orders') is not null
+     and to_regclass('public.legacy_orders') is null
+     and not exists (
+       select 1 from information_schema.columns
+       where table_schema = 'public' and table_name = 'orders'
+         and column_name = 'public_ref'
+     )
+  then
+    raise exception
+      'LEGACY TABLE DETECTED: public.orders exists but is the old prototype version.%',
+      ' Run migration 0001a_legacy_rename_and_compat.sql FIRST, then re-run this file.';
+  end if;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- 0. Enums (idempotent)
+-- -----------------------------------------------------------------------------
+do $$ begin
+  create type user_role      as enum ('buyer', 'seller', 'support', 'admin');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type product_status as enum ('draft', 'pending_review', 'approved', 'rejected', 'paused');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type delivery_method as enum ('in_game', 'instructions', 'digital_file', 'creator_services');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type order_status    as enum ('pending_payment', 'paid', 'processing', 'delivering', 'completed', 'cancelled', 'refunded', 'disputed');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type payment_status  as enum ('pending', 'confirmed', 'failed', 'cancelled', 'refunded');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type seller_status   as enum ('pending', 'approved', 'suspended', 'rejected');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type ticket_status   as enum ('open', 'in_progress', 'resolved', 'closed');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type ticket_priority as enum ('low', 'normal', 'high', 'urgent');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type ticket_category as enum ('payment_issue', 'delivery_problem', 'refund_request', 'account_issue', 'report_seller', 'other');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type dispute_status  as enum ('open', 'evidence_review', 'resolved_buyer', 'resolved_seller', 'resolved_split', 'closed');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type payout_status   as enum ('requested', 'approved', 'processing', 'paid', 'rejected');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type ledger_entry_type as enum ('sale', 'platform_commission', 'refund', 'payout', 'payout_fee', 'adjustment');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type eligibility_status as enum ('allowed', 'prohibited', 'needs_review');
+exception when duplicate_object then null; end $$;
 
 -- -----------------------------------------------------------------------------
 -- 1. Profiles & roles (DB-level authorization anchors)
 -- -----------------------------------------------------------------------------
-create table public.profiles (
+create table if not exists public.profiles (
   id           uuid primary key references auth.users (id) on delete cascade,
   display_name text not null default 'Cambodian Gamer',
   username     text unique,
@@ -42,7 +97,7 @@ create table public.profiles (
   updated_at   timestamptz not null default now()
 );
 
-create index profiles_role_idx on public.profiles (role);
+create index if not exists profiles_role_idx on public.profiles (role);
 
 -- Bootstrap: the very first account created becomes ADMIN (the owner = you).
 -- Every later signup becomes a buyer and applies for seller separately.
@@ -60,6 +115,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_profile_created on public.profiles;
 create trigger on_profile_created
   before insert on public.profiles
   for each row execute function public.promote_first_user_admin();
@@ -78,6 +134,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.create_profile_for_user();
@@ -117,7 +174,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- 2. Games, experiences, categories & product ELIGIBILITY
 -- -----------------------------------------------------------------------------
-create table public.games (
+create table if not exists public.games (
   id          bigserial primary key,
   slug        text unique not null,
   name        text not null,
@@ -128,7 +185,7 @@ create table public.games (
   created_at  timestamptz not null default now()
 );
 
-create table public.experiences (
+create table if not exists public.experiences (
   id         bigserial primary key,
   game_id    bigint not null references public.games (id) on delete cascade,
   name       text not null,
@@ -137,7 +194,7 @@ create table public.experiences (
   unique (game_id, slug)
 );
 
-create table public.product_categories (
+create table if not exists public.product_categories (
   id              bigserial primary key,
   slug            text unique not null,
   name            text not null,
@@ -150,7 +207,7 @@ create table public.product_categories (
 );
 
 -- THE MODERATION TABLE: whether a (game, category) pair may be sold at all.
-create table public.eligibility_rules (
+create table if not exists public.eligibility_rules (
   id           bigserial primary key,
   game_id      bigint not null references public.games (id) on delete cascade,
   category_id  bigint not null references public.product_categories (id) on delete cascade,
@@ -164,7 +221,7 @@ create table public.eligibility_rules (
 -- -----------------------------------------------------------------------------
 -- 3. Sellers & listing approval
 -- -----------------------------------------------------------------------------
-create table public.sellers (
+create table if not exists public.sellers (
   id              bigserial primary key,
   user_id         uuid not null unique references public.profiles (id) on delete cascade,
   display_name    text not null,
@@ -184,7 +241,7 @@ create table public.sellers (
   constraint seller_rating_ok check (rating_count >= 0)
 );
 
-create table public.seller_applications (
+create table if not exists public.seller_applications (
   id             bigserial primary key,
   user_id        uuid not null references public.profiles (id) on delete cascade,
   years_playing  int,
@@ -200,7 +257,7 @@ create table public.seller_applications (
 -- -----------------------------------------------------------------------------
 -- 4. Products
 -- -----------------------------------------------------------------------------
-create table public.products (
+create table if not exists public.products (
   id                bigserial primary key,
   seller_id         bigint not null references public.sellers (id) on delete cascade,
   game_id           bigint not null references public.games (id),
@@ -228,14 +285,16 @@ create table public.products (
   rating_count      int not null default 0,
   is_deleted        boolean not null default false,
   created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
+  updated_at        timestamptz not null default now(),
+  -- linked by 0007; added here so a fresh single-file run also has it
+  template_id       bigint
 );
 
-create index products_browse_idx on public.products (status, game_id, category_id);
-create index products_search_idx on public.products using gin (to_tsvector('english', title || ' ' || description));
-create index products_seller_idx on public.products (seller_id);
-create index products_price_idx on public.products (price_usd);
-create index products_created_idx on public.products (created_at desc);
+create index if not exists products_browse_idx on public.products (status, game_id, category_id);
+create index if not exists products_search_idx on public.products using gin (to_tsvector('english', title || ' ' || description));
+create index if not exists products_seller_idx on public.products (seller_id);
+create index if not exists products_price_idx on public.products (price_usd);
+create index if not exists products_created_idx on public.products (created_at desc);
 
 -- A product may only be PUBLISHED if its (game, category) eligibility is
 -- 'allowed' — enforced in the database, not just the UI.
@@ -244,7 +303,7 @@ returns trigger
 language plpgsql
 as $$
 declare
-  rule status_of eligibility_status;
+  status_of public.eligibility_status;
 begin
   select r.status into status_of
   from public.eligibility_rules r
@@ -261,14 +320,17 @@ begin
 end;
 $$;
 
+drop trigger if exists products_eligibility_check on public.products;
 create trigger products_eligibility_check
   before insert or update of game_id, category_id, status on public.products
   for each row execute function public.assert_product_eligible();
 
+drop trigger if exists products_touch on public.products;
 create trigger products_touch
   before update on public.products
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists sellers_touch on public.sellers;
 create trigger sellers_touch
   before update on public.sellers
   for each row execute function public.touch_updated_at();
@@ -276,7 +338,7 @@ create trigger sellers_touch
 -- -----------------------------------------------------------------------------
 -- 5. Orders, payments & the commission/settlement LEDGER
 -- -----------------------------------------------------------------------------
-create table public.orders (
+create table if not exists public.orders (
   id                bigserial primary key,
   public_ref        text unique not null default 'KH-' || lpad(nextval('orders_id_seq')::text, 6, '0'),
   buyer_id          uuid not null references public.profiles (id),
@@ -298,12 +360,13 @@ create table public.orders (
   updated_at        timestamptz not null default now()
 );
 
+drop trigger if exists orders_touch on public.orders;
 create trigger orders_touch
   before update on public.orders
   for each row execute function public.touch_updated_at();
 
 -- captures every payment attempt + raw provider payload for reconciliation
-create table public.payment_attempts (
+create table if not exists public.payment_attempts (
   id             bigserial primary key,
   order_id       bigint not null references public.orders (id) on delete cascade,
   provider       text not null,             -- e.g. 'bakong_khqr', 'aba_payway', 'manual_pilot'
@@ -316,7 +379,7 @@ create table public.payment_attempts (
   confirmed_at   timestamptz
 );
 
-create table public.payment_events (
+create table if not exists public.payment_events (
   id                 bigserial primary key,
   payment_attempt_id bigint not null references public.payment_attempts (id) on delete cascade,
   event_type         text not null,
@@ -326,7 +389,7 @@ create table public.payment_events (
 );
 
 -- every money movement is a ledger row; balances = SUM(ledger) shown in admin
-create table public.transaction_ledger (
+create table if not exists public.transaction_ledger (
   id          bigserial primary key,
   order_id    bigint references public.orders (id),
   seller_id   bigint references public.sellers (id),
@@ -338,9 +401,9 @@ create table public.transaction_ledger (
   created_at  timestamptz not null default now()
 );
 
-create index ledger_order_idx on public.transaction_ledger (order_id);
+create index if not exists ledger_order_idx on public.transaction_ledger (order_id);
 
-create table public.payouts (
+create table if not exists public.payouts (
   id             bigserial primary key,
   seller_id      bigint not null references public.sellers (id),
   amount         numeric(12,2) not null check (amount > 0),
@@ -357,7 +420,7 @@ create table public.payouts (
 );
 
 -- configurable commission — admin edits the DB value, no code deploy needed
-create table public.platform_settings (
+create table if not exists public.platform_settings (
   key        text primary key,
   value      jsonb not null,
   updated_by uuid references auth.users (id),
@@ -380,7 +443,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- 6. Messaging (in-site chat — keeps users off Telegram for trade comms)
 -- -----------------------------------------------------------------------------
-create table public.conversations (
+create table if not exists public.conversations (
   id              bigserial primary key,
   product_id      bigint references public.products (id),
   order_id        bigint references public.orders (id),
@@ -391,7 +454,7 @@ create table public.conversations (
   constraint conv_parties_check check (buyer_id <> seller_user_id)
 );
 
-create table public.messages (
+create table if not exists public.messages (
   id              bigserial primary key,
   conversation_id bigint not null references public.conversations (id) on delete cascade,
   sender_id       uuid not null references public.profiles (id),
@@ -402,7 +465,7 @@ create table public.messages (
   FlaggedDelete   boolean not null default false  -- soft flag for mod review
 );
 
-create index messages_conversation_idx on public.messages (conversation_id, created_at desc);
+create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at desc);
 
 -- basic anti-spam: max 10 messages per minute per sender
 create or replace function public.assert_message_rate()
@@ -419,6 +482,7 @@ begin
 end;
 $$;
 
+drop trigger if exists messages_rate_limit on public.messages;
 create trigger messages_rate_limit
   before insert on public.messages
   for each row execute function public.assert_message_rate();
@@ -439,6 +503,7 @@ begin
 end;
 $$;
 
+drop trigger if exists messages_safety on public.messages;
 create trigger messages_safety
   before insert on public.messages
   for each row execute function public.assert_message_safe();
@@ -446,7 +511,7 @@ create trigger messages_safety
 -- -----------------------------------------------------------------------------
 -- 7. Support centre, disputes, reports, reviews, notifications, audit
 -- -----------------------------------------------------------------------------
-create table public.support_tickets (
+create table if not exists public.support_tickets (
   id          bigserial primary key,
   public_ref  text unique not null default 'TCK-' || lpad(nextval('support_tickets_id_seq')::text, 5, '0'),
   user_id     uuid not null references public.profiles (id),
@@ -460,7 +525,7 @@ create table public.support_tickets (
   updated_at  timestamptz not null default now()
 );
 
-create table public.ticket_messages (
+create table if not exists public.ticket_messages (
   id             bigserial primary key,
   ticket_id      bigint not null references public.support_tickets (id) on delete cascade,
   sender_id      uuid not null references public.profiles (id),
@@ -470,11 +535,12 @@ create table public.ticket_messages (
   created_at     timestamptz not null default now()
 );
 
+drop trigger if exists tickets_touch on public.support_tickets;
 create trigger tickets_touch
   before update on public.support_tickets
   for each row execute function public.touch_updated_at();
 
-create table public.disputes (
+create table if not exists public.disputes (
   id            bigserial primary key,
   order_id      bigint not null references public.orders (id),
   opened_by     uuid not null references public.profiles (id),
@@ -486,7 +552,7 @@ create table public.disputes (
   created_at    timestamptz not null default now()
 );
 
-create table public.reports (
+create table if not exists public.reports (
   id          bigserial primary key,
   reporter_id uuid not null references public.profiles (id),
   target_type text not null check (target_type in ('product', 'conversation', 'message', 'seller', 'ticket')),
@@ -497,7 +563,7 @@ create table public.reports (
   created_at  timestamptz not null default now()
 );
 
-create table public.reviews (
+create table if not exists public.reviews (
   id         bigserial primary key,
   order_id   bigint not null unique references public.orders (id) on delete cascade,
   buyer_id   uuid not null references public.profiles (id),
@@ -509,7 +575,7 @@ create table public.reviews (
   created_at timestamptz not null default now()
 );
 
-create table public.notifications (
+create table if not exists public.notifications (
   id         bigserial primary key,
   user_id    uuid not null references public.profiles (id) on delete cascade,
   type       text not null,
@@ -520,9 +586,9 @@ create table public.notifications (
   created_at timestamptz not null default now()
 );
 
-create index notifications_user_idx on public.notifications (user_id, created_at desc);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
 
-create table public.admin_audit_log (
+create table if not exists public.admin_audit_log (
   id           bigserial primary key,
   actor_id     uuid not null references public.profiles (id),
   action       text not null,
@@ -534,6 +600,8 @@ create table public.admin_audit_log (
 
 -- =============================================================================
 -- ROW LEVEL SECURITY
+-- (every policy is dropped first, so re-running always installs the current
+--  definition — stale policies can never survive a migration re-run)
 -- =============================================================================
 alter table public.profiles            enable row level security;
 alter table public.games               enable row level security;
@@ -560,47 +628,63 @@ alter table public.notifications       enable row level security;
 alter table public.admin_audit_log     enable row level security;
 
 -- profiles: read self + public basics; write self (not role!)
+drop policy if exists profile_self_select on public.profiles;
 create policy profile_self_select on public.profiles
   for select using (id = auth.uid() or public.is_staff());
+drop policy if exists profile_basic_select on public.profiles;
 create policy profile_basic_select on public.profiles
   for select using (true);
+drop policy if exists profile_self_update on public.profiles;
 create policy profile_self_update on public.profiles
   for update using (id = auth.uid())
   with check (id = auth.uid() and role = public.current_role()); -- can't promote self
 
 -- catalogue: public read of active; staff full, seller own writes
+drop policy if exists games_public_read on public.games;
 create policy games_public_read on public.games
   for select using (is_active or public.is_staff());
+drop policy if exists experiences_public_read on public.experiences;
 create policy experiences_public_read on public.experiences
   for select using (is_active or public.is_staff());
+drop policy if exists categories_public_read on public.product_categories;
 create policy categories_public_read on public.product_categories
   for select using (is_active or public.is_staff());
+drop policy if exists eligibility_read on public.eligibility_rules;
 create policy eligibility_read on public.eligibility_rules
   for select using (true);                       -- rule status is public info
+drop policy if exists eligibility_staff_write on public.eligibility_rules;
 create policy eligibility_staff_write on public.eligibility_rules
   for all using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
+drop policy if exists games_staff_write on public.games;
 create policy games_staff_write on public.games
   for all using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
+drop policy if exists experiences_staff_write on public.experiences;
 create policy experiences_staff_write on public.experiences
   for all using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
+drop policy if exists categories_staff_write on public.product_categories;
 create policy categories_staff_write on public.product_categories
   for all using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
 
 -- sellers: public sees approved; seller owns row
+drop policy if exists sellers_public_read on public.sellers;
 create policy sellers_public_read on public.sellers
   for select using (status = 'approved' or user_id = auth.uid() or public.is_staff());
+drop policy if exists sellers_self_update on public.sellers;
 create policy sellers_self_update on public.sellers
   for update using (user_id = auth.uid())
   with check (user_id = auth.uid() and status in ('approved', 'pending'));
+drop policy if exists sellers_staff_all on public.sellers;
 create policy sellers_staff_all on public.sellers
   for all using (public.is_staff()) with check (public.is_staff());
 
 -- listings: only approved visible publicly; seller sees own everything
+drop policy if exists products_read on public.products;
 create policy products_read on public.products
   for select using (
     is_deleted = false and (status = 'approved' or public.is_staff()
       or seller_id in (select s.id from public.sellers s where s.user_id = auth.uid()))
   );
+drop policy if exists products_seller_write on public.products;
 create policy products_seller_write on public.products
   for all using (
     seller_id in (select s.id from public.sellers s where s.user_id = auth.uid())
@@ -609,18 +693,23 @@ create policy products_seller_write on public.products
     seller_id in (select s.id from public.sellers s where s.user_id = auth.uid())
     and status <> 'approved'                      -- cannot self-approve!
   );
+drop policy if exists products_staff_all on public.products;
 create policy products_staff_all on public.products
   for all using (public.is_staff()) with check (public.is_staff());
 
 -- applications: user inserts own, sees own; staff manage
+drop policy if exists applications_read on public.seller_applications;
 create policy applications_read on public.seller_applications
   for select using (user_id = auth.uid() or public.is_staff());
+drop policy if exists applications_insert on public.seller_applications;
 create policy applications_insert on public.seller_applications
-  for insert with check (user_id = auth.uid() and user_id = auth.uid());
+  for insert with check (user_id = auth.uid());
+drop policy if exists applications_staff on public.seller_applications;
 create policy applications_staff on public.seller_applications
   for all using (public.is_staff()) with check (public.is_staff());
 
--- orders: strictly buyer / seller / staff
+-- orders: strictly buyer / seller of the product / staff
+drop policy if exists orders_read on public.orders;
 create policy orders_read on public.orders
   for select using (
     buyer_id = auth.uid() or public.is_staff()
@@ -628,59 +717,73 @@ create policy orders_read on public.orders
                       join public.sellers s on s.id = p.seller_id
                       where s.user_id = auth.uid())
   );
+drop policy if exists orders_insert on public.orders;
 create policy orders_insert on public.orders
   for insert with check (buyer_id = auth.uid());
+drop policy if exists orders_staff_update on public.orders;
 create policy orders_staff_update on public.orders
   for update using (public.is_staff()) with check (true);
 
 -- payments: participants can see their attempt; writes only via staff/service key
+drop policy if exists payments_read on public.payment_attempts;
 create policy payments_read on public.payment_attempts
   for select using (
     order_id in (select id from public.orders where buyer_id = auth.uid())
     or public.is_staff()
   );
 
+drop policy if exists payments_read on public.payment_events;
 create policy payments_read on public.payment_events
   for select using (public.is_staff());
 
+drop policy if exists ledger_read on public.transaction_ledger;
 create policy ledger_read on public.transaction_ledger
   for select using (
     public.is_staff()
     or seller_id in (select s.id from public.sellers s where s.user_id = auth.uid())
   );
 
+drop policy if exists payouts_read on public.payouts;
 create policy payouts_read on public.payouts
   for select using (
     seller_id in (select s.id from public.sellers s where s.user_id = auth.uid())
     or public.is_staff()
   );
+drop policy if exists payouts_insert on public.payouts;
 create policy payouts_insert on public.payouts
   for insert with check (
     seller_id in (select s.id from public.sellers s where s.user_id = auth.uid())
     and status = 'requested'
   );
+drop policy if exists payouts_staff_update on public.payouts;
 create policy payouts_staff_update on public.payouts
   for update using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
 
+drop policy if exists settings_public_read on public.platform_settings;
 create policy settings_public_read on public.platform_settings
   for select using (true);
+drop policy if exists settings_admin_write on public.platform_settings;
 create policy settings_admin_write on public.platform_settings
   for all using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
 
 -- conversations & messages: only the two participants (+ staff)
+drop policy if exists conversations_read on public.conversations;
 create policy conversations_read on public.conversations
   for select using (
     buyer_id = auth.uid() or seller_user_id = auth.uid() or public.is_staff()
   );
+drop policy if exists conversations_insert on public.conversations;
 create policy conversations_insert on public.conversations
   for insert with check (buyer_id = auth.uid());
 
+drop policy if exists messages_read on public.messages;
 create policy messages_read on public.messages
   for select using (
     exists (select 1 from public.conversations c
             where c.id = conversation_id
               and (c.buyer_id = auth.uid() or c.seller_user_id = auth.uid() or public.is_staff()))
   );
+drop policy if exists messages_insert on public.messages;
 create policy messages_insert on public.messages
   for insert with check (
     sender_id = auth.uid()
@@ -690,13 +793,17 @@ create policy messages_insert on public.messages
   );
 
 -- support tickets: owner + assigned + staff
+drop policy if exists tickets_read on public.support_tickets;
 create policy tickets_read on public.support_tickets
   for select using (user_id = auth.uid() or public.is_staff() or assigned_to = auth.uid());
+drop policy if exists tickets_insert on public.support_tickets;
 create policy tickets_insert on public.support_tickets
   for insert with check (user_id = auth.uid());
+drop policy if exists tickets_staff_write on public.support_tickets;
 create policy tickets_staff_write on public.support_tickets
   for update using (public.is_staff()) with check (public.is_staff());
 
+drop policy if exists ticket_msgs_read on public.ticket_messages;
 create policy ticket_msgs_read on public.ticket_messages
   for select using (
     exists (select 1 from public.support_tickets t
@@ -704,6 +811,7 @@ create policy ticket_msgs_read on public.ticket_messages
               and (t.user_id = auth.uid() or public.is_staff()
                    or (t.assigned_to = auth.uid() and not is_internal)))
   );
+drop policy if exists ticket_msgs_insert on public.ticket_messages;
 create policy ticket_msgs_insert on public.ticket_messages
   for insert with check (
     sender_id = auth.uid()
@@ -712,37 +820,47 @@ create policy ticket_msgs_insert on public.ticket_messages
                   and (t.user_id = auth.uid() or public.is_staff()))
   );
 
+drop policy if exists disputes_read on public.disputes;
 create policy disputes_read on public.disputes
   for select using (
     opened_by = auth.uid() or public.is_staff()
     or order_id in (select id from public.orders where buyer_id = auth.uid())
   );
+drop policy if exists disputes_insert on public.disputes;
 create policy disputes_insert on public.disputes
   for insert with check (opened_by = auth.uid());
+drop policy if exists disputes_staff_write on public.disputes;
 create policy disputes_staff_write on public.disputes
   for update using (public.current_role() = 'admin') with check (true);
 
+drop policy if exists reports_insert on public.reports;
 create policy reports_insert on public.reports
   for insert with check (reporter_id = auth.uid());
+drop policy if exists reports_read on public.reports;
 create policy reports_read on public.reports
   for select using (reporter_id = auth.uid() or public.is_staff());
+drop policy if exists reports_staff_write on public.reports;
 create policy reports_staff_write on public.reports
   for update using (public.is_staff()) with check (public.is_staff());
 
+drop policy if exists reviews_read on public.reviews;
 create policy reviews_read on public.reviews
   for select using (true);
+drop policy if exists reviews_insert on public.reviews;
 create policy reviews_insert on public.reviews
   for insert with check (buyer_id = auth.uid());
 
+drop policy if exists notifications_self on public.notifications;
 create policy notifications_self on public.notifications
   for all using (user_id = auth.uid() or public.is_staff())
   with check (user_id = auth.uid() or public.is_staff());
 
+drop policy if exists audit_admin_read on public.admin_audit_log;
 create policy audit_admin_read on public.admin_audit_log
   for select using (public.current_role() = 'admin');
 
 -- =============================================================================
--- SEED DATA
+-- SEED DATA (all idempotent)
 -- =============================================================================
 insert into public.platform_settings (key, value)
 values
@@ -779,9 +897,7 @@ from public.games g, public.product_categories c
 where g.slug = 'roblox'
 on conflict (game_id, category_id) do nothing;
 
--- =============================================================================
--- LEGACY TABLES (from the old prototype — see docs/migration-notes.md)
---   listings, orders, seller_wallets, payout_requests, khqr_payments...
---   If your live project already has those, DO NOT run an insert into a
---   conflicting table; adapt data or drop the legacy tables once migrated.
--- =============================================================================
+notify pgrst, 'reload schema';
+
+select 'migration 0001 OK' as status,
+       (select count(*) from pg_tables where schemaname = 'public') as public_table_count;

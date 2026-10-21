@@ -48,7 +48,7 @@ export default async function SellerOrdersPage() {
       `,
     )
     .eq("products.sellers.user_id", user.userId)
-    .in("status", ["paid", "processing", "delivering", "pending_verification", "disputed"])
+    .in("status", ["paid", "processing", "delivering", "delivered", "pending_verification", "in_escrow", "disputed"])
     .order("created_at", { ascending: false });
 
   type SellerOrder = {
@@ -99,7 +99,7 @@ export default async function SellerOrdersPage() {
           </div>
 
           {o.status === "paid" && <DeliverForm orderId={o.id} />}
-          {o.status === "delivering" && (
+          {(o.status === "delivering" || o.status === "delivered") && (
             <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-gray-800 bg-black p-3 text-[11px] text-gray-300">
               {o.delivery_payload}
             </pre>
@@ -107,6 +107,11 @@ export default async function SellerOrdersPage() {
           {o.status === "pending_verification" && (
             <p className="mt-2 text-[11px] text-yellow-400">
               Waiting for the admin to verify the buyer&apos;s payment…
+            </p>
+          )}
+          {o.status === "in_escrow" && (
+            <p className="mt-2 text-[11px] text-yellow-400">
+              Buyer&apos;s payment is held in escrow — waiting for the admin to verify it…
             </p>
           )}
         </div>

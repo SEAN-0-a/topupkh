@@ -15,7 +15,7 @@ export type ActionResult = { ok: true; publicRef?: string } | { ok: false; messa
 export async function createOrder(
   productId: number,
   quantity: number = 1,
-): Promise<{ ok: true; publicRef: string; message?: never } | { ok: false; message: string }> {
+): Promise<{ ok: true; publicRef: string; orderId: number; message?: never } | { ok: false; message: string }> {
   try {
     const { userId } = await requireUser();
     const supabase = await createSupabaseServerClient();
@@ -64,14 +64,14 @@ export async function createOrder(
         seller_proceeds: sellerProceeds,
         status: "pending_payment",
       })
-      .select("public_ref")
-      .single<{ public_ref: string }>();
+      .select("id, public_ref")
+      .single<{ id: number; public_ref: string }>();
 
     if (insertError || !order) {
       return { ok: false, message: friendlyDbError(insertError?.message) };
     }
 
-    return { ok: true, publicRef: order.public_ref };
+    return { ok: true, publicRef: order.public_ref, orderId: order.id };
   } catch (e) {
     return { ok: false, message: msg(e) };
   } finally {

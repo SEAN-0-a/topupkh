@@ -7,10 +7,12 @@ import { getUserContext } from "@/lib/auth";
 
 const STATUS_LABELS: Record<string, { text: string; className: string }> = {
   pending_payment: { text: "⏳ Awaiting payment", className: "text-yellow-400" },
-  pending_verification: { text: "🔍 Payment being verified by an admin", className: "text-yellow-400" },
-  paid: { text: "✅ Paid — seller is preparing delivery", className: "text-emerald-400" },
+  pending_verification: { text: "🔒 In escrow — payment held, awaiting admin verification", className: "text-yellow-400" },
+  in_escrow: { text: "🔒 In escrow — payment held, awaiting admin verification", className: "text-yellow-400" },
+  paid: { text: "✅ Payment verified — seller is preparing delivery", className: "text-emerald-400" },
   processing: { text: "⚙️ Processing", className: "text-emerald-400" },
-  delivering: { text: "📦 Delivered — confirm receipt below", className: "text-emerald-400" },
+  delivering: { text: "📦 Delivered — confirm receipt to release funds", className: "text-emerald-400" },
+  delivered: { text: "📦 Delivered — confirm receipt to release funds", className: "text-emerald-400" },
   completed: { text: "🎉 Completed — thanks!", className: "text-emerald-400" },
   cancelled: { text: "🚫 Cancelled", className: "text-gray-400" },
   refunded: { text: "↩️ Refunded", className: "text-purple-400" },
@@ -106,7 +108,7 @@ export default async function CheckoutOrderPage({
         </div>
       )}
 
-      {order.status === "pending_verification" && (
+      {(order.status === "pending_verification" || order.status === "in_escrow") && (
         <div className="rounded-3xl border border-yellow-600/40 bg-yellow-500/10 p-6 text-xs text-yellow-200">
           Payment claim received. An administrator will verify the transfer in the ABA/Bakong
           statement shortly. This page updates automatically once verified — a support ticket is
@@ -114,7 +116,7 @@ export default async function CheckoutOrderPage({
         </div>
       )}
 
-      {order.status === "delivering" && order.delivery_payload && (
+      {(order.status === "delivering" || order.status === "delivered") && order.delivery_payload && (
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
           <h2 className="mb-2 text-sm font-bold">2️⃣ Delivered — please confirm</h2>
           <pre className="whitespace-pre-wrap rounded-xl border border-gray-800 bg-black p-4 text-xs text-gray-200">
@@ -129,7 +131,7 @@ export default async function CheckoutOrderPage({
         </div>
       )}
 
-      {order.status === "delivering" && !order.delivery_payload && (
+      {(order.status === "delivering" || order.status === "delivered") && !order.delivery_payload && (
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 text-xs text-gray-400">
           Seller marked this as delivered without details — contact them via messages or support if
           anything is unclear.

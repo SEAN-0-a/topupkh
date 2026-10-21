@@ -21,12 +21,18 @@ export type CatalogPage = {
   totalPages: number;
 };
 
-const SORTS: Record<NonNullable<CatalogQuery["sort"]>, string> = {
-  popular: "sold_count.desc.nullslast",
-  newest: "created_at.desc",
-  price_asc: "price_usd.asc",
-  price_desc: "price_usd.desc",
-  rating: "rating_sum.desc.nullslast",
+// column + direction kept SEPARATE — supabase-js appends its own
+// ".asc"/".desc" to the column string, so never bake a direction into it
+// (that's how "sold_count.desc..desc" happened).
+const SORTS: Record<
+  NonNullable<CatalogQuery["sort"]>,
+  { column: string; ascending: boolean }
+> = {
+  popular: { column: "sold_count", ascending: false },
+  newest: { column: "created_at", ascending: false },
+  price_asc: { column: "price_usd", ascending: true },
+  price_desc: { column: "price_usd", ascending: false },
+  rating: { column: "rating_sum", ascending: false },
 };
 
 /** Escape characters that break Supabase's `or()` syntax. */
@@ -71,8 +77,10 @@ export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPag
   if (query.maxPrice !== undefined) qb = qb.lte("price_usd", query.maxPrice);
   if (query.delivery) qb = qb.eq("delivery_method", query.delivery);
 
-  qb = qb.order(SORTS[query.sort ?? "popular"].replace("nullslast", ""), {
-    ascending: query.sort === "price_asc",
+  const sortDef = SORTS[query.sort ?? "popular"];
+  qb = qb.order(sortDef.column, {
+    ascending: sortDef.ascending,
+    nullsFirst: false, // unrated/unsold products go last, not first
   });
 
   const from = (page - 1) * perPage;
@@ -138,4 +146,191 @@ export async function listTopSellers(limit = 4) {
     .limit(limit);
   if (error) throw new Error(`Failed to load sellers: ${error.message}`);
   return data ?? [];
+}
+
+// =============================================================================
+// OFFER GROUPS (Eldorado model): canonical templates with competing sellers
+// =============================================================================
+
+export type TemplateSummary = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  image_url: string | null;
+  game: { name: string; slug: string };
+  category: { name: string; slug: string };
+  offerCount: number;
+  minPrice: number | null;
+};
+
+/**
+ * All canonical templates for a game+category, with live offer counts and
+ * best prices computed from APPROVED offers by APPROVED sellers.
+ */
+export async function listTemplates(gameSlug: string, categorySlug: string): Promise<TemplateSummary[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: templates, error } = await supabase
+    .from("product_templates")
+    .select(
+      `
+        id, slug, title, description, image_url,
+        games!inner ( name, slug ),
+        product_categories!inner ( name, slug )
+      `,
+    )
+    .eq("games.slug", gameSlug)
+    .eq("product_categories.slug", categorySlug)
+    .order("id", { ascending: false });
+
+  if (error) throw new Error(`Failed to load offer groups: ${error.message}`);
+
+  const rows = (templates ?? []) as unknown as Array<{
+    id: number;
+    slug: string;
+    title: string;
+    description: string;
+    image_url: string | null;
+    games: { name: string; slug: string };
+    product_categories: { name: string; slug: string };
+  }>;
+
+  if (rows.length === 0) return [];
+
+  // fetch approved offers for all these templates in ONE query, then aggregate
+  const { data: offers } = await supabase
+    .from("products")
+    .select("template_id, price_usd, status, sellers ( status )")
+    .in(
+      "template_id",
+      rows.map((r) => r.id),
+    )
+    .eq("status", "approved")
+    .eq("sellers.status", "approved");
+
+  const byTemplate = new Map<number, { count: number; min: number | null }>();
+  for (const o of offers ?? []) {
+    if (!o.template_id) continue;
+    const cur = byTemplate.get(o.template_id) ?? { count: 0, min: null };
+    cur.count += 1;
+    cur.min = cur.min === null ? o.price_usd : Math.min(cur.min, o.price_usd);
+    byTemplate.set(o.template_id, cur);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    description: r.description,
+    image_url: r.image_url,
+    game: r.games,
+    category: r.product_categories,
+    offerCount: byTemplate.get(r.id)?.count ?? 0,
+    minPrice: byTemplate.get(r.id)?.min ?? null,
+  }));
+}
+
+export type OfferRow = {
+  id: number;
+  price_usd: number;
+  original_price_usd: number | null;
+  delivery_method: string;
+  delivery_details: string;
+  stock: number;
+  stock_is_unlimited: boolean;
+  estimated_minutes: number | null;
+  refund_policy: string;
+  sold_count: number;
+  rating_sum: number;
+  rating_count: number;
+  seller: {
+    user_id: string;
+    display_name: string;
+    rating_sum: number;
+    rating_count: number;
+    completed_sales: number;
+  };
+};
+
+export type OfferGroup = TemplateSummary & { offers: OfferRow[] };
+
+/**
+ * One template + every APPROVED offer from APPROVED sellers, sorted by
+ * price ("price") or delivery speed ("speed"). Used by /offer/[id].
+ */
+export async function getOfferGroup(
+  templateId: number,
+  sort: "price" | "speed" = "price",
+): Promise<OfferGroup | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: template, error } = await supabase
+    .from("product_templates")
+    .select(
+      `
+        id, slug, title, description, image_url,
+        games ( name, slug ),
+        product_categories ( name, slug )
+      `,
+    )
+    .eq("id", templateId)
+    .single<{
+      id: number;
+      slug: string;
+      title: string;
+      description: string;
+      image_url: string | null;
+      games: { name: string; slug: string } | { name: string; slug: string }[];
+      product_categories: { name: string; slug: string } | { name: string; slug: string }[];
+    }>();
+
+  if (error || !template) return null;
+
+  const game = Array.isArray(template.games) ? template.games[0] : template.games;
+  const category = Array.isArray(template.product_categories)
+    ? template.product_categories[0]
+    : template.product_categories;
+
+  // NOTE: supabase-js order goes through PostgREST — clean column + options,
+  // never a merged "col.desc" string (the .. bug from before).
+  const sortDef =
+    sort === "speed"
+      ? { column: "estimated_minutes", ascending: true }
+      : { column: "price_usd", ascending: true };
+
+  const { data: offerRows, error: offersError } = await supabase
+    .from("products")
+    .select(
+      `
+        id, price_usd, original_price_usd, delivery_method, delivery_details,
+        stock, stock_is_unlimited, estimated_minutes, refund_policy,
+        sold_count, rating_sum, rating_count,
+        sellers!inner ( user_id, display_name, rating_sum, rating_count, completed_sales, status )
+      `,
+    )
+    .eq("template_id", templateId)
+    .eq("status", "approved")
+    .eq("sellers.status", "approved")
+    .order(sortDef.column, { ascending: sortDef.ascending, nullsFirst: false });
+
+  if (offersError) throw new Error(`Failed to load offers: ${offersError.message}`);
+
+  const offers = (offerRows ?? []).map((o) => {
+    const seller = (o as unknown as { sellers: OfferRow["seller"] }).sellers;
+    return { ...(o as unknown as Omit<OfferRow, "seller">), seller };
+  });
+
+  return {
+    id: template.id,
+    slug: template.slug,
+    title: template.title,
+    description: template.description,
+    image_url: template.image_url,
+    game: game ?? { name: "", slug: "" },
+    category: category ?? { name: "", slug: "" },
+    offerCount: offers.length,
+    minPrice: offers.length ? Math.min(...offers.map((o) => o.price_usd)) : null,
+    offers,
+  };
 }

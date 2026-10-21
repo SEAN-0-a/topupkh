@@ -4,12 +4,95 @@
 -- Money/status transitions live in SECURITY DEFINER functions so the browser
 -- can NEVER flip a status, change a price, or forge a ledger row. The client
 -- functions below verify *who is calling* via auth.uid() inside the database.
+--
+-- v2 fixes:
+--   * `confirm_payment` no longer does `insert into
+--     public.notification_and_audit_defaults(...) values (...)` — that treated
+--     a FUNCTION as a TABLE (runtime 42P01/class-A bug). The notification is
+--     now inserted directly.
+--   * All destructive statements are guarded (drop trigger if exists etc.) so
+--     the file can be re-run after any partial failure.
+--   * A hard prerequisite guard fails EARLY with a clear message when 0001
+--     hasn't completed (previously you got a cryptic 42P01 mid-file instead).
+--   * NEW anti-forgery trigger: because RLS lets the buyer insert order rows,
+--     the database now verifies the money math matches the live product price
+--     and the platform commission — a direct REST call can no longer insert an
+--     order with a forged 0.01 unit price or commission rate.
 -- =============================================================================
 
-alter type public.order_status add value 'pending_verification';
--- (await 1s because ALTER TYPE ADD VALUE in same transaction can't be used
---  immediately — Supabase SQL editor runs each statement separately, so this
---  comment is precautionary only)
+-- -----------------------------------------------------------------------------
+-- PREREQUISITE GUARD — orders (and its money helpers) belong to migration 0001.
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.orders') is null then
+    raise exception
+      'PREREQUISITE MISSING: public.orders does not exist. %',
+      'Migration 0001_marketplace_schema.sql did not complete — run it first (it is re-runnable), then run this file.';
+  end if;
+end;
+$$;
+
+-- enum value added by this migration (idempotent; PG14 allows in-transaction)
+alter type public.order_status add value if not exists 'pending_verification';
+
+-- -----------------------------------------------------------------------------
+-- ANTI-FORGERY: every order's money fields must match the LIVE product price
+-- and the DB-configured commission — computed here, server-side.
+-- -----------------------------------------------------------------------------
+create or replace function public.assert_order_money()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  product_row public.products%rowtype;
+  expected_fee numeric(12,2);
+begin
+  select * into product_row from public.products where id = new.product_id for update;
+
+  if not found then
+    raise exception 'Product not found';
+  end if;
+
+  -- can only order a LIVE listing
+  if product_row.is_deleted or product_row.status <> 'approved' then
+    raise exception 'This offer is not purchasable right now';
+  end if;
+
+  -- unit price = the seller's CURRENT price (no client-sent discounts)
+  if new.unit_price <> product_row.price_usd then
+    raise exception 'Unit price does not match the offer price';
+  end if;
+
+  -- subtotal = unit_price x quantity
+  if new.subtotal <> new.unit_price * new.quantity then
+    raise exception 'Subtotal does not match price x quantity';
+  end if;
+
+  -- commission rate must be the platform's configured rate
+  if new.commission_rate <> public.get_platform_commission_rate() then
+    raise exception 'Commission rate is not the current platform rate';
+  end if;
+
+  expected_fee := round(new.subtotal * new.commission_rate, 2);
+  if new.platform_fee <> expected_fee then
+    raise exception 'Platform fee does not match the commission (expected %)', expected_fee;
+  end if;
+
+  if new.seller_proceeds <> new.subtotal - new.platform_fee then
+    raise exception 'Seller proceeds do not match subtotal minus commission';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists orders_money_check on public.orders;
+create trigger orders_money_check
+  before insert on public.orders
+  for each row execute function public.assert_order_money();
 
 -- stock decrements atomically when an order row is created
 create or replace function public.decrement_stock_on_order()
@@ -44,6 +127,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_order_created on public.orders;
 create trigger on_order_created
   after insert on public.orders
   for each row execute function public.decrement_stock_on_order();
@@ -52,6 +136,7 @@ create trigger on_order_created
 -- Buyer: "I have paid" (manual KHQR pilot). Only flips
 -- pending_payment -> pending_verification and opens a payment attempt row.
 -- Admins later confirm IN THE ADMIN UI — never the buyer's word.
+-- (0008 replaces this with the `in_escrow` variant — same function name.)
 -- ---------------------------------------------------------------------------
 create or replace function public.submit_payment_claim(p_order_id bigint)
 returns void
@@ -126,22 +211,16 @@ begin
         provider_ref = coalesce(p_reference, provider_ref)
     where order_id = p_order_id and status = 'pending';
 
-  insert into public.notification_and_audit_defaults(order_id) values (p_order_id);
+  insert into public.notifications (user_id, type, title, link)
+  select buyer_id, 'payment_confirmed',
+         'Payment verified for order #' || p_order_id || ' — seller will deliver now.',
+         '/orders/' || p_order_id
+  from public.orders where id = p_order_id;
 end;
 $$;
 
--- helper the function above needs
-create or replace function public.notification_and_audit_defaults(p_order_id bigint)
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-
-  insert into public.notifications (user_id, type, title, link)
-  select buyer_id, 'payment_confirmed', 'Payment verified for order #' || p_order_id || ' — seller will deliver now.', '/orders/' || p_order_id
-  from public.orders where id = p_order_id;
-$$;
+-- the old helper function from v1 is no longer used — remove it cleanly
+drop function if exists public.notification_and_audit_defaults(bigint);
 
 -- ---------------------------------------------------------------------------
 -- Seller: submit delivery evidence
@@ -177,7 +256,8 @@ begin
   end if;
 
   update public.orders
-    set status = 'delivering', delivery_payload = left(btrim(p_payload), 4000)
+    set status = 'delivering', delivery_payload = left(btrim(p_payload), 4000),
+        delivered_at = now()
     where id = p_order_id;
 
   insert into public.notifications (user_id, type, title, link)
@@ -267,16 +347,17 @@ begin
     raise exception 'Only administrators can refund orders';
   end if;
 
+  -- restock only makes sense for finite-stock products
   select * into order_row from public.orders where id = p_order_id for update;
 
   if not found then
     raise exception 'Order not found';
   end if;
 
-  if order_row.status in ('completed', 'refunded') then
-    if order_row.status = 'refunded' then
-      return; -- idempotent
-    end if;
+  if order_row.status = 'refunded' then
+    return; -- idempotent
+  end if;
+  if order_row.status = 'completed' then
     raise exception 'Completed orders must go through the dispute flow first';
   end if;
 
@@ -308,7 +389,8 @@ begin
 end;
 $$;
 
--- admin may insert ledger rows directly (corrections) with audit
+-- admin may insert ledger rows directly (corrections) — re-install cleanly
+drop policy if exists ledger_admin_insert on public.transaction_ledger;
 create policy ledger_admin_insert on public.transaction_ledger
   for insert with check (public.current_role() = 'admin');
 
@@ -317,3 +399,9 @@ grant execute on function public.complete_order(bigint) to authenticated;
 grant execute on function public.confirm_payment(bigint, text, numeric) to authenticated;
 grant execute on function public.submit_delivery(bigint, text) to authenticated;
 grant execute on function public.refund_order(bigint, text) to authenticated;
+
+notify pgrst, 'reload schema';
+
+select 'migration 0002 OK' as status,
+       (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public') as public_function_count;

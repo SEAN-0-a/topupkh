@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+
+  function resetTurnstile() {
+    // Turnstile tokens are single-use: once they've been verified server-side
+    // (or failed verification) the widget must issue a fresh one.
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
+  }
 
   async function handleOAuthLogin(provider: "google" | "facebook") {
     await supabase.auth.signInWithOAuth({
@@ -32,9 +40,23 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
+      // Server-side Turnstile verification (siteverify) before any auth call.
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ turnstileToken }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message ?? "Bot verification failed. Please try again.");
+      }
+      // The token has now been consumed by verification, so don't retry with it.
+      setTurnstileToken(null);
+
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        resetTurnstile(); // Stay on the page after sign-up; need a fresh token.
         alert("Check your email for the confirmation link!");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -44,6 +66,7 @@ export default function LoginPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setErrorMsg(message);
+      resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -136,8 +159,11 @@ export default function LoginPage() {
           {/* Cloudflare Turnstile Bot Security Widget */}
           <div className="flex justify-center my-2">
             <Turnstile
+              ref={turnstileRef}
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
               onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={resetTurnstile}
+              onError={resetTurnstile}
               options={{ theme: "dark" }}
             />
           </div>

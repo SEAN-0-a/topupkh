@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import PayPanel from "@/components/PayPanel";
 import ConfirmReceiveButton from "@/components/ConfirmReceiveButton";
+import DisputeButton from "@/components/DisputeButton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserContext } from "@/lib/auth";
 
@@ -135,6 +136,14 @@ export default async function CheckoutOrderPage({
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 text-xs text-gray-400">
           Seller marked this as delivered without details — contact them via messages or support if
           anything is unclear.
+        </div>
+      )}
+
+      {/* Step 4 (escrow): report a problem — freezes funds, admins review */}
+      {["in_escrow", "pending_verification", "delivering", "delivered"].includes(order.status) && (
+        <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
+          <h2 className="text-sm font-bold">4️⃣ Something wrong?</h2>
+          <DisputeButton orderId={order.id} />
         </div>
       )}
 

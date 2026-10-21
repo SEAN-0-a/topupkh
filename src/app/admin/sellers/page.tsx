@@ -1,0 +1,167 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import KycReviewButtons from "@/components/admin/KycReviewButtons";
+import { getUserContext, isStaff } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+type SellerRow = {
+  id: number;
+  user_id: string;
+  display_name: string;
+  seller_type: string;
+  shop_name: string;
+  phone_number: string;
+  payout_bank_name: string;
+  payout_account_number: string;
+  payout_account_name: string;
+  id_document_front_url: string | null;
+  id_document_back_url: string | null;
+  verification_status: string;
+  status: string;
+  available_balance: number;
+  pending_escrow_balance: number;
+  completed_sales: number;
+};
+
+const KYC_CHIP: Record<string, string> = {
+  pending: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+  rejected: "border-red-500/40 bg-red-500/10 text-red-400",
+  unverified: "border-gray-500/40 bg-gray-500/10 text-gray-400",
+};
+
+/**
+ * /admin/sellers — KYC review tab.
+ * Pending applications first; ID documents are viewed via short-lived SIGNED
+ * URLs created server-side (the private seller-docs bucket never exposes
+ * raw paths to the browser).
+ */
+export default async function AdminSellersPage() {
+  const ctx = await getUserContext();
+  if (!ctx || !isStaff(ctx.profile)) redirect("/login?next=/admin/sellers");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: rawRows } = await supabase
+    .from("sellers")
+    .select(
+      "id, user_id, display_name, seller_type, shop_name, phone_number, payout_bank_name, payout_account_number, payout_account_name, id_document_front_url, id_document_back_url, verification_status, status, available_balance, pending_escrow_balance, completed_sales",
+    )
+    .order("updated_at", { ascending: false })
+    .limit(100);
+
+  const rows = (rawRows ?? []) as SellerRow[];
+  const pending = rows.filter((r) => r.verification_status === "pending");
+  const others = rows.filter((r) => r.verification_status !== "pending");
+
+  // short-lived signed URLs for pending applications' documents
+  const signedUrls = new Map<string, string>();
+  for (const r of pending) {
+    for (const path of [r.id_document_front_url, r.id_document_back_url]) {
+      if (!path) continue;
+      const { data: signed } = await supabase.storage
+        .from("seller-docs")
+        .createSignedUrl(path, 3600);
+      if (signed) signedUrls.set(path, signed.signedUrl);
+    }
+  }
+
+  function renderRow(r: SellerRow) {
+    return (
+      <div key={r.id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-white">{r.shop_name}</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">
+              {r.display_name} · <span className="capitalize">{r.seller_type}</span> · 📞 {r.phone_number || "—"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              Seller wallet: ${Number(r.available_balance).toFixed(2)} available ·{" "}
+              ${Number(r.pending_escrow_balance).toFixed(2)} in escrow · {r.completed_sales} sales
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${KYC_CHIP[r.verification_status] ?? KYC_CHIP.unverified}`}
+            >
+              KYC: {r.verification_status}
+            </span>
+            {r.verification_status === "pending" ? (
+              <KycReviewButtons sellerId={r.id} />
+            ) : (
+              r.status !== "approved" && (
+                <span className="text-[10px] text-gray-500 capitalize">account: {r.status}</span>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* payout destination + documents (pending only) */}
+        <p className="mt-2 text-[11px] text-gray-400">
+          🏦 {r.payout_bank_name || "—"} · {r.payout_account_number || "—"} · ({r.payout_account_name || "—"})
+        </p>
+
+        {r.verification_status === "pending" && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {([r.id_document_front_url, r.id_document_back_url] as const).map((path, i) => (
+              <div key={i} className="rounded-xl border border-gray-800 bg-gray-950 p-3 text-center">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                  ID {i === 0 ? "front" : "back"}
+                </p>
+                {path ? (
+                  <a href={signedUrls.get(path) ?? "#"} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={signedUrls.get(path)}
+                      alt={`ID ${i === 0 ? "front" : "back"}`}
+                      className="mx-auto h-32 w-full rounded-lg border border-gray-700 object-cover transition-opacity hover:opacity-80"
+                    />
+                  </a>
+                ) : (
+                  <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-gray-700 text-xs text-gray-500">
+                    Missing document
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-950">
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-white">🛡️ KYC Review</h1>
+          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
+            {pending.length} pending
+          </span>
+        </div>
+
+        {pending.length === 0 && (
+          <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center text-xs text-gray-400">
+            No pending verifications. 🎉
+          </div>
+        )}
+
+        <div className="mt-4 space-y-3">{pending.map(renderRow)}</div>
+
+        {others.length > 0 && (
+          <>
+            <h2 className="mt-8 text-sm font-bold text-gray-400">All sellers ({others.length})</h2>
+            <div className="mt-3 space-y-3">{others.map(renderRow)}</div>
+          </>
+        )}
+
+        <div className="mt-8 text-center">
+          <Link href="/admin" className="text-xs font-bold text-emerald-400 hover:underline">
+            ← Back to Admin
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

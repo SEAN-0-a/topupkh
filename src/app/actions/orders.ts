@@ -125,6 +125,36 @@ export async function completeOrder(orderId: number): Promise<ActionResult> {
   }
 }
 
+/**
+ * Buyer (or staff): report a problem with the order → 'disputed'.
+ * The escrow trigger (migration 0010) freezes the seller's pending escrow and
+ * notifies staff; resolution (delivered/refund) happens in the admin panels.
+ */
+export async function disputeOrder(orderId: number, reason: string): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const supabase = await createSupabaseServerClient();
+
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      return { ok: false, message: "Describe the problem in at least a few words." };
+    }
+
+    const { error } = await supabase.rpc("raise_dispute", {
+      p_order_id: orderId,
+      p_reason: trimmed.slice(0, 500),
+    });
+    if (error) return { ok: false, message: friendlyDbError(error.message) };
+
+    revalidatePath(`/orders/${orderId}`);
+    revalidatePath("/admin/escrow");
+    revalidatePath("/admin/disputes");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: msg(e) };
+  }
+}
+
 
 function qtyIsValid(q: number) {
   if (!Number.isInteger(q) || q < 1 || q > 99) throw new Error("Invalid quantity.");

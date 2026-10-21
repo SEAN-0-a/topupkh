@@ -69,13 +69,16 @@ export async function createListing(input: {
       return { ok: false, message: "Stock must be 0–100,000 (or tick unlimited)." };
     }
 
-    // ---------- seller must be approved ----------
+    // ---------- seller must exist, be KYC-verified and approved ----------
     const { data: seller } = await supabase
       .from("sellers")
-      .select("id, status")
+      .select("id, status, verification_status")
       .eq("user_id", userId)
-      .single<{ id: number; status: string }>();
+      .single<{ id: number; status: string; verification_status: string }>();
     if (!seller) return { ok: false, message: "Apply as a seller first (→ Seller area)." };
+    if (seller.verification_status !== "approved") {
+      return { ok: false, message: "Verification required to sell — complete KYC at /seller/verify first." };
+    }
     if (seller.status !== "approved") {
       return { ok: false, message: `Your seller account is "${seller.status}" — wait for admin approval.` };
     }

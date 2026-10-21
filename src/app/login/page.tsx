@@ -22,10 +22,22 @@ export default function LoginPage() {
     turnstileRef.current?.reset();
   }
 
+  // Honour ?next=... (produced by /orders, /checkout/[ref], /settings, ...).
+  // Only allow same-origin relative paths ("//evil.com" is not).
+  function getNextPath(): string {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/marketplace";
+  }
+
   async function handleOAuthLogin(provider: "google" | "facebook") {
+    const next = getNextPath();
     await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/marketplace` },
+      options: {
+        // /auth/callback exchanges the PKCE ?code= for a cookie session
+        // (see src/app/auth/callback/route.ts) and then redirects to `next`.
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
     });
   }
 
@@ -61,7 +73,7 @@ export default function LoginPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push("/marketplace");
+        router.push(getNextPath());
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed";

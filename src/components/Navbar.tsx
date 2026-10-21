@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
+import UserMenu from "@/components/UserMenu";
 
 export default function Navbar() {
   const router = useRouter();
@@ -26,12 +27,6 @@ export default function Navbar() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    router.push("/login");
-  }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-900">
@@ -90,12 +85,7 @@ export default function Navbar() {
             </button>
 
             {user ? (
-              <button
-                onClick={handleSignOut}
-                className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-400 transition-all hover:bg-red-500/20"
-              >
-                {t("Sign Out", "ចាកចេញ")}
-              </button>
+              <UserMenu user={user} />
             ) : (
               <button
                 onClick={() => router.push("/login")}

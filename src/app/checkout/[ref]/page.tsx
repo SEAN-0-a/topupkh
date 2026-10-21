@@ -142,8 +142,8 @@ export default async function CheckoutOrderPage({
         <Link href="/orders" className="text-gray-400 hover:text-white">
           My orders
         </Link>
-        <Link href="/support" className="text-gray-400 hover:text-white">
-          Problem? Open a support ticket
+        <Link href="/feedback" className="text-gray-400 hover:text-white">
+          Problem? Contact support
         </Link>
       </div>
     </div>

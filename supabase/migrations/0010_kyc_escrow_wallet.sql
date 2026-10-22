@@ -175,7 +175,7 @@ begin
   elsif new.status = 'disputed' then
     -- Step 4: FREEZE — funds stay in pending escrow; staff notified below.
     insert into public.notifications (user_id, type, title, body, link)
-    select r.user_id, 'order_disputed',
+    select r.id, 'order_disputed',
            'Order #' || new.id || ' was reported/disputed — escrow frozen pending review.',
            coalesce(new.dispute_reason, 'Manual review required.'),
            '/admin/escrow'
@@ -414,7 +414,7 @@ begin
 
   -- notify staff
   insert into public.notifications (user_id, type, title, body, link)
-  select r.user_id, 'kyc_submitted',
+  select r.id, 'kyc_submitted',
          'New seller verification submitted by ' || btrim(p_shop_name),
          'KYC documents need review at /admin/sellers.',
          '/admin/sellers'

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import type { Game, ProductCategory } from "@/lib/types";
 
 type Props = {
@@ -10,17 +11,25 @@ type Props = {
 };
 
 const SORT_OPTIONS = [
-  { value: "popular", label: "Most popular" },
-  { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price: low → high" },
-  { value: "price_desc", label: "Price: high → low" },
-  { value: "rating", label: "Top rated" },
+  { value: "popular", key: "market.sort_popular" },
+  { value: "newest", key: "market.sort_newest" },
+  { value: "price_asc", key: "market.sort_price_asc" },
+  { value: "price_desc", key: "market.sort_price_desc" },
+  { value: "rating", key: "market.sort_top_rated" },
+];
+
+const DELIVERY_OPTIONS = [
+  { value: "in_game", key: "market.delivery_in_game" },
+  { value: "instructions", key: "market.delivery_instructions" },
+  { value: "digital_file", key: "market.delivery_digital_file" },
+  { value: "creator_services", key: "market.delivery_creator_service" },
 ];
 
 export default function MarketplaceFilters({ games, categories }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const { t } = useLanguage();
 
   // form-local min/max so typing doesn't refetch on every keystroke
   const [minPrice, setMinPrice] = useState(params.get("min") ?? "");
@@ -49,12 +58,14 @@ export default function MarketplaceFilters({ games, categories }: Props) {
       open
       className="rounded-2xl border border-gray-800 bg-gray-900 p-4 [&>summary]:cursor-pointer [&>summary]:mb-3"
     >
-      <summary className="text-sm font-bold">🔎 Filters {isPending && "· loading…"}</summary>
+      <summary className="text-sm font-bold">
+        🔎 {t("market.filters")} {isPending && t("market.loading_filters")}
+      </summary>
 
       <div className="mt-3 grid gap-4 md:grid-cols-2">
-        <FilterBlock label="Game">
+        <FilterBlock label={t("market.filter_game")}>
           <Select value={game} onChange={(v) => update({ game: v })}>
-            <option value="all">All games</option>
+            <option value="all">{t("market.all_games")}</option>
             {games.map((g) => (
               <option key={g.slug} value={g.slug}>
                 {g.name}
@@ -63,9 +74,9 @@ export default function MarketplaceFilters({ games, categories }: Props) {
           </Select>
         </FilterBlock>
 
-        <FilterBlock label="Category">
+        <FilterBlock label={t("market.filter_category")}>
           <Select value={category} onChange={(v) => update({ category: v })}>
-            <option value="all">All categories</option>
+            <option value="all">{t("market.all_categories")}</option>
             {categories.map((c) => (
               <option key={c.slug} value={c.slug}>
                 {c.name}
@@ -74,54 +85,55 @@ export default function MarketplaceFilters({ games, categories }: Props) {
           </Select>
         </FilterBlock>
 
-        <FilterBlock label="Price (USD)">
+        <FilterBlock label={t("market.filter_price")}>
           <div className="flex items-center gap-2">
             <input
               type="number"
               min="0"
               step="0.01"
-              placeholder="min"
+              placeholder={t("market.min")}
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
-              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs"
+              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs text-white"
             />
             <span className="text-gray-500">–</span>
             <input
               type="number"
               min="0"
               step="0.01"
-              placeholder="max"
+              placeholder={t("market.max")}
               value={maxPrice}
               onChange={(e) =>setMaxPrice(e.target.value)}
-              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs"
+              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs text-white"
             />
             <button
               type="button"
               onClick={() => update({ min: minPrice || undefined, max: maxPrice || undefined })}
               className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-black"
             >
-              Go
+              {t("market.go_btn")}
             </button>
           </div>
         </FilterBlock>
 
-        <FilterBlock label="Delivery method">
+        <FilterBlock label={t("market.filter_delivery")}>
           <Select value={delivery} onChange={(v) => update({ delivery: v })}>
-            <option value="all">Any method</option>
-            <option value="in_game">Delivered in game</option>
-            <option value="instructions">Guided instructions</option>
-            <option value="digital_file">Digital file</option>
-            <option value="creator_services">Creator service</option>
+            <option value="all">{t("market.any_method")}</option>
+            {DELIVERY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.key)}
+              </option>
+            ))}
           </Select>
         </FilterBlock>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <FilterBlock label="Sort by">
+        <FilterBlock label={t("market.filter_sort")}>
           <Select value={sort} onChange={(v) => update({ sort: v })}>
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.key)}
               </option>
             ))}
           </Select>
@@ -133,7 +145,7 @@ export default function MarketplaceFilters({ games, categories }: Props) {
             onClick={() => startTransition(() => router.push("/marketplace", { scroll: false }))}
             className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:border-red-500 hover:text-red-400"
           >
-            Clear all filters
+            {t("market.clear_filters")}
           </button>
         )}
       </div>

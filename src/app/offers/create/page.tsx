@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import SellerListingForm from "@/components/SellerListingForm";
+import T from "@/components/T";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserContext } from "@/lib/auth";
 
@@ -59,11 +60,9 @@ export default async function CreateOfferPage() {
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 text-white">
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
-          <h1 className="text-xl font-bold">🛒 Create offer</h1>
+          <h1 className="text-xl font-bold">🛒 <T k="sell.form_title" /></h1>
           <p className="mt-1 text-xs text-gray-400">
-            Build a full Eldorado-style listing: gallery, specs (original email, warranty, delivery
-            time, inventory value) and a Markdown description. Funds are held in escrow until the
-            delivery is confirmed — commission is deducted at settlement, never upfront.
+            <T k="sell.form_banner_create" />
           </p>
         </div>
 

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import MarketplaceFilters from "@/components/MarketplaceFilters";
+import MarketplaceSearch from "@/components/MarketplaceSearch";
 import ProductCard from "@/components/ProductCard";
+import T from "@/components/T";
 import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { CatalogQuery } from "@/lib/catalog";
 import type { Game } from "@/lib/types";
@@ -102,29 +104,20 @@ export default async function MarketplacePage({
       {/* header */}
       <div className="flex flex-col justify-between gap-3 rounded-3xl border border-gray-800 bg-gray-900 p-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-400">🎮 Marketplace</h1>
+          <h1 className="text-2xl font-bold text-emerald-400">🎮 <T k="market.header" /></h1>
           <p className="mt-1 text-xs text-gray-400">
-            {gameName
-              ? `${gameName}${categoryName ? ` · ${categoryName}` : ""}`
-              : "All games & categories"}{" "}
-            — {result.total} approved product{result.total === 1 ? "" : "s"}
+            {gameName ? (
+              <>
+                {gameName}
+                {categoryName ? ` · ${categoryName}` : ""}
+              </>
+            ) : (
+              <T k="market.subtitle_all" />
+            )}{" "}
+            — <T k="market.approved_count" vars={{ n: result.total, s: result.total === 1 ? "" : "s" }} />
           </p>
         </div>
-        <form action="/marketplace" className="flex gap-2">
-          <input
-            name="q"
-            defaultValue={query.q ?? ""}
-            type="search"
-            placeholder="Search products…"
-            className="w-56 rounded-xl border border-gray-800 bg-black px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
-          >
-            Search
-          </button>
-        </form>
+        <MarketplaceSearch current={query.q ?? ""} />
       </div>
 
       <MarketplaceFilters games={games} categories={categories} />
@@ -132,20 +125,18 @@ export default async function MarketplacePage({
       {prohibitedNotice && (
         <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6">
           <h2 className="text-sm font-bold text-red-300">
-            🚫 &ldquo;{prohibitedNotice.name}&rdquo; is not available for trading on TopUpKH
+            <T k="prohibited.title" vars={{ name: prohibitedNotice.name }} />
           </h2>
           <p className="mt-2 text-xs leading-relaxed text-red-200/80">
-            {prohibitedNotice.reason}. This is a platform policy enforced in the database — listings
-            in this category cannot be published or purchased. If you believe an exception applies
-            (e.g. you hold written authorization), contact support to have an admin review the
-            eligibility rule.
+            {prohibitedNotice.reason && <>{prohibitedNotice.reason} </>}
+            <T k="prohibited.reason" />
           </p>
           <div className="mt-4 flex gap-3">
             <Link href="/marketplace" className="rounded-xl bg-gray-800 px-4 py-2 text-xs font-semibold hover:bg-gray-700">
-              Browse available categories
+              <T k="market.browse_categories" />
             </Link>
             <Link href="/support" className="rounded-xl border border-gray-700 px-4 py-2 text-xs font-semibold text-gray-300 hover:border-emerald-500">
-              Contact support
+              <T k="market.contact_support" />
             </Link>
           </div>
         </div>
@@ -159,9 +150,9 @@ export default async function MarketplacePage({
 
       {result.items.length === 0 && !error && (
         <div className="rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center text-sm text-gray-400">
-          No products match these filters yet.
+          <T k="market.no_results" />
           <div className="mt-1 text-xs text-gray-500">
-            Try clearing filters, or check back — every listing must pass admin approval first.
+            <T k="market.no_results_hint" />
           </div>
         </div>
       )}
@@ -181,18 +172,18 @@ export default async function MarketplacePage({
               href={pageHref(result.page - 1)}
               className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
             >
-              ← Prev
+              <T k="market.prev" />
             </Link>
           )}
           <span className="text-xs text-gray-400">
-            Page {result.page} / {result.totalPages}
+            <T k="market.page_of" vars={{ n: result.page, total: result.totalPages }} />
           </span>
           {result.page < result.totalPages && (
             <Link
               href={pageHref(result.page + 1)}
               className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
             >
-              Next →
+              <T k="market.next" />
             </Link>
           )}
         </div>

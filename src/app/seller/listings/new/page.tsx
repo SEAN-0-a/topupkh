@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import SellerListingForm from "@/components/SellerListingForm";
+import T from "@/components/T";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserContext } from "@/lib/auth";
 
@@ -58,11 +59,9 @@ export default async function SellerNewListingPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 text-white">
       <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
-        <h1 className="text-xl font-bold">🛒 Create a seller offer</h1>
+        <h1 className="text-xl font-bold">🛒 <T k="sell.form_title" /></h1>
         <p className="mt-1 text-xs text-gray-400">
-          Your offer goes on a shared product page where buyers compare all sellers by price and
-          delivery speed. Funds are held in escrow until delivery is confirmed — the platform
-          commission is deducted at settlement, never upfront.
+          <T k="sell.form_banner" />
         </p>
       </div>
 

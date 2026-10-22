@@ -19,33 +19,69 @@
 
 /* The whole app was authored dark-first (bg-gray-950 pages, bg-gray-900
    cards, text-white headings, bg-black inputs…). Instead of touching every
-   component, LIGHT mode remaps Tailwind v4's neutral palette variables:
+   component, LIGHT mode remaps Tailwind v4's neutral palette variables to
+   a slate-hued light scale:
+     page bg (black/gray-950) → soft slate-50            #f8fafc
+     cards (bg-gray-900)      → white                    #ffffff
+     borders (gray-800/700)   → slate-200 / slate-300
+     white text               → dark ink                 #0f172a
    every `bg-gray-900` / `text-white` / `border-gray-800` / … utility
    resolves through these vars at runtime and flips automatically. */
 html:not(.dark) {
-  --background: #f7f7f8;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 
-  /* page & input backgrounds get light, "white" becomes ink */
-  --color-black: #f7f7f8;
-  --color-white: #1b1b1f;
+  --color-black: #f8fafc;
+  --color-white: #0f172a;
 
-  /* inverted neutral scale: 950 ≈ faint page tint, 900 ≈ card white,
-     800/700 ≈ light borders/secondary surfaces, text shades darken */
-  --color-gray-950: #f2f2f4;
+  /* inverted + slate-hued neutral scale */
+  --color-gray-950: #f1f5f9;
   --color-gray-900: #ffffff;
-  --color-gray-800: #e8e8ec;
-  --color-gray-700: #d9d9df;
-  --color-gray-600: #9a9aa4;
-  --color-gray-500: #6b7280;
-  --color-gray-400: #52525b;
-  --color-gray-300: #43434e;
-  --color-gray-200: #34343e;
-  --color-gray-100: #2a2a33;
+  --color-gray-800: #e2e8f0;
+  --color-gray-700: #cbd5e1;
+  --color-gray-600: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-400: #475569;
+  --color-gray-300: #334155;
+  --color-gray-200: #1e293b;
+  --color-gray-100: #0f172a;
+}
+
+/* Elevated-surface depth in light mode: card-like surfaces get a soft
+   drop shadow + crisp border so white areas separate from the page.
+   Shadows stay out of dark mode where borders already do the work.
+   (bg-black = page-level is untouched — only elevated panels). */
+html:not(.dark) .bg-gray-900,
+html:not(.dark) .bg-white {
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 4px 14px -4px rgb(15 23 42 / 0.10);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================== light-mode polish == */
+/* Keep accent colors readable on the light surfaces (e.g. emerald text
+   darkens slightly for contrast on white cards). */
+html:not(.dark) .text-emerald-400 {
+  color: #059669;
+}
+html:not(.dark) .text-emerald-300 {
+  color: #059669;
+}
+html:not(.dark) .text-yellow-400,
+html:not(.dark) .text-yellow-300,
+html:not(.dark) .text-amber-400 {
+  color: #b45309;
+}
+html:not(.dark) .text-sky-300,
+html:not(.dark) .text-cyan-300 {
+  color: #0369a1;
+}
+html:not(.dark) .text-purple-300 {
+  color: #7e22ce;
 }

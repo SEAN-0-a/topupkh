@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createListing } from "@/app/actions/listings";
+import { useLanguage } from "@/context/LanguageContext";
 import type { Game, ProductCategory } from "@/lib/types";
 
 type Props = {
@@ -12,14 +13,15 @@ type Props = {
   sellerStatus: string | null;
 };
 const DELIVERY_OPTIONS = [
-  { value: "in_game", label: "Delivered in game" },
-  { value: "instructions", label: "Guided instructions" },
-  { value: "digital_file", label: "Digital file" },
-  { value: "creator_services", label: "Creator service" },
+  { value: "in_game", key: "market.delivery_in_game" },
+  { value: "instructions", key: "market.delivery_instructions" },
+  { value: "digital_file", key: "market.delivery_digital_file" },
+  { value: "creator_services", key: "market.delivery_creator_service" },
 ];
 
 export default function SellerListingForm({ games, categories, sellerStatus }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [gameId, setGameId] = useState(games[0]?.id ?? 0);
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? 0);
@@ -149,10 +151,10 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* --- product / offer group --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">1 · What are you offering</legend>
+        <legend className="px-2 text-xs font-bold text-emerald-400">{t("sell.step1")}</legend>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <SelectBlock label="Game">
+          <SelectBlock label={t("market.filter_game")}>
             <select
               value={gameId}
               onChange={(e) => handleGameChange(Number(e.target.value))}
@@ -165,7 +167,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
             </select>
           </SelectBlock>
 
-          <SelectBlock label="Category">
+          <SelectBlock label={t("market.filter_category")}>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(Number(e.target.value))}
@@ -179,11 +181,11 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           </SelectBlock>
         </div>
 
-        <InputBlock label="Title (this becomes the shared product page name — 5–120 chars)">
+        <InputBlock label={t("sell.f_title_label")}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Roblox UI Kit — Dark Theme, 40 components"
+            placeholder={t("sell.f_title_placeholder")}
             className={inputCls}
             required
             minLength={5}
@@ -191,7 +193,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           />
         </InputBlock>
 
-        <InputBlock label="Description (Markdown supported — see the formatting tips below)">
+        <InputBlock label={t("sell.f_desc_label")}>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -266,9 +268,9 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
 
       {/* --- eldorado-style listing details --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">2 · Listing details</legend>
+        <legend className="px-2 text-xs font-bold text-emerald-400">{t("sell.step2")}</legend>
 
-        <InputBlock label="Game name (shown in the offer specs — add server/region if relevant)">
+        <InputBlock label={t("sell.f_game_name_label")}>
           <input
             value={gameName}
             onChange={(e) => setGameName(e.target.value)}
@@ -279,16 +281,16 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         </InputBlock>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <InputBlock label="Delivery time estimate (free text)">
+          <InputBlock label={t("sell.f_delivery_time")}>
             <input
               value={deliveryTime}
               onChange={(e) => setDeliveryTime(e.target.value)}
               maxLength={60}
               className={inputCls}
-              placeholder='e.g. "Instant" or "1 day"'
+              placeholder={t("sell.f_delivery_time_placeholder")}
             />
           </InputBlock>
-          <InputBlock label="Inventory value (optional — what the stock/contents are worth)">
+          <InputBlock label={t("sell.f_inventory_value")}>
             <input
               value={inventoryValue}
               onChange={(e) => setInventoryValue(e.target.value)}
@@ -299,7 +301,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           </InputBlock>
         </div>
 
-        <InputBlock label="Warranty (days — 0 = sold as-is)">
+        <InputBlock label={t("sell.f_warranty")}>
           <input
             type="number"
             min="0"
@@ -316,22 +318,22 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           <Checkbox
             checked={originalEmail}
             onChange={setOriginalEmail}
-            label="Original email included (account sales)"
+            label={t("sell.f_original_email")}
           />
           <Checkbox
             checked={openEmailAccess}
             onChange={setOpenEmailAccess}
-            label="Open email access (buyer can access the mail account)"
+            label={t("sell.f_open_email")}
           />
         </div>
       </fieldset>
 
       {/* --- commercial terms --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">3 · Price, stock &amp; delivery</legend>
+        <legend className="px-2 text-xs font-bold text-emerald-400">{t("sell.step3")}</legend>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <InputBlock label="Your price (USD)">
+          <InputBlock label={t("sell.f_price_label")}>
             <input
               type="number" min="0.01" step="0.01" required
               value={price}
@@ -340,7 +342,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
               placeholder="19.99"
             />
           </InputBlock>
-          <InputBlock label="Strikethrough price (optional — shows the discount badge)">
+          <InputBlock label={t("sell.f_original_price_label")}>
             <input
               type="number" min="0" step="0.01"
               value={originalPrice}
@@ -352,14 +354,14 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <SelectBlock label="Delivery method">
+          <SelectBlock label={t("sell.f_delivery_method")}>
             <select value={deliveryMethod} onChange={(e) => setDeliveryMethod(e.target.value)} className={inputCls}>
               {DELIVERY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>{t(o.key)}</option>
               ))}
             </select>
           </SelectBlock>
-          <InputBlock label="Estimated fulfilment time (minutes, optional)">
+          <InputBlock label={t("sell.f_est_minutes")}>
             <input
               type="number" min="1" step="1"
               value={estimatedMinutes}
@@ -391,7 +393,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           </InputBlock>
         )}
 
-        <InputBlock label="Delivery details (what the buyer receives after payment)">
+        <InputBlock label={t("sell.f_delivery_details")}>
           <textarea
             value={deliveryDetails}
             onChange={(e) => setDeliveryDetails(e.target.value)}
@@ -404,8 +406,8 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
 
       {/* --- policies --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">4 · Policies</legend>
-        <InputBlock label="Refund policy (shown on the offer)">
+        <legend className="px-2 text-xs font-bold text-emerald-400">{t("sell.step4")}</legend>
+        <InputBlock label={t("sell.f_refund_label")}>
           <textarea
             value={refundPolicy}
             onChange={(e) => setRefundPolicy(e.target.value)}
@@ -413,7 +415,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
             className={inputCls}
           />
         </InputBlock>
-        <InputBlock label="Ownership / authorization note (how you got the right to sell this)">
+        <InputBlock label={t("sell.f_ownership_label")}>
           <textarea
             value={ownershipNote}
             onChange={(e) => setOwnershipNote(e.target.value)}
@@ -436,7 +438,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         disabled={loading}
         className="w-full rounded-2xl bg-emerald-500 py-3.5 text-sm font-bold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
       >
-        {loading ? "Submitting…" : "Submit offer for review"}
+        {loading ? t("sell.submitting") : t("sell.submit")}
       </button>
     </form>
   );

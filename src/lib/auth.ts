@@ -1,10 +1,28 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, user_role } from "@/lib/types";
+import type { User } from "@supabase/supabase-js";
 
 export type UserContext = {
   userId: string;
   profile: Profile;
 };
+
+const ROLES: user_role[] = ["buyer", "seller", "support", "admin"];
+
+/**
+ * Role fallback from the auth user's metadata, used ONLY when the profiles
+ * row read fails transiently (network / RLS hiccup) so a signed-in admin is
+ * not silently downgraded to "anonymous" (which then bounced them to /login
+ * and onward to `/`). Reads app_metadata — unlike client-editable
+ * user_metadata, app_metadata can only be written with service-role
+ * privileges, so this fallback cannot be abused for privilege escalation.
+ */
+function roleFromMetadata(user: User): user_role | null {
+  const role = (user.app_metadata as { role?: unknown } | null)?.role;
+  return typeof role === "string" && ROLES.includes(role as user_role)
+    ? (role as user_role)
+    : null;
+}
 
 /**
  * Returns the signed-in user's id + profile, or null.
@@ -23,20 +41,42 @@ export async function getUserContext(): Promise<UserContext | null> {
 
   if (!user || user.is_anonymous) return null;
 
+  // maybeSingle (not single): a zero-row or multi-row read must not throw a
+  // null-reference-shaped failure that silently turns the caller anonymous.
   const { data: profile } = await supabase
     .from("profiles")
     .select(
       "id, display_name, username, avatar_url, locale, role, is_banned, created_at, updated_at, seller_type, shop_name, verification_status",
     )
     .eq("id", user.id)
-    .single<Profile>();
+    .maybeSingle<Profile>();
 
-  if (!profile || profile.is_banned) return null;
+  const metadataRole = roleFromMetadata(user);
+
+  // Fill the missing profile shell from auth metadata when the row read
+  // failed but we still know the role — the /admin/* guards key off role.
+  const resolved: Profile | null = profile ?? (metadataRole
+    ? {
+        id: user.id,
+        display_name: (typeof user.user_metadata?.display_name === "string"
+          ? user.user_metadata.display_name
+          : user.email?.split("@")[0]) ?? "Player",
+        username: null,
+        avatar_url: null,
+        locale: "en" as const,
+        role: metadataRole,
+        is_banned: false,
+        created_at: user.created_at,
+        updated_at: user.created_at,
+      }
+    : null);
+
+  if (!resolved || resolved.is_banned) return null;
 
   // fill the verification default if the column read returns null
   return {
     userId: user.id,
-    profile: { ...profile, verification_status: profile.verification_status ?? "unverified" },
+    profile: { ...resolved, verification_status: resolved.verification_status ?? "unverified" },
   };
 }
 

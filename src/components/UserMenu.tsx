@@ -121,6 +121,17 @@ export default function UserMenu({ user }: { user: User }) {
   const verified = isVerifiedSeller(info.verificationStatus);
 
   const items: MenuItem[] = [
+    // Admin-only shortcut straight to the KYC review console (/admin/sellers);
+    // hidden for every other role, so non-admins never see it.
+    ...(info.role === "admin"
+      ? [
+          {
+            icon: "🛠️",
+            label: "Admin Panel",
+            href: "/admin/sellers",
+          },
+        ]
+      : []),
     { icon: "🧾", label: "Orders", href: "/orders" },
     { icon: "📦", label: "Offers", href: "/offers" },
     { icon: "🚀", label: "Boosting", href: "/boosting" },

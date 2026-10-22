@@ -40,7 +40,9 @@ export default function AdminEscrowPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        // Preserve the target so /login can send the admin straight back
+        // instead of forwarding them to `/`.
+        router.push("/login?next=/admin/escrow");
         return;
       }
 

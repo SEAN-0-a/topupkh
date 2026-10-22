@@ -2,11 +2,17 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { submitSellerKyc } from "@/app/actions/kyc";
-
-const MAX_DOC_BYTES = 5 * 1024 * 1024; // 5 MB
-const DOC_TYPES = ["image/png", "image/jpeg", "image/webp"];
+import {
+  DOC_TYPES,
+  MIN_DOC_BYTES,
+  MIN_DOC_DIMENSION,
+  MAX_DOC_BYTES,
+  validateKycDetails,
+  validateAccountNumber,
+} from "@/lib/kyc-validation";
 
 type Step1 = {
   sellerType: "individual" | "company";
@@ -65,28 +71,59 @@ export default function KycForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const step1Valid =
-    form.shopName.trim().length >= 2 &&
-    /^[0-9+()\-\s]{6,30}$/.test(form.phoneNumber.trim()) &&
-    form.payoutBankName.trim().length >= 2 &&
-    form.payoutAccountNumber.trim().length >= 4 &&
-    form.payoutAccountName.trim().length >= 2;
+  // strict validation, shared with the server action (src/lib/kyc-validation.ts)
+  const fieldErrors = useMemo(
+    () => validateKycDetails({
+      shopName: form.shopName.trim(),
+      phoneNumber: form.phoneNumber.trim(),
+      payoutBankName: form.payoutBankName.trim(),
+      payoutAccountNumber: form.payoutAccountNumber.trim(),
+      payoutAccountName: form.payoutAccountName.trim(),
+    }),
+    [form],
+  );
+  const step1Valid = Object.keys(fieldErrors).length === 0;
 
   function setField<K extends keyof Step1>(key: K, value: Step1[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function pickDoc(kind: "front" | "back", file: File | undefined | null) {
+  /**
+   * ID document quality gate:
+   *   - real JPG or PNG image (no SVG/WebP/PDF renamed as image)
+   *   - 100 KB – 5 MB (rejects blank / placeholder uploads)
+   *   - actually decodable AND at least 300×300 px (rejects 1-pixel fakes)
+   */
+  async function pickDoc(kind: "front" | "back", file: File | undefined | null) {
     if (!file) return;
     setError(null);
-    if (!DOC_TYPES.includes(file.type)) {
-      setError("ID photo must be a PNG, JPG or WebP image.");
+    if (!DOC_TYPES.includes(file.type as (typeof DOC_TYPES)[number])) {
+      setError("ID photo must be a JPG or PNG image.");
+      return;
+    }
+    if (file.size < MIN_DOC_BYTES) {
+      setError("ID photo is too small (below 100 KB) — upload a clear photo of the real document.");
       return;
     }
     if (file.size > MAX_DOC_BYTES) {
       setError("ID photo must be under 5 MB.");
       return;
     }
+
+    // decode the image to prove it's a real picture, not an empty/1px file
+    try {
+      const bitmap = await createImageBitmap(file);
+      const { width, height } = bitmap;
+      bitmap.close();
+      if (width < MIN_DOC_DIMENSION || height < MIN_DOC_DIMENSION) {
+        setError(`ID photo is too small (${width}×${height} px) — use a real photo, at least ${MIN_DOC_DIMENSION}×${MIN_DOC_DIMENSION} px.`);
+        return;
+      }
+    } catch {
+      setError("This file is not a readable JPG/PNG image — please re-upload your real document.");
+      return;
+    }
+
     if (kind === "front") {
       setFrontFile(file);
       if (frontPreview) URL.revokeObjectURL(frontPreview);
@@ -111,7 +148,7 @@ export default function KycForm({
     setUploading(kind);
     setError(null);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const ext = file.type === "image/png" ? "png" : "jpg"; // validated at pick-time
       const path = `${userId}/${Date.now()}-${kind}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("seller-docs")
@@ -210,27 +247,36 @@ export default function KycForm({
               <input
                 type="text"
                 required
-                minLength={2}
+                minLength={3}
                 maxLength={80}
                 value={form.shopName}
                 onChange={(e) => setField("shopName", e.target.value)}
                 placeholder="e.g. Rising Tier Store"
-                className={inputClass}
+                className={`${inputClass} ${fieldErrors.shopName ? "!border-red-500" : ""}`}
               />
+              {fieldErrors.shopName && (
+                <p className="mt-1 text-[10px] text-red-400">{fieldErrors.shopName}</p>
+              )}
             </div>
 
             <div>
-              <label className={labelClass}>Phone number</label>
+              <label className={labelClass}>Phone number (Cambodian)</label>
               <input
                 type="tel"
                 required
-                pattern="[0-9+()\-\s]{6,30}"
-                title="6–30 characters: digits, +, (), dash, space"
+                maxLength={30}
                 value={form.phoneNumber}
                 onChange={(e) => setField("phoneNumber", e.target.value)}
-                placeholder="+855 12 345 678"
-                className={inputClass}
+                placeholder="012 345 678 or +855 12 345 678"
+                className={`${inputClass} ${fieldErrors.phoneNumber ? "!border-red-500" : ""}`}
               />
+              {fieldErrors.phoneNumber ? (
+                <p className="mt-1 text-[10px] text-red-400">{fieldErrors.phoneNumber}</p>
+              ) : (
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Operator prefixes: 010, 011, 012, 015, 016, 017, 070, 073, 076, 081, 085, 092… + 6–7 digits
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-800 bg-gray-950 p-4">
@@ -260,26 +306,39 @@ export default function KycForm({
                   <input
                     type="text"
                     required
-                    minLength={4}
                     maxLength={34}
                     value={form.payoutAccountNumber}
                     onChange={(e) => setField("payoutAccountNumber", e.target.value)}
-                    placeholder="000 123 456 / +855 12 ..."
-                    className={inputClass}
+                    placeholder="000 123 456 (ABA)"
+                    className={`${inputClass} ${
+                      fieldErrors.payoutAccountNumber ||
+                      validateAccountNumber(form.payoutAccountNumber.trim(), "ABA Bank")
+                        ? "!border-red-500"
+                        : ""
+                    }`}
                   />
+                  {fieldErrors.payoutAccountNumber ? (
+                    <p className="mt-1 text-[10px] text-red-400">{fieldErrors.payoutAccountNumber}</p>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-gray-500">ABA / Bakong accounts: at least 9 digits</p>
+                  )}
                 </div>
                 <div>
-                  <label className={labelClass}>Account holder name</label>
+                  <label className={labelClass}>Account holder name (as on official ID)</label>
                   <input
                     type="text"
                     required
-                    minLength={2}
                     maxLength={80}
                     value={form.payoutAccountName}
                     onChange={(e) => setField("payoutAccountName", e.target.value)}
                     placeholder="e.g. SOK CHAN"
-                    className={inputClass}
+                    className={`${inputClass} ${fieldErrors.payoutAccountName ? "!border-red-500" : ""}`}
                   />
+                  {fieldErrors.payoutAccountName ? (
+                    <p className="mt-1 text-[10px] text-red-400">{fieldErrors.payoutAccountName}</p>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-gray-500">First name + last name, matching your ID</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -322,13 +381,16 @@ export default function KycForm({
                       <input
                         ref={kind === "front" ? frontInputRef : backInputRef}
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/png,image/jpeg"
                         className="hidden"
-                        onChange={(e) => pickDoc(kind, e.target.files?.[0])}
+                        onChange={(e) => {
+                          void pickDoc(kind, e.target.files?.[0]);
+                          e.target.value = ""; // allow re-picking the same file
+                        }}
                       />
                     </label>
                     <p className="mt-1.5 text-[10px] text-gray-500">
-                      {busy ? "Uploading..." : uploadedPath ? "✅ Uploaded" : "PNG/JPG/WebP · ≤5 MB"}
+                      {busy ? "Uploading..." : uploadedPath ? "✅ Uploaded" : "JPG/PNG · 100KB–5MB · ≥300×300 px"}
                     </p>
                   </div>
                 );

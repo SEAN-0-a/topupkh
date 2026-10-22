@@ -29,7 +29,11 @@ export default function LoginForm() {
 
     async function checkExistingSession() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && alive) router.replace("/");
+      if (user && alive) {
+        // Honor ?next=... (e.g. /login?next=/admin/sellers) — the same-since
+        // guard must not dump the user on `/` like the old hardcode did.
+        router.replace(getNextPath());
+      }
     }
     checkExistingSession();
 
@@ -39,7 +43,7 @@ export default function LoginForm() {
         // OAuth callback) both mean "leave /login"; TOKEN_REFRESHED may fire
         // for an already-redirecting user — same action, router dedupes.
         if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session?.user) {
-          router.replace("/");
+          router.replace(getNextPath());
         }
       },
     );

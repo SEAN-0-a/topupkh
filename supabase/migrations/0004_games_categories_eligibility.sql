@@ -26,7 +26,7 @@ $$;
 
 create or replace function public.current_role()
 returns public.user_role
-language plpgsql stable security definer set search_path = public
+language plpgsql stable security definer set search_path = public, pg_temp
 as $$
 declare r public.user_role;
 begin
@@ -39,7 +39,7 @@ $$;
 
 create or replace function public.is_staff()
 returns boolean
-language plpgsql stable security definer set search_path = public
+language plpgsql stable security definer set search_path = public, pg_temp
 as $$
 begin
   return public.current_role() in ('admin', 'support');

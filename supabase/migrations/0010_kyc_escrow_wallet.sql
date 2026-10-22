@@ -130,7 +130,7 @@ create or replace function public.move_escrow_on_order_status()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   proceeds    numeric(12,2);
@@ -302,7 +302,7 @@ returns jsonb
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select to_jsonb(p) || jsonb_build_object(
            'sellers_status',  s.status,
@@ -328,7 +328,7 @@ create or replace function public.submit_seller_kyc(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   uid uuid := auth.uid();
@@ -437,7 +437,7 @@ create or replace function public.review_seller_kyc(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   note text := left(btrim(coalesce(p_note, '')), 500);
@@ -513,7 +513,7 @@ create or replace function public.request_payout(p_amount numeric)
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   uid uuid := auth.uid();
@@ -595,7 +595,7 @@ create or replace function public.review_payout(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   r public.payout_requests%rowtype;
@@ -657,7 +657,7 @@ returns jsonb
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select coalesce(jsonb_agg(to_jsonb(r) order by r.updated_at desc), '[]'::jsonb)
   from (
@@ -691,7 +691,7 @@ returns jsonb
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select coalesce(jsonb_agg(to_jsonb(r) order by r.created_at desc), '[]'::jsonb)
   from (

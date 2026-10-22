@@ -44,7 +44,7 @@ create or replace function public.assert_order_money()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   product_row public.products%rowtype;
@@ -99,7 +99,7 @@ create or replace function public.decrement_stock_on_order()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   product_row public.products%rowtype;
@@ -142,7 +142,7 @@ create or replace function public.submit_payment_claim(p_order_id bigint)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -185,7 +185,7 @@ create or replace function public.confirm_payment(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -229,7 +229,7 @@ create or replace function public.submit_delivery(p_order_id bigint, p_payload t
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -274,7 +274,7 @@ create or replace function public.complete_order(p_order_id bigint)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -337,7 +337,7 @@ create or replace function public.refund_order(p_order_id bigint, p_note text de
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;

@@ -17,6 +17,9 @@ type Step1 = {
   payoutAccountName: string;
 };
 
+/** Pre-filled KYC details (used when REJECTED users edit & re-apply). */
+export type KycInitialDetails = Step1;
+
 const KH_BANKS = ["ABA Bank", "Bakong (KHQR)", "ACLEDA Bank", "Wing Bank", "Cambodia Public Bank", "Canadia Bank", "AFT (ATL)", "Hamkab Bank", "Vattanac Bank"];
 
 /**
@@ -27,20 +30,28 @@ const KH_BANKS = ["ABA Bank", "Bakong (KHQR)", "ACLEDA Bank", "Wing Bank", "Camb
  *            submit then goes through the submit_seller_kyc RPC which
  *            re-validates everything server-side and marks the application
  *            verification_status = 'pending'.
+ * `initialDetails` pre-fills Step 1 with the previously submitted values so
+ * a REJECTED applicant can edit their details and re-submit without retyping.
  */
-export default function KycForm({ userId, initialBankName = "" }: { userId: string; initialBankName?: string }) {
+export default function KycForm({
+  userId,
+  initialDetails,
+}: {
+  userId: string;
+  initialDetails?: KycInitialDetails;
+}) {
   const router = useRouter();
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState<Step1>({
-    sellerType: "individual",
-    shopName: "",
-    phoneNumber: "",
-    payoutBankName: initialBankName || "ABA Bank",
-    payoutAccountNumber: "",
-    payoutAccountName: "",
+    sellerType: initialDetails?.sellerType ?? "individual",
+    shopName: initialDetails?.shopName ?? "",
+    phoneNumber: initialDetails?.phoneNumber ?? "",
+    payoutBankName: initialDetails?.payoutBankName || "ABA Bank",
+    payoutAccountNumber: initialDetails?.payoutAccountNumber ?? "",
+    payoutAccountName: initialDetails?.payoutAccountName ?? "",
   });
   const [frontFile, setFrontFile] = useState<File | null>(null);
   const [frontPreview, setFrontPreview] = useState<string | null>(null);

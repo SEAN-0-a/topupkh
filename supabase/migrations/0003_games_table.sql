@@ -61,7 +61,7 @@ returns public.user_role
 language plpgsql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   r public.user_role;
@@ -81,7 +81,7 @@ returns boolean
 language plpgsql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   return public.current_role() in ('admin', 'support');

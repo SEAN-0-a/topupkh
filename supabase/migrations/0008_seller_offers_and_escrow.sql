@@ -58,7 +58,7 @@ create or replace function public.submit_payment_claim(p_order_id bigint)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -92,7 +92,7 @@ create or replace function public.submit_delivery(p_order_id bigint, p_payload t
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   seller_id_of bigint;
@@ -135,7 +135,7 @@ create or replace function public.complete_order(p_order_id bigint)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;
@@ -198,7 +198,7 @@ create or replace function public.confirm_payment(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   order_row public.orders%rowtype;

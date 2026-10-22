@@ -105,7 +105,7 @@ create or replace function public.promote_first_user_admin()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if not exists (select 1 from public.profiles where role = 'admin') then
@@ -124,7 +124,7 @@ create or replace function public.create_profile_for_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   insert into public.profiles (id)
@@ -145,7 +145,7 @@ returns user_role
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select coalesce((select role from public.profiles where id = auth.uid()), 'buyer'::user_role);
 $$;
@@ -155,7 +155,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select public.current_role() in ('admin', 'support');
 $$;
@@ -164,6 +164,7 @@ $$;
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   new.updated_at := now();
@@ -301,6 +302,7 @@ create index if not exists products_created_idx on public.products (created_at d
 create or replace function public.assert_product_eligible()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 declare
   status_of public.eligibility_status;
@@ -432,7 +434,7 @@ returns numeric(5,4)
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select coalesce(
     (select (value #>> '{}')::numeric from public.platform_settings where key = 'commission_rate'),
@@ -471,6 +473,7 @@ create index if not exists messages_conversation_idx on public.messages (convers
 create or replace function public.assert_message_rate()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   if (select count(*) from public.messages
@@ -491,6 +494,7 @@ create trigger messages_rate_limit
 create or replace function public.assert_message_safe()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   if new.body ~* '(password|session|cookie|\.cookie|sb-[a-z0-9-]+-auth-token|bearer\s+[a-z0-9._-]{20,})' then

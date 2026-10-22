@@ -76,6 +76,12 @@ from public.products p;
 
 notify pgrst, 'reload schema';
 
+-- Admins write audit rows directly from server actions (0008 only let the
+-- security-definer lifecycle RPCs insert; there was no INSERT policy at all).
+drop policy if exists audit_admin_write on public.admin_audit_log;
+create policy audit_admin_write on public.admin_audit_log
+  for insert with check (public.current_role() = 'admin');
+
 select 'migration 0013 OK' as status,
        count(*) filter (where column_name in (
          'game_name', 'original_email', 'open_email_access', 'warranty_days',

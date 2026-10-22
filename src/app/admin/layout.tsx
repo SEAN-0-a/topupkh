@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getUserContext } from "@/lib/auth";
+import AdminTabs from "@/components/admin/AdminTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   console.log(`[admin] access granted: user=${ctx.userId} role=${ctx.profile.role}`);
 
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-gray-950">
+      <AdminTabs />
+      {children}
+    </div>
+  );
 }
 
 function AccessDenied({ role }: { role: string }) {

@@ -11,6 +11,7 @@ export default async function AdminIndexPage() {
 
   const sections = [
     { href: "/admin/sellers", icon: "🛡️", title: "KYC Review", desc: "Approve / reject seller verification + ID documents." },
+    { href: "/admin/products", icon: "📦", title: "Products / Offers", desc: "All listings across sellers — toggle status, remove spam." },
     { href: "/admin/payouts", icon: "💸", title: "Payout Requests", desc: "Confirm external bank transfers or reject & refund." },
     { href: "/admin/escrow", icon: "⚖️", title: "Escrow", desc: "Verify claimed payments (KHQR / ABA statement)." },
     { href: "/admin/orders", icon: "🧾", title: "Orders", desc: "Live marketplace orders." },

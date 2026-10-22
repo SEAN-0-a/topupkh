@@ -137,10 +137,10 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 relative overflow-hidden p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
 
       {/* Main Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-8 space-y-6">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-8 transition-colors duration-200 space-y-6">
 
         {/* Brand Logo */}
         <div className="flex items-center justify-center gap-2 text-2xl font-bold text-slate-900 dark:text-white">
@@ -159,7 +159,7 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => handleOAuthLogin("google")}
-            className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
+            className="w-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
           >
             <span>🌐</span> Sign in with Google
           </button>
@@ -167,16 +167,16 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => handleOAuthLogin("facebook")}
-            className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
+            className="w-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
           >
             <span>📘</span> Continue with Facebook
           </button>
         </div>
 
         {/* Divider */}
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-slate-300 dark:border-slate-700 w-full" />
-          <span className="bg-white dark:bg-slate-900 px-3 text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold absolute">
+        <div className="relative flex py-2 items-center">
+          <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+          <span className="px-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase bg-white dark:bg-slate-900">
             Or
           </span>
         </div>
@@ -191,7 +191,7 @@ export default function LoginForm() {
         {/* Email Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               Email address
             </label>
             <input
@@ -200,12 +200,12 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               Password
             </label>
             <input
@@ -214,7 +214,7 @@ export default function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all"
             />
           </div>
 

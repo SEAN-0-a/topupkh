@@ -7,14 +7,14 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import Avatar from "@/components/Avatar";
 import { computeRank } from "@/lib/rank";
-import type { seller_status, user_role } from "@/lib/db-enums";
+import type { user_role } from "@/lib/db-enums";
 
 type MenuState = {
   displayName: string;
   username: string | null;
   avatarUrl: string | null;
   role: user_role | null;
-  sellerStatus: seller_status | null;
+  verificationStatus: string | null;
   completedSales: number | null;
   balance: number | null;
 };
@@ -24,10 +24,12 @@ const INITIAL: MenuState = {
   username: null,
   avatarUrl: null,
   role: null,
-  sellerStatus: null,
+  verificationStatus: null,
   completedSales: null,
   balance: null,
 };
+
+const isVerifiedSeller = (v: string | null) => v === "approved";
 
 type MenuItem = { icon: string; label: string; href: string };
 
@@ -65,30 +67,33 @@ export default function UserMenu({ user }: { user: User }) {
 
   useEffect(() => {
     let alive = true;
-    setInfo(INITIAL);
 
     async function load() {
-      // Profiles are publicly readable (profile_basic_select), but scope by id
-      // anyway so we always get *this* user's row.
-      const [{ data: profile }, { data: seller }, { data: wallet }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("display_name, username, avatar_url, role")
-          .eq("id", user.id)
-          .maybeSingle(),
-        supabase.from("sellers").select("status, completed_sales").eq("user_id", user.id).maybeSingle(),
-        supabase.from("seller_wallets").select("available_balance").limit(1).maybeSingle(),
-      ]);
+      setInfo(INITIAL);
+      // One definer RPC (migration 0010) returns the caller's profile
+      // (identity + verification status) and wallet balance — sensitive
+      // wallet/verification columns are NOT publicly selectable.
+      const { data: raw } = await supabase.rpc("get_my_seller_profile");
 
       if (!alive) return;
+      const p = (raw as {
+        display_name: string;
+        username: string | null;
+        avatar_url: string | null;
+        role: string | null;
+        verification_status: string | null;
+        available_balance: number;
+        completed_sales: number | null;
+      } | null) ?? null;
+
       setInfo({
-        displayName: profile?.display_name ?? user.email?.split("@")[0] ?? "Player",
-        username: profile?.username ?? null,
-        avatarUrl: profile?.avatar_url ?? null,
-        role: (profile?.role as user_role | null) ?? "buyer",
-        sellerStatus: (seller?.status as seller_status | null) ?? null,
-        completedSales: (seller?.completed_sales as number | null) ?? null,
-        balance: (wallet?.available_balance as number | null) ?? null,
+        displayName: p?.display_name ?? user.email?.split("@")[0] ?? "Player",
+        username: p?.username ?? null,
+        avatarUrl: p?.avatar_url ?? null,
+        role: (p?.role as user_role | null) ?? "buyer",
+        verificationStatus: p?.verification_status ?? "unverified",
+        completedSales: p?.completed_sales ?? null,
+        balance: p ? Number(p.available_balance) : null,
       });
     }
     load();
@@ -98,7 +103,11 @@ export default function UserMenu({ user }: { user: User }) {
     };
   }, [user.id, user.email]);
 
-  const rank = computeRank({ role: info.role ?? "buyer", sellerStatus: info.sellerStatus, completedSales: info.completedSales });
+  const rank = computeRank({
+    role: info.role ?? "buyer",
+    sellerStatus: isVerifiedSeller(info.verificationStatus) ? "approved" : "pending",
+    completedSales: info.completedSales,
+  });
 
   const handleSignOut = useCallback(async () => {
     setSigningOut(true);
@@ -109,6 +118,8 @@ export default function UserMenu({ user }: { user: User }) {
     router.push("/");
   }, [router]);
 
+  const verified = isVerifiedSeller(info.verificationStatus);
+
   const items: MenuItem[] = [
     { icon: "🧾", label: "Orders", href: "/orders" },
     { icon: "📦", label: "Offers", href: "/offers" },
@@ -116,9 +127,12 @@ export default function UserMenu({ user }: { user: User }) {
     { icon: "🎁", label: "Loyalty", href: "/loyalty" },
     { icon: "💼", label: "Wallet", href: "/wallet" },
     {
-      icon: info.sellerStatus === "approved" ? "🏪" : "🏆",
-      label: info.sellerStatus === "approved" ? "Seller dashboard" : "Become a Seller",
-      href: info.sellerStatus === "approved" ? "/seller/dashboard" : "/seller/register",
+      icon: verified ? "🏪" : "🏆",
+      label: verified ? "Seller dashboard" : "Become a Seller",
+      // Unverified users land on the KYC state machine (/seller/verify):
+      // 'unverified' → application form, 'pending' → under review,
+      // 'rejected' → re-apply. Verified sellers go to the dashboard.
+      href: verified ? "/seller/dashboard" : "/seller/verify",
     },
     { icon: "💬", label: "Messages", href: "/messages" },
     { icon: "🔔", label: "Notifications", href: "/notifications" },
@@ -163,7 +177,7 @@ export default function UserMenu({ user }: { user: User }) {
                   <p className="truncate text-[11px] text-gray-400">@{info.username}</p>
                 )}
               </div>
-              {info.sellerStatus === "approved" && (
+              {verified && (
                 <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                   ✓ Verified
                 </span>
@@ -180,8 +194,8 @@ export default function UserMenu({ user }: { user: User }) {
             </div>
           </Link>
 
-          {/* Verification banner */}
-          {info.sellerStatus !== "approved" && (
+          {/* Verification banner — hidden once KYC is approved */}
+          {!isVerifiedSeller(info.verificationStatus) && (
             <Link
               href="/seller/verify"
               onClick={() => setOpen(false)}

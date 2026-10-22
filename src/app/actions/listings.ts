@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, type UserContext } from "@/lib/auth";
 
 export type CreateListingResult =
   | { ok: true; templateId: number; productId: number }
@@ -25,6 +26,11 @@ function slugify(input: string): string {
 
 /**
  * Create a canonical product page + the seller's first offer on it.
+ * - STRICT MARKETPLACE GUARDRAIL: only KYC-verified sellers
+ *   (profiles.verification_status === 'approved', enforced server-side by
+ *   migration 0010's data model) may create listings. Unverified / pending /
+ *   rejected sellers are unauthenticated for listing creation: the action
+ *   redirects to /seller/verify BEFORE any form data is processed.
  * - The browser supplies ONLY display fields; every status/computation is
  *   server-side (pending_review; admin approval still required after this).
  * - The DB eligibility trigger independently rejects prohibited categories.
@@ -45,9 +51,22 @@ export async function createListing(input: {
   refundPolicy: string;
   ownershipNote: string;
 }): Promise<CreateListingResult> {
+  let ctx: UserContext;
   try {
-    const { userId } = await requireRole("seller", "admin");
+    ctx = await requireRole("seller", "admin");
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Unexpected error." };
+  }
+
+  // ---------- STRICT VERIFICATION GUARDRAIL (outside try/catch so redirect
+  // propagates to the browser) ----------
+  if (ctx.profile.verification_status !== "approved") {
+    redirect("/seller/verify?reason=verification_required");
+  }
+
+  try {
     const supabase = await createSupabaseServerClient();
+    const userId = ctx.userId;
 
     // ---------- validate (server-side, never trust the browser) ----------
     if (!input.title || input.title.trim().length < 5 || input.title.trim().length > 120) {
@@ -69,18 +88,15 @@ export async function createListing(input: {
       return { ok: false, message: "Stock must be 0–100,000 (or tick unlimited)." };
     }
 
-    // ---------- seller must exist, be KYC-verified and approved ----------
+    // ---------- seller row must exist (KYC-created) and not be suspended ----------
     const { data: seller } = await supabase
       .from("sellers")
-      .select("id, status, verification_status")
+      .select("id, status")
       .eq("user_id", userId)
-      .single<{ id: number; status: string; verification_status: string }>();
+      .single<{ id: number; status: string }>();
     if (!seller) return { ok: false, message: "Apply as a seller first (→ Seller area)." };
-    if (seller.verification_status !== "approved") {
-      return { ok: false, message: "Verification required to sell — complete KYC at /seller/verify first." };
-    }
-    if (seller.status !== "approved") {
-      return { ok: false, message: `Your seller account is "${seller.status}" — wait for admin approval.` };
+    if (seller.status === "suspended") {
+      return { ok: false, message: "Your seller account is suspended — contact support." };
     }
 
     // ---------- game/category must exist & not be prohibited ----------

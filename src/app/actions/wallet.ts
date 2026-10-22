@@ -16,7 +16,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ActionResultSimple = { ok: true } | { ok: false; message: string };
 
-export type RequestPayoutResult = { ok: true; requestId: number } | { ok: false; message: string };
+export type RequestPayoutResult = { ok: true; requestId: string } | { ok: false; message: string };
 
 function msg(e: unknown): string {
   if (e instanceof Error && e.message) return e.message;
@@ -47,7 +47,7 @@ export async function requestPayout(amount: number): Promise<RequestPayoutResult
     revalidatePath("/wallet");
     revalidatePath("/seller/dashboard");
     revalidatePath("/admin/payouts");
-    return { ok: true, requestId: Number(requestId) };
+    return { ok: true, requestId: String(requestId) };
   } catch (e) {
     return { ok: false, message: msg(e) };
   }
@@ -55,7 +55,7 @@ export async function requestPayout(amount: number): Promise<RequestPayoutResult
 
 /** Admin: confirm the bank transfer was made (approve) or reject + refund. */
 export async function reviewPayout(
-  requestId: number,
+  requestId: string,
   approve: boolean,
   note: string = "",
 ): Promise<ActionResultSimple> {
@@ -87,7 +87,8 @@ export async function reviewPayout(
 
 /**
  * Seller: update payout bank details (ABA/Bakong etc.).
- * Writes the caller's own sellers row (RLS: sellers_self_update).
+ * Writes the caller's own profiles columns (RLS: profile_self_update +
+ * column grants — only these three fields are self-writable).
  */
 export async function updatePayoutDetails(input: {
   bankName: string;
@@ -113,13 +114,13 @@ export async function updatePayoutDetails(input: {
     }
 
     const { error } = await supabase
-      .from("sellers")
+      .from("profiles")
       .update({
         payout_bank_name: bankName,
         payout_account_number: accountNumber,
         payout_account_name: accountName,
       })
-      .eq("user_id", userId);
+      .eq("id", userId);
 
     if (error) {
       if (/row-level security/i.test(error.message)) {

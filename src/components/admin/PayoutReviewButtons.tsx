@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { reviewPayout } from "@/app/actions/wallet";
 
 /**
- * Admin payout row actions: mark the external bank transfer as APPROVED
- * (money already debited at request time), or REJECT (funds auto-return).
+ * Admin payout row actions: mark the external bank transfer as APPROVED (Mark
+ * Paid — money was already debited at request time), or REJECT (held funds
+ * auto-return to the seller's available balance).
  * The note doubles as the bank transfer reference on approval.
  */
-export default function PayoutReviewButtons({ requestId }: { requestId: number }) {
+export default function PayoutReviewButtons({ requestId }: { requestId: string }) {
   const router = useRouter();
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");

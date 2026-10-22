@@ -13,16 +13,40 @@ export default function Navbar() {
   const pathname = usePathname();
   const { lang, toggleLanguage, t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      // Only KYC-verified sellers see the "+ New Offer" listing trigger
+      // (strict marketplace guardrail — unverified users go to /seller/verify).
+      if (user && !user.is_anonymous) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("verification_status")
+          .eq("id", user.id)
+          .maybeSingle<{ verification_status: string }>();
+        setVerified(profile?.verification_status === "approved");
+      } else {
+        setVerified(false);
+      }
     }
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user && !session.user.is_anonymous) {
+        supabase
+          .from("profiles")
+          .select("verification_status")
+          .eq("id", session.user.id)
+          .maybeSingle<{ verification_status: string }>()
+          .then(({ data: profile }) => setVerified(profile?.verification_status === "approved"));
+      } else {
+        setVerified(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -61,12 +85,21 @@ export default function Navbar() {
             >
               {t("Sell", "លក់ Roblox")}
             </Link>
-            <Link
-              href="/sell/new"
-              className={pathname === "/sell/new" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
-            >
-              {t("+ New Offer", "+ បង្ហោះលក់")}
-            </Link>
+            {verified ? (
+              <Link
+                href="/sell/new"
+                className={pathname === "/sell/new" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
+              >
+                {t("+ New Offer", "+ បង្ហោះលក់")}
+              </Link>
+            ) : (
+              <Link
+                href={user ? "/seller/verify" : "/login?next=/seller/verify"}
+                className="text-gray-400 hover:text-emerald-400"
+              >
+                {t("🔒 Verify to sell", "🔒 ផ្ទៀងផ្ទាត់ដើម្បីលក់")}
+              </Link>
+            )}
             <Link
               href="/seller/dashboard"
               className={pathname === "/seller/dashboard" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}

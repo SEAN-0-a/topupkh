@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import PayoutReviewButtons from "@/components/admin/PayoutReviewButtons";
-import { getUserContext, isStaff } from "@/lib/auth";
+import { getUserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type PayoutRow = {
-  id: number;
-  seller_id: number;
+  id: string;
+  seller_id: string;
   amount: number;
   bank_name: string;
   account_number: string;
   account_name: string;
-  status: string;
+  status_text: string;
   review_note: string | null;
   reviewed_at: string | null;
   created_at: string;
-  sellers?: { display_name: string } | null;
+  seller_display_name: string | null;
 };
 
 const CHIP: Record<string, string> = {
@@ -27,26 +27,23 @@ const CHIP: Record<string, string> = {
 };
 
 /**
- * /admin/payouts — payout requests tab.
- * Requests were already DEBITED from the seller's available_balance at
- * request time (request_payout definer function), so "approved" here only
- * confirms the external ABA/Bakong transfer is made; "rejected" auto-returns
- * the held funds to the seller (definer function handles the refund).
+ * /admin/payouts — payout requests tab. ADMIN ONLY (matches review_payout's
+ * definer check). Rows are served through the admin_list_payouts() SECURITY
+ * DEFINER choke point. Requests were already DEBITED from the seller's
+ * available_balance at request time (request_payout definer function), so
+ * "Mark Paid" (approve) only confirms the external ABA/Bakong transfer; the
+ * "Reject" button auto-returns the held funds to the seller.
  */
 export default async function AdminPayoutsPage() {
   const ctx = await getUserContext();
-  if (!ctx || !isStaff(ctx.profile)) redirect("/login?next=/admin/payouts");
+  if (!ctx || ctx.profile.role !== "admin") redirect("/login?next=/admin/payouts");
 
   const supabase = await createSupabaseServerClient();
-  const { data: rawRows } = await supabase
-    .from("payout_requests")
-    .select("*, sellers(display_name)")
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const { data: rawRows } = await supabase.rpc("admin_list_payouts");
 
-  const rows = (rawRows ?? []) as PayoutRow[];
-  const pending = rows.filter((r) => r.status === "pending");
-  const history = rows.filter((r) => r.status !== "pending");
+  const rows = ((rawRows as PayoutRow[] | null) ?? []);
+  const pending = rows.filter((r) => r.status_text === "pending");
+  const history = rows.filter((r) => r.status_text !== "pending");
 
   const totalPendingUsd = pending.reduce((sum, r) => sum + Number(r.amount), 0);
 
@@ -75,14 +72,14 @@ export default async function AdminPayoutsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-white">
-                    #{r.id} · ${Number(r.amount).toFixed(2)} USD
+                    ${Number(r.amount).toFixed(2)} USD
                   </p>
                   <p className="mt-0.5 text-[11px] text-gray-400">
                     🏦 {r.bank_name} · {r.account_number}
                   </p>
                   <p className="mt-0.5 text-[11px] text-gray-500">
                     ({r.account_name}) · requested{" "}
-                    {new Date(r.created_at).toLocaleString()} · {r.sellers?.display_name ?? "seller"}
+                    {new Date(r.created_at).toLocaleString()} · {r.seller_display_name ?? "seller"}
                   </p>
                 </div>
                 <PayoutReviewButtons requestId={r.id} />
@@ -102,18 +99,18 @@ export default async function AdminPayoutsPage() {
                 >
                   <div>
                     <p className="font-bold text-white">
-                      #{r.id} · ${Number(r.amount).toFixed(2)} → {r.bank_name} ({r.account_number})
+                      ${Number(r.amount).toFixed(2)} → {r.bank_name} ({r.account_number})
                     </p>
                     <p className="text-[10px] text-gray-500">
-                      {r.sellers?.display_name ?? "seller"} ·{" "}
+                      {r.seller_display_name ?? "seller"} ·{" "}
                       {r.reviewed_at ? new Date(r.reviewed_at).toLocaleString() : "—"}
                       {r.review_note ? ` · ${r.review_note}` : ""}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${CHIP[r.status] ?? CHIP.pending}`}
+                    className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${CHIP[r.status_text] ?? CHIP.pending}`}
                   >
-                    {r.status}
+                    {r.status_text}
                   </span>
                 </div>
               ))}

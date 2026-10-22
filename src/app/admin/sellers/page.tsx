@@ -1,59 +1,48 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import KycReviewButtons from "@/components/admin/KycReviewButtons";
-import { getUserContext, isStaff } from "@/lib/auth";
+import { getUserContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type SellerRow = {
-  id: number;
-  user_id: string;
-  display_name: string;
-  seller_type: string;
-  shop_name: string;
-  phone_number: string;
-  payout_bank_name: string;
-  payout_account_number: string;
-  payout_account_name: string;
-  id_document_front_url: string | null;
-  id_document_back_url: string | null;
-  verification_status: string;
-  status: string;
-  available_balance: number;
-  pending_escrow_balance: number;
-  completed_sales: number;
-};
-
-const KYC_CHIP: Record<string, string> = {
-  pending: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-  rejected: "border-red-500/40 bg-red-500/10 text-red-400",
-  unverified: "border-gray-500/40 bg-gray-500/10 text-gray-400",
-};
-
 /**
- * /admin/sellers — KYC review tab.
- * Pending applications first; ID documents are viewed via short-lived SIGNED
- * URLs created server-side (the private seller-docs bucket never exposes
- * raw paths to the browser).
+ * /admin/sellers — KYC review tab. ADMIN ONLY (matches review_seller_kyc's
+ * definer check; support staff can view but a raw admin is required to act).
+ * Applications are the profiles.verification_status='pending' rows, served
+ * through the admin_list_kyc_applications() SECURITY DEFINER choke point (the
+ * sensitive KYC columns are NOT publicly selectable). ID documents are viewed
+ * via short-lived SIGNED URLs created server-side — the private seller-docs
+ * bucket never exposes raw paths to the browser.
  */
 export default async function AdminSellersPage() {
   const ctx = await getUserContext();
-  if (!ctx || !isStaff(ctx.profile)) redirect("/login?next=/admin/sellers");
+  if (!ctx || ctx.profile.role !== "admin") redirect("/login?next=/admin/sellers");
 
   const supabase = await createSupabaseServerClient();
-  const { data: rawRows } = await supabase
-    .from("sellers")
-    .select(
-      "id, user_id, display_name, seller_type, shop_name, phone_number, payout_bank_name, payout_account_number, payout_account_name, id_document_front_url, id_document_back_url, verification_status, status, available_balance, pending_escrow_balance, completed_sales",
-    )
-    .order("updated_at", { ascending: false })
-    .limit(100);
+  const { data: rawRows } = await supabase.rpc("admin_list_kyc_applications");
 
-  const rows = (rawRows ?? []) as SellerRow[];
-  const pending = rows.filter((r) => r.verification_status === "pending");
-  const others = rows.filter((r) => r.verification_status !== "pending");
+  type AdminKycRow = {
+    user_id: string;
+    display_name: string;
+    seller_type_text: string;
+    shop_name: string | null;
+    phone_number: string | null;
+    payout_bank_name: string | null;
+    payout_account_number: string | null;
+    payout_account_name: string | null;
+    id_document_front_url: string | null;
+    id_document_back_url: string | null;
+    verification_status_text: string;
+    verification_note: string | null;
+    available_balance: number;
+    pending_escrow_balance: number;
+    seller_status_text: string | null;
+    completed_sales: number | null;
+  };
+  const rows = ((rawRows as AdminKycRow[] | null) ?? []);
+  const pending = rows.filter((r) => r.verification_status_text === "pending");
+  const others = rows.filter((r) => r.verification_status_text !== "pending");
 
   // short-lived signed URLs for pending applications' documents
   const signedUrls = new Map<string, string>();
@@ -67,42 +56,48 @@ export default async function AdminSellersPage() {
     }
   }
 
-  function renderRow(r: SellerRow) {
+  function renderRow(r: AdminKycRow) {
     return (
-      <div key={r.id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
+      <div key={r.user_id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-white">{r.shop_name}</p>
+            <p className="text-xs font-bold text-white">{r.shop_name || "(no shop name)"}</p>
             <p className="mt-0.5 text-[11px] text-gray-400">
-              {r.display_name} · <span className="capitalize">{r.seller_type}</span> · 📞 {r.phone_number || "—"}
+              {r.display_name} · <span className="capitalize">{r.seller_type_text}</span> · 📞 {r.phone_number || "—"}
             </p>
             <p className="mt-0.5 text-[11px] text-gray-500">
-              Seller wallet: ${Number(r.available_balance).toFixed(2)} available ·{" "}
-              ${Number(r.pending_escrow_balance).toFixed(2)} in escrow · {r.completed_sales} sales
+              Wallet: ${Number(r.available_balance).toFixed(2)} available ·{" "}
+              ${Number(r.pending_escrow_balance).toFixed(2)} in escrow · {r.completed_sales ?? 0} sales
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <span
-              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${KYC_CHIP[r.verification_status] ?? KYC_CHIP.unverified}`}
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${
+                KYC_CHIP[r.verification_status_text] ?? KYC_CHIP.unverified
+              }`}
             >
-              KYC: {r.verification_status}
+              KYC: {r.verification_status_text}
             </span>
-            {r.verification_status === "pending" ? (
-              <KycReviewButtons sellerId={r.id} />
+            {r.verification_status_text === "pending" ? (
+              <KycReviewButtons sellerUserId={r.user_id} />
             ) : (
-              r.status !== "approved" && (
-                <span className="text-[10px] text-gray-500 capitalize">account: {r.status}</span>
+              r.seller_status_text && r.seller_status_text !== "approved" && (
+                <span className="text-[10px] text-gray-500 capitalize">account: {r.seller_status_text}</span>
               )
             )}
           </div>
         </div>
+
+        {r.verification_status_text === "rejected" && r.verification_note && (
+          <p className="mt-2 text-[10px] text-red-300/80">Last rejection note: {r.verification_note}</p>
+        )}
 
         {/* payout destination + documents (pending only) */}
         <p className="mt-2 text-[11px] text-gray-400">
           🏦 {r.payout_bank_name || "—"} · {r.payout_account_number || "—"} · ({r.payout_account_name || "—"})
         </p>
 
-        {r.verification_status === "pending" && (
+        {r.verification_status_text === "pending" && (
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {([r.id_document_front_url, r.id_document_back_url] as const).map((path, i) => (
               <div key={i} className="rounded-xl border border-gray-800 bg-gray-950 p-3 text-center">
@@ -165,3 +160,10 @@ export default async function AdminSellersPage() {
     </div>
   );
 }
+
+const KYC_CHIP: Record<string, string> = {
+  pending: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+  rejected: "border-red-500/40 bg-red-500/10 text-red-400",
+  unverified: "border-gray-500/40 bg-gray-500/10 text-gray-400",
+};

@@ -11,9 +11,9 @@ export type order_status =
   | "refunded"
   | "disputed";
 export type seller_status = "pending" | "approved" | "suspended" | "rejected";
-export type seller_type = "individual" | "company";
-export type seller_verification_status = "unverified" | "pending" | "approved" | "rejected";
-export type payout_status = "pending" | "approved" | "rejected";
+export type seller_type_enum = "individual" | "company";
+export type verification_status_type = "unverified" | "pending" | "approved" | "rejected";
+export type payout_status_enum = "pending" | "approved" | "rejected";
 export type ticket_status = "open" | "in_progress" | "resolved" | "closed";
 export type ticket_category =
   | "payment_issue"

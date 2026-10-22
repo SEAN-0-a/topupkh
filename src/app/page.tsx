@@ -66,7 +66,7 @@ export default async function HomePage() {
             Browse Marketplace
           </Link>
           <Link
-            href="/sell"
+            href="/seller/verify"
             className="rounded-2xl border border-gray-700 bg-gray-900 px-6 py-2.5 text-sm font-semibold hover:border-emerald-500"
           >
             Become a Seller

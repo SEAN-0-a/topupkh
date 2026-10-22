@@ -11,7 +11,6 @@ type Props = {
   categories: Pick<ProductCategory, "id" | "name" | "slug" | "stock_model">[];
   sellerStatus: string | null;
 };
-
 const DELIVERY_OPTIONS = [
   { value: "in_game", label: "Delivered in game" },
   { value: "instructions", label: "Guided instructions" },
@@ -78,11 +77,11 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   if (sellerStatus === null) {
     return (
       <Notice>
-        You don&apos;t have a seller account yet.{" "}
-        <Link href="/sell" className="text-emerald-400">
-          Apply here
+        Setting up your seller account… if this stays empty, complete your{" "}
+        <Link href="/seller/verify" className="text-emerald-400">
+          KYC verification
         </Link>{" "}
-        — after admin approval you can list offers.
+        first — it creates your seller record.
       </Notice>
     );
   }
@@ -90,8 +89,8 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   if (sellerStatus !== "approved") {
     return (
       <Notice>
-        Your seller application is <b>{sellerStatus}</b>. You can list offers once an admin approves
-        you.
+        Your seller record is <b>{sellerStatus}</b>. KYC verification is complete — offers unlock
+        as soon as your seller account is approved.
       </Notice>
     );
   }

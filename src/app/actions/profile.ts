@@ -80,7 +80,9 @@ export async function updateProfile(input: {
       .from("profiles")
       .update(patch)
       .eq("id", userId)
-      .select("*")
+      .select(
+        "id, display_name, username, avatar_url, locale, role, is_banned, created_at, updated_at, seller_type, shop_name, verification_status",
+      )
       .single<Profile>();
 
     if (error) {

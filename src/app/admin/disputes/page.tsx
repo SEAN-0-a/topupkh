@@ -79,44 +79,26 @@ export default function AdminDisputesPage() {
 
     setActionLoading(order.id);
 
-    const totalAmount = order.amount ?? order.total_price ?? order.price ?? 0;
-    const sellerPayout = totalAmount * 0.93; // 7% fee retained
-
     try {
-      // 1. Set status to completed
+      // Setting the order to 'completed' fires the orders_escrow_ledger
+      // trigger (migration 0010) which moves the escrow into the seller's
+      // available_balance on profiles. NEVER write wallet balances manually
+      // here — that used to double-credit the seller.
       await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
 
-      // 2. Deposit into seller wallet
-      const { data: walletData } = await supabase
-        .from("seller_wallets")
-        .select("*")
-        .eq("user_id", order.seller_id)
-        .single();
-
-      if (walletData) {
-        await supabase
-          .from("seller_wallets")
-          .update({
-            available_balance: (walletData.available_balance || 0) + sellerPayout,
-            pending_escrow: Math.max(0, (walletData.pending_escrow || 0) - totalAmount),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", order.seller_id);
-      }
-
-      // 3. Post system resolution in trade chat
+      // Post system resolution in trade chat
       await supabase.from("order_messages").insert([
         {
           order_id: order.id,
           sender_id: order.seller_id,
-          message: `⚖️ ADMIN VERDICT: Dispute resolved in favor of the SELLER. Released $${sellerPayout.toFixed(2)} USD to seller wallet.`,
+          message: `⚖️ ADMIN VERDICT: Dispute resolved in favor of the SELLER. Escrow funds released to seller wallet.`,
           is_support: true,
         },
       ]);
 
       setDisputes((prev) => prev.filter((d) => d.id !== order.id));
       alert(`Order #${order.id} resolved and released to seller.`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error releasing funds:", err);
       alert("Failed to release funds.");
     } finally {

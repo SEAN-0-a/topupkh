@@ -21,11 +21,11 @@ export default async function SellerOrdersPage() {
   if (!seller) {
     return (
       <Notice>
-        You don&apos;t have a seller account yet. Apply at{" "}
-        <Link href="/sell" className="text-emerald-400">
-          /sell
+        You don&apos;t have a seller account yet. Complete your{" "}
+        <Link href="/seller/verify" className="text-emerald-400">
+          KYC verification
         </Link>{" "}
-        — after admin approval you can list products here.
+        first — offers and orders unlock after verification.
       </Notice>
     );
   }

@@ -34,9 +34,12 @@ genuinely supports separated marketplace funds — otherwise present it as
    requirements — confirm in writing.
 2. In `platform_settings`, keep `min_payout_usd = 20` until launch economics
    are known.
-3. Payout flow exists as **records only** for now: seller requests → admin
-   reviews → admin executes the transfer in ABA/Bakong manually → admin stores
-   the **bank reference** in `payouts` → ledger gets a `payout` entry.
+3. Payout flow is **implemented** (migration 0010): verified seller requests
+   (`request_payout()` debits `available_balance` atomically) → request row in
+   `payout_requests` → admin reviews at /admin/payouts → admin executes the
+   transfer in ABA/Bakong manually → "Mark Paid" (`review_payout()` stores the
+   bank reference in `review_note`) → ledger gets a `payout` entry. Rejecting
+   a request automatically refunds the held amount to the seller balance.
 4. Only after step 1 is answered and a test payout has landed in a real bank
    account, consider automations (ABA PayWay payout endpoints, etc.).
 
@@ -44,7 +47,10 @@ genuinely supports separated marketplace funds — otherwise present it as
 
 - No "escrow service" wording unless the arrangement legally is one.
 - No "funds are protected" wording beyond what your provider contract grants.
-- Bank details shown to the seller only (RLS enforced), never to other sellers.
+- Bank details are stored on the seller's own `profiles` row (migration 0010);
+  they are only readable by the seller and admins via SECURITY DEFINER choke
+  points (`get_my_seller_profile` / `admin_list_kyc_applications`) — column
+  privileges make them unselectable through plain PostgREST, never to other sellers.
 - Never display API keys, or another seller's payout data.
 
 ## Revenue experiments for later (stage 8+)

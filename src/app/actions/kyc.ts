@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { seller_type } from "@/lib/db-enums";
+import type { seller_type_enum } from "@/lib/db-enums";
 
 /**
  * Seller KYC (verification) server actions.
@@ -17,7 +17,7 @@ import type { seller_type } from "@/lib/db-enums";
 
 export type ActionResultSimple = { ok: true } | { ok: false; message: string };
 
-const SELLER_TYPES: readonly seller_type[] = ["individual", "company"];
+const SELLER_TYPES: readonly seller_type_enum[] = ["individual", "company"];
 
 /** Library of EPS/PG error codes mapped to beginner-friendly messages. */
 function msg(e: unknown): string {
@@ -55,7 +55,7 @@ export async function submitSellerKyc(input: {
     const { userId } = await requireUser();
     const supabase = await createSupabaseServerClient();
 
-    if (!SELLER_TYPES.includes(input.sellerType as seller_type)) {
+    if (!SELLER_TYPES.includes(input.sellerType as seller_type_enum)) {
       return { ok: false, message: "Select Individual or Company." };
     }
 
@@ -86,7 +86,7 @@ export async function submitSellerKyc(input: {
 
 /** Admin: approve or reject a pending KYC application. */
 export async function reviewSellerKyc(
-  sellerId: number,
+  sellerUserId: string,
   approve: boolean,
   note: string = "",
 ): Promise<ActionResultSimple> {
@@ -100,7 +100,7 @@ export async function reviewSellerKyc(
       : (trimmedNote === "" ? "Please review your documents and re-apply." : trimmedNote).slice(0, 500);
 
     const { error } = await supabase.rpc("review_seller_kyc", {
-      p_seller_id: sellerId,
+      p_user_id: sellerUserId,
       p_approve: approve,
       p_note: finalNote,
     });

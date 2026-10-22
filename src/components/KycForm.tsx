@@ -17,7 +17,7 @@ type Step1 = {
   payoutAccountName: string;
 };
 
-const KH_BANKS = ["ABA Bank", "ACLEDA Bank", "Wing Bank", "Cambodia Public Bank", "Canadia Bank", "AFT (ATL)", "Hamkab Bank", "Vattanac Bank"];
+const KH_BANKS = ["ABA Bank", "Bakong (KHQR)", "ACLEDA Bank", "Wing Bank", "Cambodia Public Bank", "Canadia Bank", "AFT (ATL)", "Hamkab Bank", "Vattanac Bank"];
 
 /**
  * Multi-step seller KYC (Steps 1+2 of the verification spec):

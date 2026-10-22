@@ -29,10 +29,13 @@ const STATUS_CHIP: Record<product_status, string> = {
  * /offers — the signed-in seller's own offers (public.products where the row
  * is owned by their sellers.id). Sellers can read their own rows regardless of
  * review status (products_read RLS), buyers are not a seller yet.
+ * The "+ New offer" trigger is only enabled for KYC-verified sellers.
  */
 export default async function OffersPage() {
   const ctx = await getUserContext();
   if (!ctx) redirect("/login?next=/offers");
+
+  const canSell = ctx.profile.verification_status === "approved";
 
   const supabase = await createSupabaseServerClient();
   const { data: seller } = await supabase
@@ -58,12 +61,21 @@ export default async function OffersPage() {
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold text-white">My offers</h1>
-          <Link
-            href="/seller/listings/new"
-            className="rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-bold text-black transition-all hover:bg-emerald-400"
-          >
-            + New offer
-          </Link>
+          {canSell ? (
+            <Link
+              href="/seller/listings/new"
+              className="rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-bold text-black transition-all hover:bg-emerald-400"
+            >
+              + New offer
+            </Link>
+          ) : (
+            <Link
+              href="/seller/verify"
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-300 transition-all hover:bg-amber-500/20"
+            >
+              🔒 Verify to sell
+            </Link>
+          )}
         </div>
 
         {!seller && (

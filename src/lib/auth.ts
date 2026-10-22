@@ -10,6 +10,10 @@ export type UserContext = {
  * Returns the signed-in user's id + profile, or null.
  * Every Server Action / Route Handler MUST call this (or requireRole)
  * rather than trusting anything the browser sends.
+ *
+ * NOTE: profiles are read through the safe public column grant (migration
+ * 0010) — selecting `*` would fail with `permission denied`; sensitive
+ * KYC/wallet columns are served via the get_my_seller_profile() definer RPC.
  */
 export async function getUserContext(): Promise<UserContext | null> {
   const supabase = await createSupabaseServerClient();
@@ -21,13 +25,19 @@ export async function getUserContext(): Promise<UserContext | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(
+      "id, display_name, username, avatar_url, locale, role, is_banned, created_at, updated_at, seller_type, shop_name, verification_status",
+    )
     .eq("id", user.id)
     .single<Profile>();
 
   if (!profile || profile.is_banned) return null;
 
-  return { userId: user.id, profile };
+  // fill the verification default if the column read returns null
+  return {
+    userId: user.id,
+    profile: { ...profile, verification_status: profile.verification_status ?? "unverified" },
+  };
 }
 
 /** Throws a plain error the UI can show when signed out. */

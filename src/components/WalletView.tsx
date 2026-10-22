@@ -6,29 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
 import { requestPayout, updatePayoutDetails } from "@/app/actions/wallet";
-import type { payout_status } from "@/lib/db-enums";
-
-type SellerWalletRow = {
-  id: number;
-  verification_status: string;
-  status: string;
-  available_balance: number;
-  pending_escrow_balance: number;
-  payout_bank_name: string;
-  payout_account_number: string;
-  payout_account_name: string;
-};
-
-type PayoutRow = {
-  id: number;
-  amount: number;
-  bank_name: string;
-  account_number: string;
-  account_name: string;
-  status: payout_status | string;
-  review_note: string | null;
-  created_at: string;
-};
+import type { SellerKycProfile, PayoutRequestRow } from "@/lib/types";
 
 const STATUS_CHIP: Record<string, string> = {
   approved:
@@ -39,15 +17,18 @@ const STATUS_CHIP: Record<string, string> = {
 
 /**
  * Interactive wallet UI. The parent server page (/wallet) has already verified
- * the session and passes the userId — no client-side auth redirect needed.
+ * the session and passes the userId. Balances + bank details + verification
+ * come from the get_my_seller_profile() SECURITY DEFINER RPC (migration 0010);
+ * withdrawal history is the caller's own payout_requests rows (RLS
+ * seller_id = auth.uid()). Verified sellers can request an atomic payout.
  */
 export default function WalletView({ userId }: { userId: string }) {
   const router = useRouter();
   const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
-  const [seller, setSeller] = useState<SellerWalletRow | null>(null);
-  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
+  const [seller, setSeller] = useState<SellerKycProfile | null>(null);
+  const [payouts, setPayouts] = useState<PayoutRequestRow[]>([]);
 
   // payout modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,29 +40,31 @@ export default function WalletView({ userId }: { userId: string }) {
   const [savingBank, setSavingBank] = useState(false);
   const [bankError, setBankError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      const { data: sellerData } = await supabase
-        .from("sellers")
-        .select(
-          "id, verification_status, status, available_balance, pending_escrow_balance, payout_bank_name, payout_account_number, payout_account_name",
-        )
-        .eq("user_id", userId)
-        .maybeSingle();
+  async function loadHistory(uid: string) {
+    const { data } = await supabase
+      .from("payout_requests")
+      .select("id, seller_id, amount, bank_name, account_number, account_name, status, review_note, reviewed_at, created_at")
+      .eq("seller_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setPayouts(data as PayoutRequestRow[]);
+  }
 
-      if (sellerData) {
-        setSeller(sellerData as SellerWalletRow);
-        const { data: payoutData } = await supabase
-          .from("payout_requests")
-          .select("*")
-          .eq("seller_id", (sellerData as { id: number }).id)
-          .order("created_at", { ascending: false })
-          .limit(50);
-        if (payoutData) setPayouts(payoutData as PayoutRow[]);
-      }
-      setLoading(false);
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      // definer RPC: full own profile incl. balances + bank details
+      const { data: raw } = await supabase.rpc("get_my_seller_profile");
+      const profile = (raw as SellerKycProfile | null) ?? null;
+      if (!alive) return;
+      setSeller(profile);
+      if (profile) await loadHistory(userId);
+      if (alive) setLoading(false);
     }
     load();
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   const available = seller ? Number(seller.available_balance) : 0;
@@ -103,10 +86,10 @@ export default function WalletView({ userId }: { userId: string }) {
           <p className="text-4xl">💼</p>
           <h1 className="mt-2 text-sm font-bold text-white">Wallet</h1>
           <p className="mt-2 text-xs text-gray-400">
-            You don&apos;t have a seller account yet — wallet balances belong to verified sellers.
+            Your escrow wallet lives here once your account is fully set up.
           </p>
           <Link
-            href="/seller/register"
+            href="/seller/verify"
             className="mt-5 inline-block rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-black transition-all hover:bg-emerald-400"
           >
             🏆 Become a Seller
@@ -116,8 +99,8 @@ export default function WalletView({ userId }: { userId: string }) {
     );
   }
 
-  function afterPayout(newAvailable: number) {
-    setSeller((prev) => (prev ? { ...prev, available_balance: newAvailable } : prev));
+  function setWalletField<K extends keyof SellerKycProfile>(key: K, value: SellerKycProfile[K]) {
+    setSeller((p) => (p ? { ...p, [key]: value } : p));
   }
 
   async function handleRequestPayout(e: React.FormEvent) {
@@ -132,17 +115,10 @@ export default function WalletView({ userId }: { userId: string }) {
     const res = await requestPayout(n);
     setRequesting(false);
     if (res.ok) {
-      afterPayout(available - n);
+      setWalletField("available_balance", available - n);
       setModalOpen(false);
       setAmount("");
-      // refresh history
-      const { data } = await supabase
-        .from("payout_requests")
-        .select("*")
-        .eq("seller_id", seller?.id ?? -1)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (data) setPayouts(data as PayoutRow[]);
+      await loadHistory(userId);
       router.refresh();
     } else {
       setErrors(res.message);
@@ -155,9 +131,9 @@ export default function WalletView({ userId }: { userId: string }) {
     setSavingBank(true);
     setBankError(null);
     const res = await updatePayoutDetails({
-      bankName: seller.payout_bank_name,
-      accountNumber: seller.payout_account_number,
-      accountName: seller.payout_account_name,
+      bankName: seller.payout_bank_name ?? "",
+      accountNumber: seller.payout_account_number ?? "",
+      accountName: seller.payout_account_name ?? "",
     });
     setSavingBank(false);
     if (!res.ok) setBankError(res.message);
@@ -219,8 +195,8 @@ export default function WalletView({ userId }: { userId: string }) {
                 required
                 minLength={2}
                 maxLength={60}
-                value={seller.payout_bank_name}
-                onChange={(e) => setSeller((p) => (p ? { ...p, payout_bank_name: e.target.value } : p))}
+                value={seller.payout_bank_name ?? ""}
+                onChange={(e) => setWalletField("payout_bank_name", e.target.value)}
                 placeholder="ABA Bank"
                 className={bankInput}
               />
@@ -229,10 +205,8 @@ export default function WalletView({ userId }: { userId: string }) {
                 required
                 minLength={4}
                 maxLength={34}
-                value={seller.payout_account_number}
-                onChange={(e) =>
-                  setSeller((p) => (p ? { ...p, payout_account_number: e.target.value } : p))
-                }
+                value={seller.payout_account_number ?? ""}
+                onChange={(e) => setWalletField("payout_account_number", e.target.value)}
                 placeholder="Account number / Bakong phone"
                 className={bankInput}
               />
@@ -241,10 +215,8 @@ export default function WalletView({ userId }: { userId: string }) {
                 required
                 minLength={2}
                 maxLength={80}
-                value={seller.payout_account_name}
-                onChange={(e) =>
-                  setSeller((p) => (p ? { ...p, payout_account_name: e.target.value } : p))
-                }
+                value={seller.payout_account_name ?? ""}
+                onChange={(e) => setWalletField("payout_account_name", e.target.value)}
                 placeholder="Account holder name"
                 className={bankInput}
               />
@@ -286,7 +258,7 @@ export default function WalletView({ userId }: { userId: string }) {
           </div>
         </div>
 
-        {/* Payout history */}
+        {/* Withdrawal history table */}
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
           <h2 className="text-sm font-bold text-emerald-400">
             {t("📜 Withdrawal history", "📜 ប្រវត្តិដកប្រាក់")}
@@ -296,33 +268,41 @@ export default function WalletView({ userId }: { userId: string }) {
               {t("No withdrawal requests yet.", "មិនទាន់មានប្រវត្តិដកប្រាក់")}
             </p>
           ) : (
-            <div className="mt-3 space-y-3">
-              {payouts.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between border-b border-gray-800 pb-3 text-xs"
-                >
-                  <div>
-                    <p className="font-bold text-white">${Number(p.amount).toFixed(2)} USD</p>
-                    <p className="text-[10px] text-gray-400">
-                      {p.account_name} ({p.account_number}) · {p.bank_name}
-                    </p>
-                    {p.review_note && <p className="text-[10px] text-gray-500">Note: {p.review_note}</p>}
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className={`rounded-md px-2.5 py-1 text-[10px] font-bold capitalize ${
-                        STATUS_CHIP[p.status] ?? STATUS_CHIP.pending
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                    <span className="mt-1 block text-[9px] text-gray-500">
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-gray-800 text-[10px] uppercase tracking-wide text-gray-500">
+                    <th className="py-2 pr-3 font-semibold">Amount</th>
+                    <th className="py-2 pr-3 font-semibold">Destination</th>
+                    <th className="py-2 pr-3 font-semibold">Admin note</th>
+                    <th className="py-2 pr-3 font-semibold">Status</th>
+                    <th className="py-2 font-semibold">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payouts.map((p) => (
+                    <tr key={p.id} className="border-b border-gray-800/60 align-top">
+                      <td className="py-3 pr-3 font-bold text-white">${Number(p.amount).toFixed(2)} USD</td>
+                      <td className="py-3 pr-3 text-[10px] text-gray-400">
+                        {p.account_name} ({p.account_number}) · {p.bank_name}
+                      </td>
+                      <td className="py-3 pr-3 text-[10px] text-gray-500">{p.review_note ?? "—"}</td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold capitalize ${
+                            STATUS_CHIP[p.status] ?? STATUS_CHIP.pending
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-[10px] text-gray-500">
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

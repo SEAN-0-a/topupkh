@@ -6,9 +6,9 @@ import { reviewSellerKyc } from "@/app/actions/kyc";
 
 /**
  * Admin KYC row actions: Approve / Reject. A short note is required on
- * rejection (shown to the seller); optional on approval.
+ * rejection (shown to the seller on /seller/verify); optional on approval.
  */
-export default function KycReviewButtons({ sellerId }: { sellerId: number }) {
+export default function KycReviewButtons({ sellerUserId }: { sellerUserId: string }) {
   const router = useRouter();
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -18,7 +18,7 @@ export default function KycReviewButtons({ sellerId }: { sellerId: number }) {
   async function act(approve: boolean) {
     setBusy(approve ? "approve" : "reject");
     setError(null);
-    const res = await reviewSellerKyc(sellerId, approve, note.trim());
+    const res = await reviewSellerKyc(sellerUserId, approve, note.trim());
     setBusy(null);
     if (res.ok) {
       setNoteOpen(false);

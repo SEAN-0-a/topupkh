@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getUserContext } from "@/lib/auth";
 import { listGames, listTemplates, listActiveCategories } from "@/lib/catalog";
 import type { TemplateSummary } from "@/lib/catalog";
 
@@ -15,6 +16,20 @@ export default async function OfferGroupsPage({ params }: Props) {
   const game = games.find((g) => g.slug === gameSlug);
   const category = categories.find((c) => c.slug === categorySlug);
   if (!game || !category) notFound();
+
+  // Strict marketplace guardrail: "List an offer" is only shown to KYC-verified
+  // sellers; everyone else gets a disabled-style route to /seller/verify.
+  const ctx = await getUserContext();
+  const canSell = ctx?.profile.verification_status === "approved";
+  const sellHref = canSell
+    ? "/sell/new"
+    : ctx
+      ? "/seller/verify"
+      : "/login?next=/seller/verify";
+  const sellLabel = canSell ? "+ List your offer" : "🔒 Verify to sell";
+  const sellCls = canSell
+    ? "rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
+    : "rounded-xl border border-gray-700 bg-gray-900 px-5 py-2.5 text-xs font-semibold text-gray-300 hover:border-emerald-500/60";
 
   let templates: TemplateSummary[] | null = null;
   let error: string | null = null;
@@ -46,11 +61,8 @@ export default async function OfferGroupsPage({ params }: Props) {
             competing seller offers by price and delivery speed
           </p>
         </div>
-        <Link
-          href="/sell/new"
-          className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
-        >
-          + List your offer
+        <Link href={sellHref} className={sellCls}>
+          {sellLabel}
         </Link>
       </div>
 
@@ -65,10 +77,10 @@ export default async function OfferGroupsPage({ params }: Props) {
             Be the first seller: create the product page and competing offers appear under it.
           </p>
           <Link
-            href="/sell/new"
-            className="mt-5 inline-block rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
+            href={sellHref}
+            className={`mt-5 inline-block ${sellCls}`}
           >
-            + List the first offer
+            {sellLabel}
           </Link>
         </div>
       )}

@@ -4,6 +4,9 @@ import type {
   delivery_method,
   order_status,
   seller_status,
+  seller_type_enum,
+  verification_status_type,
+  payout_status_enum,
   ticket_status,
   ticket_category,
   ticket_priority,
@@ -16,11 +19,21 @@ export type {
   delivery_method,
   order_status,
   seller_status,
+  seller_type_enum,
+  verification_status_type,
+  payout_status_enum,
   ticket_status,
   ticket_category,
   ticket_priority,
 };
 
+/**
+ * `profiles` row as readable through the public/safe column grant (0001
+ * policies + 0010 column privileges). Sensitive KYC/wallet columns (phone,
+ * bank details, ID paths, balances, review notes) are NOT selectable via
+ * PostgREST — they come through the get_my_seller_profile() definer RPC
+ * (SellerKycProfile below).
+ */
 export type Profile = {
   id: string;
   display_name: string;
@@ -31,6 +44,43 @@ export type Profile = {
   is_banned: boolean;
   created_at: string;
   updated_at: string;
+  seller_type?: seller_type_enum;
+  shop_name?: string | null;
+  verification_status?: verification_status_type;
+};
+
+/**
+ * Full seller/KYC/wallet snapshot for the signed-in user, returned by the
+ * get_my_seller_profile() SECURITY DEFINER RPC (migration 0010).
+ */
+export type SellerKycProfile = Profile & {
+  phone_number: string | null;
+  payout_bank_name: string | null;
+  payout_account_number: string | null;
+  payout_account_name: string | null;
+  id_document_front_url: string | null;
+  id_document_back_url: string | null;
+  verification_status: verification_status_type;
+  verification_note: string | null;
+  verified_at: string | null;
+  available_balance: number;
+  pending_escrow_balance: number;
+  sellers_status: seller_status | null;
+  completed_sales: number;
+};
+
+/** Row of payout_requests as selected by its owner (RLS seller read). */
+export type PayoutRequestRow = {
+  id: string;
+  seller_id: string;
+  amount: number;
+  bank_name: string;
+  account_number: string;
+  account_name: string;
+  status: payout_status_enum;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
 };
 
 export type Game = {

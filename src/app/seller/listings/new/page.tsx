@@ -1,22 +1,33 @@
+import { redirect } from "next/navigation";
 import SellerListingForm from "@/components/SellerListingForm";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserContext } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * /seller/listings/new — create-offer form.
+ * STRICT MARKETPLACE GUARDRAIL (server-side, matches the createListing action):
+ *  - not signed in            → /login?next=/seller/listings/new
+ *  - verification_status is anything other than 'approved' → /seller/verify
+ * The form is therefore only ever rendered for KYC-verified sellers.
+ */
 export default async function SellerNewListingPage() {
   const user = await getUserContext();
+  if (!user) redirect("/login?next=/seller/listings/new");
+  if (user.profile.verification_status !== "approved") {
+    redirect("/seller/verify?reason=verification_required");
+  }
+
   const supabase = await createSupabaseServerClient();
 
   let sellerStatus: string | null = null;
-  if (user) {
-    const { data: seller } = await supabase
-      .from("sellers")
-      .select("status")
-      .eq("user_id", user.userId)
-      .single<{ status: string }>();
-    sellerStatus = seller?.status ?? null;
-  }
+  const { data: seller } = await supabase
+    .from("sellers")
+    .select("status")
+    .eq("user_id", user.userId)
+    .single<{ status: string }>();
+  sellerStatus = seller?.status ?? null;
 
   // games the marketplace supports
   const { data: games } = await supabase
@@ -55,13 +66,7 @@ export default async function SellerNewListingPage() {
         </p>
       </div>
 
-      {!user ? (
-        <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 text-center text-sm text-gray-400">
-          Please <a href="/login" className="text-emerald-400">log in</a> first.
-        </div>
-      ) : (
-        <SellerListingForm games={games ?? []} categories={categories} sellerStatus={sellerStatus} />
-      )}
+      <SellerListingForm games={games ?? []} categories={categories} sellerStatus={sellerStatus} />
     </div>
   );
 }

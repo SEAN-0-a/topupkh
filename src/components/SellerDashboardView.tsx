@@ -13,15 +13,16 @@ import { useLanguage } from "@/context/LanguageContext";
  */
 
 interface Wallet {
-  seller_id: number;
+  user_id: string;
   available_balance: number;
-  pending_escrow: number;
-  aba_number?: string;
-  aba_name?: string;
+  pending_escrow_balance: number;
+  payout_account_number?: string;
+  payout_account_name?: string;
+  verification_status: string;
 }
 
 interface PayoutRequest {
-  id: number;
+  id: string;
   amount: number;
   bank_name: string;
   account_number: string;
@@ -45,42 +46,44 @@ export default function SellerDashboardView() {
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
 
   useEffect(() => {
+    let alive = true;
     async function loadSellerData() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Wallet = seller row (view); seller_id is needed for payout history.
-        const { data: walletData } = await supabase
-          .from("seller_wallets")
-          .select("*")
-          .eq("user_id", user.id)
-          .single<Wallet>();
+        // Wallet = the caller's own profiles row via the definer RPC
+        // (migration 0010) — balances + verification live on profiles now.
+        const { data: rawWallet } = await supabase.rpc("get_my_seller_profile");
+        const walletData = (rawWallet as Wallet | null) ?? null;
 
-        if (walletData) {
+        if (walletData && alive) {
           setWallet(walletData);
           const { data: payoutData } = await supabase
             .from("payout_requests")
-            .select("*")
-            .eq("seller_id", walletData.seller_id)
+            .select("id, amount, bank_name, account_number, account_name, status, review_note, created_at")
+            .eq("seller_id", user.id)
             .order("created_at", { ascending: false })
             .limit(50);
-          if (payoutData) setPayouts(payoutData as PayoutRequest[]);
+          if (payoutData && alive) setPayouts(payoutData as PayoutRequest[]);
         }
       }
-      setLoading(false);
+      if (alive) setLoading(false);
     }
 
     loadSellerData();
+    return () => {
+      alive = false;
+    };
   }, [router]);
 
   if (loading) {
     return <div className="mx-auto max-w-4xl p-8 text-center text-xs text-gray-400">Loading seller dashboard...</div>;
   }
 
-  const available = wallet?.available_balance || 0;
-  const pending = wallet?.pending_escrow || 0;
+  const available = wallet ? Number(wallet.available_balance) : 0;
+  const pending = wallet ? Number(wallet.pending_escrow_balance) : 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 text-white">

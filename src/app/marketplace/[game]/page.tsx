@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getUserContext } from "@/lib/auth";
 import { listGames, listActiveCategories, listTemplates } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,11 @@ export default async function GamePage({ params }: Props) {
   const games = await listGames();
   const game = games.find((g) => g.slug === gameSlug);
   if (!game) notFound();
+
+  // Strict marketplace guardrail: the "Sell" trigger below is only enabled for
+  // KYC-verified sellers; everyone else is routed to /seller/verify.
+  const ctx = await getUserContext();
+  const canSell = ctx?.profile.verification_status === "approved";
 
   const categories = await listActiveCategories();
 
@@ -65,12 +71,21 @@ export default async function GamePage({ params }: Props) {
             {game.description ?? "Buy from verified Cambodian sellers with Bakong KHQR payments and escrow protection."}
           </p>
         </div>
-        <Link
-          href="/sell/new"
-          className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
-        >
-          + Sell in {game.name}
-        </Link>
+        {canSell ? (
+          <Link
+            href="/sell/new"
+            className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-emerald-400"
+          >
+            + Sell in {game.name}
+          </Link>
+        ) : (
+          <Link
+            href={ctx ? "/seller/verify" : "/login?next=/seller/verify"}
+            className="rounded-xl border border-gray-700 bg-gray-900 px-5 py-2.5 text-xs font-semibold text-gray-300 hover:border-emerald-500/60"
+          >
+            🔒 Verify to sell
+          </Link>
+        )}
       </section>
 
       {/* ================= sub-category tabs ================= */}

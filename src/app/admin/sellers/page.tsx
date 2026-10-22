@@ -132,7 +132,7 @@ export default async function AdminSellersPage() {
                   <a href={signedUrls.get(path) ?? "#"} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={signedUrls.get(path)}
+                      src={signedUrls.get(path) ?? "#"}
                       alt={`ID ${i === 0 ? "front" : "back"}`}
                       className="mx-auto h-32 w-full rounded-lg border border-gray-700 object-cover transition-opacity hover:opacity-80"
                     />

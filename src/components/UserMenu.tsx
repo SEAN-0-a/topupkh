@@ -31,6 +31,20 @@ const INITIAL: MenuState = {
 
 const isVerifiedSeller = (v: string | null) => v === "approved";
 
+const VALID_ROLES: user_role[] = ["buyer", "seller", "support", "admin"];
+
+/**
+ * Role from the auth user's app_metadata. Unlike user_metadata, app_metadata
+ * can only be written with service-role privileges, so it is tamper-proof and
+ * safe as a fallback when the profiles row read fails / is stale.
+ */
+function metadataRole(user: User): user_role | null {
+  const role = (user.app_metadata as { role?: unknown } | null)?.role;
+  return typeof role === "string" && VALID_ROLES.includes(role as user_role)
+    ? (role as user_role)
+    : null;
+}
+
 type MenuItem = { icon: string; label: string; href: string };
 
 /**
@@ -103,9 +117,25 @@ export default function UserMenu({ user }: { user: User }) {
     };
   }, [user.id, user.email]);
 
+  // Effective role: admin wins if EITHER source says admin — the profiles
+  // RPC (or, when it fails/stale, the tamper-proof app_metadata) is trusted,
+  // so a promoted admin always sees the Admin Panel link.
+  const metaRole = metadataRole(user);
+  const effectiveRole: user_role | null =
+    info.role === "admin" || metaRole === "admin"
+      ? "admin"
+      : (info.role ?? metaRole);
+  const isAdmin = effectiveRole === "admin";
+
   const rank = computeRank({
-    role: info.role ?? "buyer",
-    sellerStatus: isVerifiedSeller(info.verificationStatus) ? "approved" : "pending",
+    role: effectiveRole ?? "buyer",
+    // Admins are never treated as "Applying Seller" — force a neutral status
+    // so an unverified profiles row cannot downgrade their badge.
+    sellerStatus: isAdmin
+      ? null
+      : isVerifiedSeller(info.verificationStatus)
+        ? "approved"
+        : "pending",
     completedSales: info.completedSales,
   });
 
@@ -122,8 +152,8 @@ export default function UserMenu({ user }: { user: User }) {
 
   const items: MenuItem[] = [
     // Admin-only shortcut straight to the KYC review console (/admin/sellers);
-    // hidden for every other role, so non-admins never see it.
-    ...(info.role === "admin"
+    // shown when EITHER the profiles role OR app_metadata says admin.
+    ...(isAdmin
       ? [
           {
             icon: "🛠️",
@@ -205,8 +235,9 @@ export default function UserMenu({ user }: { user: User }) {
             </div>
           </Link>
 
-          {/* Verification banner — hidden once KYC is approved */}
-          {!isVerifiedSeller(info.verificationStatus) && (
+          {/* Verification banner — hidden once KYC is approved, and never
+              shown to admins (staff don't apply to become sellers). */}
+          {!isAdmin && !isVerifiedSeller(info.verificationStatus) && (
             <Link
               href="/seller/verify"
               onClick={() => setOpen(false)}

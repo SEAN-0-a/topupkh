@@ -78,23 +78,34 @@ export async function getUserContext(): Promise<UserContext | null> {
 
   const metadataRole = roleFromMetadata(user);
 
+  // Effective role resolution. app_metadata can only be written with
+  // service-role privileges (tamper-proof), so an 'admin' there RESCUES a
+  // loaded-but-stale profiles row that still says 'buyer' — otherwise a
+  // freshly promoted admin keeps seeing buyer-only UI until the row syncs.
+  const effectiveRole: user_role | null =
+    profile?.role === "admin" || metadataRole === "admin"
+      ? "admin"
+      : (profile?.role ?? metadataRole);
+
   // Fill the missing profile shell from auth metadata when the row read
   // failed but we still know the role — the /admin/* guards key off role.
-  const resolved: Profile | null = profile ?? (metadataRole
-    ? {
-        id: user.id,
-        display_name: (typeof user.user_metadata?.display_name === "string"
-          ? user.user_metadata.display_name
-          : user.email?.split("@")[0]) ?? "Player",
-        username: null,
-        avatar_url: null,
-        locale: "en" as const,
-        role: metadataRole,
-        is_banned: false,
-        created_at: user.created_at,
-        updated_at: user.created_at,
-      }
-    : null);
+  const resolved: Profile | null = profile
+    ? { ...profile, role: effectiveRole ?? profile.role }
+    : (effectiveRole
+        ? {
+            id: user.id,
+            display_name: (typeof user.user_metadata?.display_name === "string"
+              ? user.user_metadata.display_name
+              : user.email?.split("@")[0]) ?? "Player",
+            username: null,
+            avatar_url: null,
+            locale: "en" as const,
+            role: effectiveRole,
+            is_banned: false,
+            created_at: user.created_at,
+            updated_at: user.created_at,
+          }
+        : null);
 
   if (!resolved || resolved.is_banned) {
     if (resolved?.is_banned) {

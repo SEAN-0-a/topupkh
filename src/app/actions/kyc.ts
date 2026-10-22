@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { seller_type_enum } from "@/lib/db-enums";
 import {
@@ -164,7 +164,9 @@ export async function reviewSellerKyc(
   note: string = "",
 ): Promise<ActionResultSimple> {
   try {
-    await requireUser(); // role itself is enforced by the definer function
+    // Fail fast: only admins may review KYC (the SECURITY DEFINER RPC
+    // enforces this too — this just gives a friendly message sooner).
+    await requireRole("admin");
     const supabase = await createSupabaseServerClient();
 
     const trimmedNote = note.trim();

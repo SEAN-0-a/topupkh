@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import KycReviewButtons from "@/components/admin/KycReviewButtons";
-import { getUserContext } from "@/lib/auth";
+import { requirePageRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +15,11 @@ export const dynamic = "force-dynamic";
  * bucket never exposes raw paths to the browser.
  */
 export default async function AdminSellersPage() {
-  const ctx = await getUserContext();
-  if (!ctx || ctx.profile.role !== "admin") redirect("/login?next=/admin/sellers");
+  // Loop-proof guard: unauthenticated → /login?next=…, authenticated but
+  // not admin → "/" (never back to /login, which would bounce forever).
+  const ctx = await requirePageRole("/admin/sellers", "admin");
 
   const supabase = await createSupabaseServerClient();
-  const { data: rawRows } = await supabase.rpc("admin_list_kyc_applications");
 
   type AdminKycRow = {
     user_id: string;
@@ -40,19 +39,44 @@ export default async function AdminSellersPage() {
     seller_status_text: string | null;
     completed_sales: number | null;
   };
-  const rows = ((rawRows as AdminKycRow[] | null) ?? []);
+
+  // DB errors must surface as a readable banner, never a 500 crash.
+  let rows: AdminKycRow[] = [];
+  let dbError: string | null = null;
+  try {
+    const { data: rawRows, error: rpcError } = await supabase.rpc(
+      "admin_list_kyc_applications",
+    );
+    if (rpcError) throw new Error(rpcError.message);
+    rows = ((rawRows as AdminKycRow[] | null) ?? []);
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : "Failed to load KYC applications.";
+    console.error("[admin/sellers] admin_list_kyc_applications failed:", dbError);
+  }
+
   const pending = rows.filter((r) => r.verification_status_text === "pending");
   const others = rows.filter((r) => r.verification_status_text !== "pending");
 
   // short-lived signed URLs for pending applications' documents
   const signedUrls = new Map<string, string>();
-  for (const r of pending) {
-    for (const path of [r.id_document_front_url, r.id_document_back_url]) {
-      if (!path) continue;
-      const { data: signed } = await supabase.storage
-        .from("seller-docs")
-        .createSignedUrl(path, 3600);
-      if (signed) signedUrls.set(path, signed.signedUrl);
+  if (!dbError) {
+    for (const r of pending) {
+      for (const path of [r.id_document_front_url, r.id_document_back_url]) {
+        if (!path) continue;
+        try {
+          const { data: signed, error: signedError } = await supabase.storage
+            .from("seller-docs")
+            .createSignedUrl(path, 3600);
+          if (signedError) throw new Error(signedError.message);
+          if (signed) signedUrls.set(path, signed.signedUrl);
+        } catch (e) {
+          // One unreadable document must not take down the whole review list.
+          console.error(
+            `[admin/sellers] signed URL failed for ${path}:`,
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      }
     }
   }
 
@@ -136,15 +160,23 @@ export default async function AdminSellersPage() {
           </span>
         </div>
 
-        {pending.length === 0 && (
+        {dbError && (
+          <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+            Failed to load KYC applications: {dbError}
+          </div>
+        )}
+
+        {!dbError && pending.length === 0 && (
           <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center text-xs text-gray-400">
             No pending verifications. 🎉
           </div>
         )}
 
-        <div className="mt-4 space-y-3">{pending.map(renderRow)}</div>
+        {!dbError && (
+          <div className="mt-4 space-y-3">{pending.map(renderRow)}</div>
+        )}
 
-        {others.length > 0 && (
+        {!dbError && others.length > 0 && (
           <>
             <h2 className="mt-8 text-sm font-bold text-gray-400">All sellers ({others.length})</h2>
             <div className="mt-3 space-y-3">{others.map(renderRow)}</div>

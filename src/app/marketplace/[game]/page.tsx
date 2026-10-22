@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getUserContext } from "@/lib/auth";
 import { listGames, listActiveCategories, listTemplates } from "@/lib/catalog";
+import type { Game } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,8 @@ const SUB_TABS = [
 
 export default async function GamePage({ params }: Props) {
   const { game: gameSlug } = await params; // Next.js 16: async params
-  const games = await listGames();
+  // Empty array on failure → notFound() renders an honest 404, never a crash.
+  const games = await listGames().catch(() => [] as Game[]);
   const game = games.find((g) => g.slug === gameSlug);
   if (!game) notFound();
 

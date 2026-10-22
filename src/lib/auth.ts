@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import type { Profile, user_role } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
 
@@ -35,21 +36,45 @@ function roleFromMetadata(user: User): user_role | null {
  */
 export async function getUserContext(): Promise<UserContext | null> {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Crash-proof the whole read: a network failure or malformed cookie must
+  // degrade to "no context" (the guards then route the visitor sanely),
+  // never a thrown exception that 500s the page.
+  let user: User | null = null;
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  } catch (e) {
+    console.error(
+      "[auth] getUser() failed:",
+      e instanceof Error ? e.message : String(e),
+    );
+    return null;
+  }
 
   if (!user || user.is_anonymous) return null;
 
   // maybeSingle (not single): a zero-row or multi-row read must not throw a
   // null-reference-shaped failure that silently turns the caller anonymous.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "id, display_name, username, avatar_url, locale, role, is_banned, created_at, updated_at, seller_type, shop_name, verification_status",
-    )
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
+  let profile: Profile | null = null;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, display_name, username, avatar_url, locale, role, is_banned, created_at, updated_at, seller_type, shop_name, verification_status",
+      )
+      .eq("id", user.id)
+      .maybeSingle<Profile>();
+    if (error) throw new Error(error.message);
+    profile = data;
+  } catch (e) {
+    console.error(
+      `[auth] profiles read failed for user ${user.id}:`,
+      e instanceof Error ? e.message : String(e),
+    );
+  }
 
   const metadataRole = roleFromMetadata(user);
 
@@ -71,13 +96,52 @@ export async function getUserContext(): Promise<UserContext | null> {
       }
     : null);
 
-  if (!resolved || resolved.is_banned) return null;
+  if (!resolved || resolved.is_banned) {
+    if (resolved?.is_banned) {
+      console.warn(`[auth] banned user ${user.id} blocked from guarded routes`);
+    }
+    return null;
+  }
+
+  // VERBOSE DEBUG: see exactly who /admin (and other guarded routes) see.
+  // profile-source = profiles row read OK; metadata-source = fallback shell.
+  console.log(
+    `[auth] user=${user.id} role=${resolved.role}` +
+      ` source=${profile ? "profiles" : "app_metadata"}` +
+      ` verification=${resolved.verification_status ?? "n/a"}`,
+  );
 
   // fill the verification default if the column read returns null
   return {
     userId: user.id,
     profile: { ...resolved, verification_status: resolved.verification_status ?? "unverified" },
   };
+}
+
+/**
+ * Server-side guard for /admin/* Server Components with LOOP-PROOF routing:
+ *
+ * - NOT signed in  → /login?next=… is safe (unauthenticated visitors see
+ *   the form; the login guard only auto-redirects users who ARE signed in).
+ * - Signed in but wrong role → redirecting to /login?next=… would bounce
+ *   straight back here forever (login auto-sends authenticated users to
+ *   ?next=). Instead send them to the public home page exactly once.
+ */
+export async function requirePageRole(
+  next: string,
+  ...allowed: user_role[]
+): Promise<UserContext> {
+  const ctx = await getUserContext();
+  if (!ctx) redirect(`/login?next=${encodeURIComponent(next)}`);
+
+  if (!allowed.includes(ctx.profile.role)) {
+    console.warn(
+      `[auth] denied ${next} for user=${ctx.userId} role=${ctx.profile.role}` +
+        ` (allowed: ${allowed.join(", ")})`,
+    );
+    redirect("/");
+  }
+  return ctx;
 }
 
 /** Throws a plain error the UI can show when signed out. */

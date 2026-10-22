@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getUserContext, isStaff } from "@/lib/auth";
+import { requirePageRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /** /admin — control panel hub linking to every admin tool. */
 export default async function AdminIndexPage() {
-  const ctx = await getUserContext();
-  if (!ctx || !isStaff(ctx.profile)) redirect("/login?next=/admin");
+  // Loop-proof guard: unauthenticated → /login?next=…, authenticated but
+  // not staff → "/" (never back to /login, which would bounce forever).
+  const ctx = await requirePageRole("/admin", "support", "admin");
 
   const sections = [
     { href: "/admin/sellers", icon: "🛡️", title: "KYC Review", desc: "Approve / reject seller verification + ID documents." },

@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import PayoutReviewButtons from "@/components/admin/PayoutReviewButtons";
-import { getUserContext } from "@/lib/auth";
+import { requirePageRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +34,22 @@ const CHIP: Record<string, string> = {
  * "Reject" button auto-returns the held funds to the seller.
  */
 export default async function AdminPayoutsPage() {
-  const ctx = await getUserContext();
-  if (!ctx || ctx.profile.role !== "admin") redirect("/login?next=/admin/payouts");
+  // Loop-proof guard: unauthenticated → /login?next=…, authenticated but
+  // not admin → "/" (never back to /login, which would bounce forever).
+  const ctx = await requirePageRole("/admin/payouts", "admin");
 
   const supabase = await createSupabaseServerClient();
-  const { data: rawRows } = await supabase.rpc("admin_list_payouts");
 
-  const rows = ((rawRows as PayoutRow[] | null) ?? []);
+  let rows: PayoutRow[] = [];
+  let dbError: string | null = null;
+  try {
+    const { data: rawRows, error: rpcError } = await supabase.rpc("admin_list_payouts");
+    if (rpcError) throw new Error(rpcError.message);
+    rows = ((rawRows as PayoutRow[] | null) ?? []);
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : "Failed to load payout requests.";
+    console.error("[admin/payouts] admin_list_payouts failed:", dbError);
+  }
   const pending = rows.filter((r) => r.status_text === "pending");
   const history = rows.filter((r) => r.status_text !== "pending");
 
@@ -60,14 +68,21 @@ export default async function AdminPayoutsPage() {
           Confirm the bank transfer in your ABA/Bakong statement, then mark the request approved.
         </p>
 
-        {pending.length === 0 && (
+        {dbError && (
+          <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+            Failed to load payout requests: {dbError}
+          </div>
+        )}
+
+        {!dbError && pending.length === 0 && (
           <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center text-xs text-gray-400">
             No pending payouts. 🎉
           </div>
         )}
 
-        <div className="mt-4 space-y-3">
-          {pending.map((r) => (
+        {!dbError && (
+          <div className="mt-4 space-y-3">
+            {pending.map((r) => (
             <div key={r.id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -85,8 +100,9 @@ export default async function AdminPayoutsPage() {
                 <PayoutReviewButtons requestId={r.id} />
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {history.length > 0 && (
           <>

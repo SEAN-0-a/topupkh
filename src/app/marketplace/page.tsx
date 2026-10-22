@@ -3,6 +3,7 @@ import MarketplaceFilters from "@/components/MarketplaceFilters";
 import ProductCard from "@/components/ProductCard";
 import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { CatalogQuery } from "@/lib/catalog";
+import type { Game } from "@/lib/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Params = { [key: string]: string | string[] | undefined };
@@ -38,25 +39,37 @@ export default async function MarketplacePage({
     perPage: 12,
   };
 
-  const [games, categories] = await Promise.all([listGames(), listActiveCategories()]);
+  // Fetch filters defensively: an unreachable Supabase, a missing env var, or a
+  // policy change must degrade to empty filters, never crash the whole page.
+  const [games, categories] = await Promise.all([
+    listGames().catch(() => [] as Game[]),
+    listActiveCategories().catch(() => []),
+  ]);
 
   // If the tab points at a category that exists but FAILED eligibility review,
   // show a compliance notice instead of pretending to search.
+  // .maybeSingle() (not .single()): a 0-row result is a normal outcome here —
+  // the slug may be unknown/deleted, or RLS may hide the inactive row — and
+  // .single() treats it as an error instead of null.
   let prohibitedNotice: { name: string; reason: string } | null = null;
   if (query.category && !categories.some((c) => c.slug === query.category)) {
-    const supabase = await createSupabaseServerClient();
-    const { data: cat } = await supabase
-      .from("product_categories")
-      .select("name, description")
-      .eq("slug", query.category)
-      .single<{ name: string; description: string | null }>();
-    if (cat) {
-      prohibitedNotice = {
-        name: cat.name,
-        reason:
-          cat.description ??
-          "This category failed the marketplace eligibility review.",
-      };
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data: cat } = await supabase
+        .from("product_categories")
+        .select("name, description")
+        .eq("slug", query.category)
+        .maybeSingle<{ name: string; description: string | null }>();
+      if (cat) {
+        prohibitedNotice = {
+          name: cat.name,
+          reason:
+            cat.description ??
+            "This category failed the marketplace eligibility review.",
+        };
+      }
+    } catch {
+      // Notice lookup is cosmetic; never let it break the listing grid.
     }
   }
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getUserContext } from "@/lib/auth";
 import { listGames, listTemplates, listActiveCategories } from "@/lib/catalog";
 import type { TemplateSummary } from "@/lib/catalog";
+import type { Game } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,11 @@ export default async function OfferGroupsPage({ params }: Props) {
   const { game: gameSlug, category: categorySlug } = await params; // Next 16: async params
 
   // validate both slugs against the live catalogue — unknown = honest 404
-  const [games, categories] = await Promise.all([listGames(), listActiveCategories()]);
+  // Empty arrays on failure → notFound() renders an honest 404, never a crash.
+  const [games, categories] = await Promise.all([
+    listGames().catch(() => [] as Game[]),
+    listActiveCategories().catch(() => []),
+  ]);
   const game = games.find((g) => g.slug === gameSlug);
   const category = categories.find((c) => c.slug === categorySlug);
   if (!game || !category) notFound();

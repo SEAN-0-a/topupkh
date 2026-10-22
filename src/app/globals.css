@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
+/* next-themes sets the theme as a class on <html> (attribute="class"),
+   so the `dark:` variant must be class-driven (v4 equivalent of the v3
+   `darkMode: 'class'` config). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,11 +17,31 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* The whole app was authored dark-first (bg-gray-950 pages, bg-gray-900
+   cards, text-white headings, bg-black inputs…). Instead of touching every
+   component, LIGHT mode remaps Tailwind v4's neutral palette variables:
+   every `bg-gray-900` / `text-white` / `border-gray-800` / … utility
+   resolves through these vars at runtime and flips automatically. */
+html:not(.dark) {
+  --background: #f7f7f8;
+  --foreground: #171717;
+
+  /* page & input backgrounds get light, "white" becomes ink */
+  --color-black: #f7f7f8;
+  --color-white: #1b1b1f;
+
+  /* inverted neutral scale: 950 ≈ faint page tint, 900 ≈ card white,
+     800/700 ≈ light borders/secondary surfaces, text shades darken */
+  --color-gray-950: #f2f2f4;
+  --color-gray-900: #ffffff;
+  --color-gray-800: #e8e8ec;
+  --color-gray-700: #d9d9df;
+  --color-gray-600: #9a9aa4;
+  --color-gray-500: #6b7280;
+  --color-gray-400: #52525b;
+  --color-gray-300: #43434e;
+  --color-gray-200: #34343e;
+  --color-gray-100: #2a2a33;
 }
 
 body {

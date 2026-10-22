@@ -6,12 +6,14 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
+import ThemeToggle from "@/components/ThemeToggle";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import UserMenu from "@/components/UserMenu";
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { lang, toggleLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [verified, setVerified] = useState(false);
 
@@ -71,51 +73,47 @@ export default function Navbar() {
                   : "text-gray-300 hover:text-emerald-400"
               }`}
             >
-              {t("Marketplace", "ផ្សារទំនិញ")}
+              {t("nav.marketplace")}
             </Link>
             <Link
               href="/orders"
               className={pathname === "/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
             >
-              {t("My Orders", "កំណត់ត្រាទិញ")}
+              {t("nav.my_orders")}
             </Link>
             <Link
               href="/seller/orders"
               className={pathname === "/seller/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
             >
-              {t("Sell", "លក់ Roblox")}
+              {t("nav.sell")}
             </Link>
             {verified ? (
               <Link
                 href="/sell/new"
                 className={pathname === "/sell/new" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
               >
-                {t("+ New Offer", "+ បង្ហោះលក់")}
+                {t("nav.new_offer")}
               </Link>
             ) : (
               <Link
                 href={user ? "/seller/verify" : "/login?next=/seller/verify"}
                 className="text-gray-400 hover:text-emerald-400"
               >
-                {t("🔒 Verify to sell", "🔒 ផ្ទៀងផ្ទាត់ដើម្បីលក់")}
+                {t("nav.verify_to_sell")}
               </Link>
             )}
             <Link
               href="/seller/dashboard"
               className={pathname === "/seller/dashboard" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
             >
-              {t("💼 Wallet", "កាបូបប្រាក់")}
+              💼 {t("nav.wallet")}
             </Link>
           </div>
 
-          {/* Right controls */}
+          {/* Right controls: theme, language, then auth */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleLanguage}
-              className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-xs font-bold transition-all hover:bg-gray-700"
-            >
-              {lang === "km" ? "🇰🇭 KH" : "🇬🇧 EN"}
-            </button>
+            <ThemeToggle />
+            <LanguageSwitcher />
 
             {user ? (
               <UserMenu user={user} />
@@ -124,7 +122,7 @@ export default function Navbar() {
                 onClick={() => router.push("/login")}
                 className="rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-black transition-all hover:bg-emerald-400"
               >
-                {t("Login", "ចូលគណនី")}
+                {t("nav.login")}
               </button>
             )}
           </div>
@@ -142,17 +140,18 @@ export default function Navbar() {
 }
 
 const CATEGORY_TABS = [
-  { slug: "robux-currency", label: "Currency" },
-  { slug: "accounts", label: "Accounts" },
-  { slug: "top-ups", label: "Top Ups" },
-  { slug: "in-game-items", label: "Items" },
-  { slug: "boosting", label: "Boosting" },
-  { slug: "gift-cards", label: "Gift Cards" },
+  { slug: "robux-currency", key: "cat.currency" },
+  { slug: "accounts", key: "cat.accounts" },
+  { slug: "top-ups", key: "cat.topups" },
+  { slug: "in-game-items", key: "cat.items" },
+  { slug: "boosting", key: "cat.boosting" },
+  { slug: "gift-cards", key: "cat.gift_cards" },
 ];
 
 function CategoryTabs({ pathname }: { pathname: string }) {
   const params = useSearchParams();
   const activeCategory = params.get("category");
+  const { t } = useLanguage();
 
   return (
     <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -168,7 +167,7 @@ function CategoryTabs({ pathname }: { pathname: string }) {
                 : "bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white"
             }`}
           >
-            {tab.label}
+            {t(tab.key)}
           </Link>
         );
       })}

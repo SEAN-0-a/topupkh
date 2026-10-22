@@ -24,7 +24,7 @@ const STATUS_CHIP: Record<string, string> = {
  */
 export default function WalletView({ userId }: { userId: string }) {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { tf } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [seller, setSeller] = useState<SellerKycProfile | null>(null);
@@ -150,24 +150,24 @@ export default function WalletView({ userId }: { userId: string }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-3xl border border-emerald-800/50 bg-emerald-950/30 p-6 shadow-xl">
             <span className="text-xs font-semibold text-emerald-400">
-              {t("Available Balance", "ប្រាក់អាចដកបាន")}
+              {tf("Available Balance", "ប្រាក់អាចដកបាន")}
             </span>
             <p className="mt-2 text-3xl font-extrabold text-white">
               ${available.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
             </p>
             <p className="mt-1 text-[10px] text-gray-400">
-              {t("Released from completed escrow orders — withdraw or spend.", "ប្រាក់ទទួលបានពីការលក់ដែលបានបញ្ចប់")}
+              {tf("Released from completed escrow orders — withdraw or spend.", "ប្រាក់ទទួលបានពីការលក់ដែលបានបញ្ចប់")}
             </p>
           </div>
           <div className="rounded-3xl border border-amber-800/40 bg-amber-950/20 p-6 shadow-xl">
             <span className="text-xs font-semibold text-amber-400">
-              {t("Pending Escrow Balance", "ប្រាក់កំពុងរក្សាទុក (Escrow)")}
+              {tf("Pending Escrow Balance", "ប្រាក់កំពុងរក្សាទុក (Escrow)")}
             </span>
             <p className="mt-2 text-3xl font-extrabold text-white">
               ${pendingEscrow.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
             </p>
             <p className="mt-1 text-[10px] text-gray-400">
-              {t("Held while buyers confirm delivery. Released on \"Confirm Order Received\".", "រក្សាទុករហូតដល់អ្នកទិញបញ្ជាក់ទទួល")}
+              {tf("Held while buyers confirm delivery. Released on \"Confirm Order Received\".", "រក្សាទុករហូតដល់អ្នកទិញបញ្ជាក់ទទួល")}
             </p>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function WalletView({ userId }: { userId: string }) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
             <h2 className="text-sm font-bold text-emerald-400">
-              {t("🏦 Payout method (ABA / Bakong)", "🏦 វិធីទទួលប្រាក់")}
+              {tf("🏦 Payout method (ABA / Bakong)", "🏦 វិធីទទួលប្រាក់")}
             </h2>
             <form onSubmit={handleSaveBank} className="mt-4 space-y-3">
               <input
@@ -226,7 +226,7 @@ export default function WalletView({ userId }: { userId: string }) {
                 disabled={savingBank}
                 className="w-full rounded-xl bg-gray-800 py-2.5 text-xs font-semibold text-gray-200 transition-all hover:bg-gray-700 disabled:opacity-50"
               >
-                {savingBank ? t("Saving...", "កំពុងរក្សាទុក...") : t("Save payout details", "រក្សាទុកព័ត៌មានធនាគារ")}
+                {savingBank ? tf("Saving...", "កំពុងរក្សាទុក...") : tf("Save payout details", "រក្សាទុកព័ត៌មានធនាគារ")}
               </button>
             </form>
           </div>
@@ -234,7 +234,7 @@ export default function WalletView({ userId }: { userId: string }) {
           <div className="flex flex-col justify-between rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
             <div>
               <h2 className="text-sm font-bold text-emerald-400">
-                {t("💸 Request Payout", "💸 ស្នើសុំដកប្រាក់")}
+                {tf("💸 Request Payout", "💸 ស្នើសុំដកប្រាក់")}
               </h2>
               <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                 Funds are reserved from your available balance the moment you request; an admin
@@ -261,11 +261,11 @@ export default function WalletView({ userId }: { userId: string }) {
         {/* Withdrawal history table */}
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
           <h2 className="text-sm font-bold text-emerald-400">
-            {t("📜 Withdrawal history", "📜 ប្រវត្តិដកប្រាក់")}
+            {tf("📜 Withdrawal history", "📜 ប្រវត្តិដកប្រាក់")}
           </h2>
           {payouts.length === 0 ? (
             <p className="py-6 text-center text-xs text-gray-500">
-              {t("No withdrawal requests yet.", "មិនទាន់មានប្រវត្តិដកប្រាក់")}
+              {tf("No withdrawal requests yet.", "មិនទាន់មានប្រវត្តិដកប្រាក់")}
             </p>
           ) : (
             <div className="mt-3 overflow-x-auto">

@@ -63,7 +63,7 @@ export default async function OffersPage() {
           <h1 className="text-lg font-bold text-white">My offers</h1>
           {canSell ? (
             <Link
-              href="/seller/listings/new"
+              href="/offers/create"
               className="rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-bold text-black transition-all hover:bg-emerald-400"
             >
               + New offer

@@ -50,6 +50,15 @@ export async function createListing(input: {
   estimatedMinutes: number | null;
   refundPolicy: string;
   ownershipNote: string;
+  // ---- Eldorado-style listing terms (all optional; server-validated) ----
+  gameName?: string;
+  originalEmail?: boolean;
+  openEmailAccess?: boolean;
+  warrantyDays?: number | null;
+  deliveryTime?: string;
+  inventoryValue?: string;
+  /** Gallery photo URLs; image_url stays the cover (images[0] fallback imageUrl) */
+  images?: string[];
 }): Promise<CreateListingResult> {
   let ctx: UserContext;
   try {
@@ -86,6 +95,26 @@ export async function createListing(input: {
     }
     if (!input.stockIsUnlimited && (!Number.isInteger(input.stock) || input.stock < 0 || input.stock > 100000)) {
       return { ok: false, message: "Stock must be 0–100,000 (or tick unlimited)." };
+    }
+
+    // ---------- new Eldorado-style field validation ----------
+    const gameName = (input.gameName ?? "").trim().slice(0, 100);
+    const warrantyDays = input.warrantyDays == null ? 5 : Number(input.warrantyDays);
+    if (!Number.isInteger(warrantyDays) || warrantyDays < 0 || warrantyDays > 365) {
+      return { ok: false, message: "Warranty must be a whole number of days between 0 and 365." };
+    }
+    const deliveryTime = (input.deliveryTime ?? "").trim().slice(0, 60);
+    const inventoryValue = (input.inventoryValue ?? "").trim().slice(0, 200);
+    const images = (input.images ?? [])
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0)
+      .filter((u, i, arr) => arr.indexOf(u) === i)
+      .slice(0, 8);
+    if (images.some((u) => u.length > 600)) {
+      return { ok: false, message: "Each image URL must be under 600 characters." };
+    }
+    if (images.length > 0 && images.some((u) => !/^https?:\/\//i.test(u))) {
+      return { ok: false, message: "Gallery image URLs must start with http:// or https://." };
     }
 
     // ---------- seller row must exist (KYC-created) and not be suspended ----------
@@ -139,7 +168,7 @@ export async function createListing(input: {
           slug: templateSlug,
           title,
           description: input.description.slice(0, 4000),
-          image_url: input.imageUrl || null,
+          image_url: (images[0] || input.imageUrl) || null,
         })
         .select("id")
         .single<{ id: number }>();
@@ -159,7 +188,14 @@ export async function createListing(input: {
         template_id: templateId,
         title,
         description: input.description,
-        image_url: input.imageUrl || null,
+        image_url: (images[0] || input.imageUrl) || null,
+        game_name: gameName || null,
+        original_email: input.originalEmail ?? true,
+        open_email_access: input.openEmailAccess ?? true,
+        warranty_days: warrantyDays,
+        delivery_time: deliveryTime || null,
+        inventory_value: inventoryValue || null,
+        images,
         price_usd: input.priceUsd,
         original_price_usd: input.originalPriceUsd,
         delivery_method: input.deliveryMethod,

@@ -25,7 +25,6 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? 0);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState("in_game");
@@ -37,11 +36,31 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
     "Contact support within 48 hours if the product was not delivered as described.",
   );
   const [ownershipNote, setOwnershipNote] = useState("");
+  // ---- Eldorado-style listing fields ----
+  const [gameName, setGameName] = useState(games[0]?.name ?? "");
+  const [originalEmail, setOriginalEmail] = useState(true);
+  const [openEmailAccess, setOpenEmailAccess] = useState(true);
+  const [warrantyDays, setWarrantyDays] = useState("5");
+  const [deliveryTime, setDeliveryTime] = useState("");
+  const [inventoryValue, setInventoryValue] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ templateId: number } | null>(null);
 
   const category = categories.find((c) => c.id === Number(categoryId));
+
+  function handleGameChange(nextId: number) {
+    setGameId(nextId);
+    // pre-fill the seller-facing game label from the catalogue entry
+    setGameName(games.find((g) => g.id === nextId)?.name ?? "");
+  }
+
+  function addImageUrl(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    setImageUrls((prev) => (prev.includes(trimmed) ? prev : prev.slice(0, 7).concat(trimmed)));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +72,8 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
       categoryId: Number(categoryId),
       title,
       description,
-      imageUrl,
+      // first gallery image also acts as the cover
+      imageUrl: imageUrls[0] || "",
       priceUsd: Number(price),
       originalPriceUsd: originalPrice === "" ? null : Number(originalPrice),
       deliveryMethod,
@@ -63,6 +83,13 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
       estimatedMinutes: estimatedMinutes === "" ? null : Number(estimatedMinutes),
       refundPolicy,
       ownershipNote,
+      gameName,
+      originalEmail,
+      openEmailAccess,
+      warrantyDays: warrantyDays === "" ? null : Number(warrantyDays),
+      deliveryTime: deliveryTime === "" ? "Instant" : deliveryTime,
+      inventoryValue,
+      images: imageUrls,
     });
 
     setLoading(false);
@@ -128,7 +155,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           <SelectBlock label="Game">
             <select
               value={gameId}
-              onChange={(e) => setGameId(Number(e.target.value))}
+              onChange={(e) => handleGameChange(Number(e.target.value))}
               className={inputCls}
               required
             >
@@ -164,30 +191,144 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           />
         </InputBlock>
 
-        <InputBlock label="Description & what the buyer gets">
+        <InputBlock label="Description (Markdown supported — see the formatting tips below)">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={4}
+            rows={6}
             className={inputCls}
-            placeholder="Describe exactly what is included, versions, requirements…"
+            placeholder={"Describe exactly what is included…\n\n**Stats**\n- Power level: **250**\n- Skins: *Dark theme*\n\n**Accounts**: `original email included`"}
+          />
+          <span className="mt-1.5 block rounded-xl border border-gray-800 bg-black/40 p-3 text-[11px] leading-relaxed text-gray-400">
+            <b className="text-gray-300">Formatting:</b> <code>**bold**</code> · <code>*italic*</code> ·{" "}
+            <code>`code`</code> · <code>## Heading</code> · bullet lists start lines with{" "}
+            <code>- </code> · links: <code>[text](https://…)</code>. Put key stats one per line
+            (e.g. <code>Damage: 2500</code>) so buyers can skim the specs.
+          </span>
+        </InputBlock>
+
+        <div>
+          <InputBlock label="Gallery images (up to 8 — the first one becomes the cover)">
+            <input
+              id="gallery-url-input"
+              type="url"
+              className={inputCls}
+              placeholder="https://… (paste a URL, then press Add or Enter)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addImageUrl(e.currentTarget.value);
+                  e.currentTarget.value = "";
+                }
+              }}
+            />
+          </InputBlock>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("gallery-url-input") as HTMLInputElement | null;
+                if (el) {
+                  addImageUrl(el.value);
+                  el.value = "";
+                }
+              }}
+              className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-2 text-[11px] font-bold text-emerald-400 transition-colors hover:border-emerald-500 disabled:opacity-50"
+            >
+              + Add image
+            </button>
+            <span className="text-[10px] text-gray-500">{imageUrls.length}/8 attached</span>
+          </div>
+          {imageUrls.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {imageUrls.map((u, i) => (
+                <li
+                  key={u}
+                  className="flex items-center gap-2 rounded-full border border-gray-800 bg-black py-1 pl-1 pr-2.5 text-[11px] text-gray-300"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  <span className="max-w-[140px] truncate">{i === 0 ? "★ Cover" : `#${i + 1}`}</span>
+                  <button
+                    type="button"
+                    onClick={() => setImageUrls((prev) => prev.filter((x) => x !== u))}
+                    className="text-red-400 transition-colors hover:text-red-300"
+                    aria-label={`Remove image ${i + 1}`}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </fieldset>
+
+      {/* --- eldorado-style listing details --- */}
+      <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
+        <legend className="px-2 text-xs font-bold text-emerald-400">2 · Listing details</legend>
+
+        <InputBlock label="Game name (shown in the offer specs — add server/region if relevant)">
+          <input
+            value={gameName}
+            onChange={(e) => setGameName(e.target.value)}
+            maxLength={100}
+            className={inputCls}
+            placeholder="e.g. Roblox — Server Asia"
           />
         </InputBlock>
 
-        <InputBlock label="Image URL (optional — product pages look much better with one)">
+        <div className="grid gap-4 md:grid-cols-2">
+          <InputBlock label="Delivery time estimate (free text)">
+            <input
+              value={deliveryTime}
+              onChange={(e) => setDeliveryTime(e.target.value)}
+              maxLength={60}
+              className={inputCls}
+              placeholder='e.g. "Instant" or "1 day"'
+            />
+          </InputBlock>
+          <InputBlock label="Inventory value (optional — what the stock/contents are worth)">
+            <input
+              value={inventoryValue}
+              onChange={(e) => setInventoryValue(e.target.value)}
+              maxLength={200}
+              className={inputCls}
+              placeholder='e.g. "~150 USD of items included"'
+            />
+          </InputBlock>
+        </div>
+
+        <InputBlock label="Warranty (days — 0 = sold as-is)">
           <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…"
+            type="number"
+            min="0"
+            max="365"
+            step="1"
+            value={warrantyDays}
+            onChange={(e) => setWarrantyDays(e.target.value)}
             className={inputCls}
-            type="url"
+            required
           />
         </InputBlock>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Checkbox
+            checked={originalEmail}
+            onChange={setOriginalEmail}
+            label="Original email included (account sales)"
+          />
+          <Checkbox
+            checked={openEmailAccess}
+            onChange={setOpenEmailAccess}
+            label="Open email access (buyer can access the mail account)"
+          />
+        </div>
       </fieldset>
 
       {/* --- commercial terms --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">2 · Price, stock &amp; delivery</legend>
+        <legend className="px-2 text-xs font-bold text-emerald-400">3 · Price, stock &amp; delivery</legend>
 
         <div className="grid gap-4 md:grid-cols-2">
           <InputBlock label="Your price (USD)">
@@ -263,7 +404,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
 
       {/* --- policies --- */}
       <fieldset className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
-        <legend className="px-2 text-xs font-bold text-emerald-400">3 · Policies</legend>
+        <legend className="px-2 text-xs font-bold text-emerald-400">4 · Policies</legend>
         <InputBlock label="Refund policy (shown on the offer)">
           <textarea
             value={refundPolicy}

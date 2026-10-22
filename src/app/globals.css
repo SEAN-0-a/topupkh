@@ -32,7 +32,11 @@ html:not(.dark) {
   --foreground: #0f172a;
 
   --color-black: #f8fafc;
-  --color-white: #0f172a;
+
+  /* NOTE: --color-white must NOT be remapped here. Legacy `text-white` needs
+     dark ink in light mode, but `bg-white` (body, login card, KHQR modal
+     backdrop) must stay pure white #ffffff. The token is left at Tailwind's
+     default and the text side is inverted per-utility below. */
 
   /* inverted + slate-hued neutral scale */
   --color-gray-950: #f1f5f9;
@@ -56,6 +60,13 @@ html:not(.dark) .bg-white {
   box-shadow:
     0 1px 2px rgb(15 23 42 / 0.06),
     0 4px 14px -4px rgb(15 23 42 / 0.10);
+}
+
+/* Legacy dark-first pages were authored with `text-white` headings/body copy.
+   In light mode that text must become dark ink (the old token-level inversion
+   did this, but it also broke `bg-white` surfaces — see note above). */
+html:not(.dark) .text-white {
+  color: #0f172a;
 }
 
 body {

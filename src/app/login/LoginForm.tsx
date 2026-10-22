@@ -191,7 +191,7 @@ export default function LoginForm() {
         {/* Email Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">
               Email address
             </label>
             <input
@@ -205,7 +205,7 @@ export default function LoginForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">
               Password
             </label>
             <input

@@ -5,8 +5,8 @@ import { requireUser, requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { seller_type_enum } from "@/lib/db-enums";
 import {
-  DOC_TYPES,
   MIN_DOC_BYTES,
+  normalizeDocMime,
   validateKycDetails,
   type KycStep1Input,
 } from "@/lib/kyc-validation";
@@ -68,34 +68,44 @@ function validateDetails(input: KycStep1Input): string | null {
 }
 
 /**
- * ID document quality re-check against bucket metadata (the browser has
- * already enforced JPG/PNG, ≥100KB, ≥300×300 at pick time — this verifies the
- * object that actually landed in storage is a real, non-trivial image).
+ * ID document quality re-check against the object's REAL storage metadata
+ * (the browser has already enforced JPG/PNG, ≥100KB, ≥300×300 at pick time —
+ * this verifies the object that actually landed in storage is a real,
+ * non-trivial image).
+ *
+ * Uses `info(path)` — a direct HEAD-style lookup of exactly that object —
+ * instead of the old `list(folder, { search })` round-trip. The search-based
+ * listing is what kept failing server-side and surfacing the stuck
+ * "ID front photo could not be verified" error on perfectly valid uploads.
  */
 async function assertDocQuality(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
   path: string,
   label: string,
 ): Promise<void> {
-  const fileName = path.slice(userId.length + 1); // path is always "<uid>/<name>"
-  const { data, error } = await supabase.storage.from("seller-docs").list(userId, { limit: 1000, search: fileName });
+  const { data, error } = await supabase.storage.from("seller-docs").info(path);
+  // raw storage error goes to the server console for diagnosis
+  if (error) console.error(`${label} doc info() error:`, error);
   if (error || !data) throw new Error(`${label} photo could not be verified — please re-upload.`);
 
-  const file = data.find((o) => o.name === fileName);
-  if (!file?.metadata) throw new Error(`${label} photo is missing — please re-upload.`);
-
-  if (file.metadata.mimetype && !DOC_TYPES.includes(file.metadata.mimetype as (typeof DOC_TYPES)[number])) {
+  // mimetype normalized here: objects uploaded as "image/jpg" (the alias
+  // label some browsers/pickers send for standard .jpg files) must pass
+  const mime = normalizeDocMime(data.contentType ?? data.metadata?.mimeType);
+  if (mime === null) {
     throw new Error(`${label} photo must be a JPG or PNG image.`);
   }
-  if (typeof file.metadata.size === "number") {
-    if (file.metadata.size < MIN_DOC_BYTES) {
+
+  const size = typeof data.size === "number" ? data.size : (data.metadata?.size ?? null);
+  if (typeof size === "number") {
+    if (size < MIN_DOC_BYTES) {
       throw new Error(`${label} photo is too small (below 100 KB) — upload a clear photo of the real document.`);
     }
-    if (file.metadata.size > 5 * 1024 * 1024) {
+    if (size > 5 * 1024 * 1024) {
       throw new Error(`${label} photo must be under 5 MB.`);
     }
   }
+  // no readable size also means no verify — but the RPC re-checks existence
+  // path-level, so tolerate metadata absence instead of hard-failing here
 }
 
 /** Step 1+2 submit: everything is validated again inside the DB function. */
@@ -132,8 +142,8 @@ export async function submitSellerKyc(input: {
     if (detailsError) return { ok: false, message: detailsError };
 
     // ID document quality (JPG/PNG, ≥100 KB) verified against bucket metadata
-    await assertDocQuality(supabase, userId, frontPath, "ID front");
-    await assertDocQuality(supabase, userId, backPath, "ID back");
+    await assertDocQuality(supabase, frontPath, "ID front");
+    await assertDocQuality(supabase, backPath, "ID back");
 
     const { error } = await supabase.rpc("submit_seller_kyc", {
       p_seller_type: input.sellerType,

@@ -6,10 +6,12 @@ import { useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { submitSellerKyc } from "@/app/actions/kyc";
 import {
-  DOC_TYPES,
+  MAX_DOC_BYTES,
   MIN_DOC_BYTES,
   MIN_DOC_DIMENSION,
-  MAX_DOC_BYTES,
+  docExtension,
+  isSupportedDocFile,
+  normalizeDocMime,
   validateKycDetails,
   validateAccountNumber,
 } from "@/lib/kyc-validation";
@@ -97,7 +99,10 @@ export default function KycForm({
   async function pickDoc(kind: "front" | "back", file: File | undefined | null) {
     if (!file) return;
     setError(null);
-    if (!DOC_TYPES.includes(file.type as (typeof DOC_TYPES)[number])) {
+    // accepts standard .jpg / .jpeg / .png — by reported MIME type OR by
+    // extension (some Android/older pickers send "image/jpg" or an empty
+    // file.type for perfectly valid JPEG documents)
+    if (!isSupportedDocFile(file)) {
       setError("ID photo must be a JPG or PNG image.");
       return;
     }
@@ -137,7 +142,12 @@ export default function KycForm({
     }
   }
 
-  /** Upload one document to the private bucket; returns its storage path. */
+  /**
+   * Upload one document to the private bucket; returns its storage path.
+   * The upload is VERIFIED before returning: the object's existence is
+   * re-checked with a signed-URL probe (a valid, fetchable URL) so the form
+   * payload can never reference a path that didn't actually land in storage.
+   */
   async function uploadDoc(kind: "front" | "back"): Promise<string | null> {
     const file = kind === "front" ? frontFile : backFile;
     if (!file) return null;
@@ -148,12 +158,29 @@ export default function KycForm({
     setUploading(kind);
     setError(null);
     try {
-      const ext = file.type === "image/png" ? "png" : "jpg"; // validated at pick-time
-      const path = `${userId}/${Date.now()}-${kind}.${ext}`;
+      const path = `${userId}/${Date.now()}-${kind}.${docExtension(file.name) || "jpg"}`;
+      // contentType NORMALIZED: browsers may report .jpg files as "image/jpg"
+      // or an empty type — Storage's allowed MIME list only accepts the
+      // canonical "image/jpeg", so standard files must map to it here.
+      const contentType = normalizeDocMime(file.type) ?? "image/jpeg";
       const { error: uploadError } = await supabase.storage
         .from("seller-docs")
-        .upload(path, file, { cacheControl: "3600", contentType: file.type });
+        .upload(path, file, { cacheControl: "3600", contentType });
       if (uploadError) throw new Error(uploadError.message);
+
+      // verify the object is real and readable via a signed URL — for a
+      // PRIVATE bucket this is the equivalent of "a valid URL exists": it
+      // proves the upload landed (RLS-visible to the owner) before submit
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("seller-docs")
+        .createSignedUrl(path, 60);
+      if (signedError || !signed?.signedUrl) {
+        // raw storage error goes to the console for diagnosis
+        console.error(`KYC post-upload verification failed (${kind}):`, signedError);
+        throw new Error(
+          "Upload completed but the file could not be verified in storage — please re-upload.",
+        );
+      }
 
       if (kind === "front") setFrontPath(path);
       else setBackPath(path);
@@ -381,7 +408,7 @@ export default function KycForm({
                       <input
                         ref={kind === "front" ? frontInputRef : backInputRef}
                         type="file"
-                        accept="image/png,image/jpeg"
+                        accept="image/png,image/jpeg,image/jpg,.jpg,.jpeg,.png"
                         className="hidden"
                         onChange={(e) => {
                           void pickDoc(kind, e.target.files?.[0]);

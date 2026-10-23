@@ -10,11 +10,48 @@
 // metadata re-check server-side — see kyc.ts)
 // ---------------------------------------------------------------------------
 export const DOC_TYPES = ["image/png", "image/jpeg"] as const;
+/** File extensions accepted for standard `.jpg`, `.jpeg`, `.png` documents. */
+export const DOC_EXTENSIONS = ["jpg", "jpeg", "png"] as const;
 /** Reject "blank"/tiny fake images: at least 100 KB. */
 export const MIN_DOC_BYTES = 100 * 1024;
 export const MAX_DOC_BYTES = 5 * 1024 * 1024;
 /** Reject 1-pixel / thumbnail fakes: both sides must be at least this. */
 export const MIN_DOC_DIMENSION = 300;
+
+/**
+ * Normalize a reported MIME type to one of DOC_TYPES.
+ * Some Android/older browsers report standard `.jpg` files as "image/jpg"
+ * (or an empty type). Storage stores whatever contentType the uploader sent,
+ * so the server-side re-check MUST tolerate that label too or valid .jpg
+ * uploads bounce with a bogus "must be a JPG or PNG image" error.
+ * Returns null when the type is not a supported image.
+ */
+export function normalizeDocMime(mime: string | null | undefined): (typeof DOC_TYPES)[number] | null {
+  const m = (mime ?? "").trim().toLowerCase();
+  if (m === "image/jpg") return "image/jpeg"; // alias for the same JPEG format
+  if ((DOC_TYPES as readonly string[]).includes(m)) return m as (typeof DOC_TYPES)[number];
+  return null;
+}
+
+/** Extension of a filename (letters only, lowercase) or "" when none. */
+export function docExtension(fileName: string | null | undefined): string {
+  const n = (fileName ?? "").split(".").pop() ?? "";
+  const ext = /[a-z0-9]+/i.exec(n)?.[0] ?? "";
+  return ext.toLowerCase();
+}
+
+/**
+ * Whole-file gate used at pick time: accepts a File when EITHER its reported
+ * MIME type OR its extension identifies a standard .jpg/.jpeg/.png image.
+ * (Some pickers omit file.type entirely; the extension is then the only
+ * signal — rejecting such files would block perfectly valid documents.)
+ */
+export function isSupportedDocFile(file: { type: string; name: string }): boolean {
+  return (
+    normalizeDocMime(file.type) !== null ||
+    (DOC_EXTENSIONS as readonly string[]).includes(docExtension(file.name))
+  );
+}
 
 export type KycValidation = string | null; // null = valid, string = error
 

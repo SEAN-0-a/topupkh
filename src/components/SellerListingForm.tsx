@@ -59,42 +59,66 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
     setGameName(games.find((g) => g.id === nextId)?.name ?? "");
   }
 
+  /**
+   * Server actions serialize thrown/returned values; a raw object here renders
+   * as "[object Object]". Extract its `message` when present, stringify the
+   * rest, and always fall back to a plain string.
+   */
+  function formatListingError(error: unknown): string {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+          ? (error as any).message
+          : String(error);
+    return typeof errorMessage === "string" ? errorMessage : String(errorMessage);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const result = await createListing({
-      gameId: Number(gameId),
-      categoryId: Number(categoryId),
-      title,
-      description,
-      // first gallery image also acts as the cover
-      imageUrl: imageUrls[0] || "",
-      priceUsd: Number(price),
-      originalPriceUsd: originalPrice === "" ? null : Number(originalPrice),
-      deliveryMethod,
-      deliveryDetails,
-      stockIsUnlimited: unlimited || category?.stock_model === "unlimited",
-      stock: unlimited ? 0 : Number(stock),
-      estimatedMinutes: estimatedMinutes === "" ? null : Number(estimatedMinutes),
-      refundPolicy,
-      ownershipNote,
-      gameName,
-      originalEmail,
-      openEmailAccess,
-      warrantyDays: warrantyDays === "" ? null : Number(warrantyDays),
-      deliveryTime: deliveryTime === "" ? "Instant" : deliveryTime,
-      inventoryValue,
-      images: imageUrls,
-    });
+    try {
+      const result = await createListing({
+        gameId: Number(gameId),
+        categoryId: Number(categoryId),
+        title,
+        description,
+        // first gallery image also acts as the cover
+        imageUrl: imageUrls[0] || "",
+        priceUsd: Number(price),
+        originalPriceUsd: originalPrice === "" ? null : Number(originalPrice),
+        deliveryMethod,
+        deliveryDetails,
+        stockIsUnlimited: unlimited || category?.stock_model === "unlimited",
+        stock: unlimited ? 0 : Number(stock),
+        estimatedMinutes: estimatedMinutes === "" ? null : Number(estimatedMinutes),
+        refundPolicy,
+        ownershipNote,
+        gameName,
+        originalEmail,
+        openEmailAccess,
+        warrantyDays: warrantyDays === "" ? null : Number(warrantyDays),
+        deliveryTime: deliveryTime === "" ? "Instant" : deliveryTime,
+        inventoryValue,
+        images: imageUrls,
+      });
 
-    setLoading(false);
-    if (result.ok) {
-      setSuccess({ templateId: result.templateId });
-      router.refresh();
-    } else {
-      setError(result.message);
+      if (result.ok) {
+        setSuccess({ templateId: result.templateId });
+        router.refresh();
+      } else {
+        if (typeof result.message !== "string") {
+          console.error("Listing error payload:", result.message);
+        }
+        setError(formatListingError(result.message));
+      }
+    } catch (error) {
+      console.error("Listing error payload:", error);
+      setError(formatListingError(error));
+    } finally {
+      setLoading(false);
     }
   }
 

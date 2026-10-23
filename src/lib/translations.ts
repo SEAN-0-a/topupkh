@@ -69,8 +69,7 @@ const en = {
 
   // ---- marketplace states ----
   "market.no_results": "No products match these filters yet.",
-  "market.no_results_hint":
-    "Try clearing filters, or check back — every listing must pass admin approval first.",
+  "market.no_results_hint": "Try clearing filters, or check back — new offers from verified sellers are published instantly.",
   "market.prev": "← Prev",
   "market.next": "Next →",
   "market.page_of": "Page {n} of {total}",

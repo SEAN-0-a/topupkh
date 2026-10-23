@@ -125,8 +125,8 @@ export async function createListing(input: {
     if (!DELIVERY_METHODS.has(input.deliveryMethod)) {
       return { ok: false, message: "Invalid delivery method." };
     }
-    if (!input.stockIsUnlimited && (!Number.isInteger(input.stock) || input.stock < 0 || input.stock > 100000)) {
-      return { ok: false, message: "Stock must be 0–100,000 (or tick unlimited)." };
+    if (!input.stockIsUnlimited && (!Number.isInteger(input.stock) || input.stock < 1 || input.stock > 100000)) {
+      return { ok: false, message: "Stock must be 1–100,000 (or tick unlimited)." };
     }
 
     // ---------- new Eldorado-style field validation ----------
@@ -257,7 +257,12 @@ export async function createListing(input: {
     // surface error.message directly — never a fabricated or stale message.
 
     /** Basic primitives only: numbers/strings/booleans — no arrays (images),
-     *  no custom-enum columns (status, delivery_method); DB defaults apply. */
+     *  no custom-enum columns (status, delivery_method); DB defaults apply.
+     *  stock_is_unlimited MUST ride along (booleans are primitives): a
+     *  fallback insert for an unlimited-stock listing that omitted it would
+     *  create stock=0 / flag=false — failing BOTH branches of the grid's
+     *  in-stock filter (stock_is_unlimited.eq.true,stock.gt.0) and making the
+     *  listing permanently invisible on the marketplace/homepage. */
     const basicOnlyPayload = {
       seller_id: seller.id,
       game_id: input.gameId,
@@ -267,6 +272,7 @@ export async function createListing(input: {
       description: input.description,
       price_usd: input.priceUsd,
       stock: input.stockIsUnlimited ? 0 : input.stock,
+      stock_is_unlimited: input.stockIsUnlimited,
     };
 
     let product: { id: number } | null = null;

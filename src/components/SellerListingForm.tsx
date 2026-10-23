@@ -103,7 +103,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         deliveryMethod,
         deliveryDetails,
         stockIsUnlimited: unlimited || category?.stock_model === "unlimited",
-        stock: unlimited ? 0 : Number(stock),
+        stock: unlimited ? 0 : Math.max(1, Number(stock) || 1),
         estimatedMinutes: estimatedMinutes === "" ? null : Number(estimatedMinutes),
         refundPolicy,
         ownershipNote,
@@ -431,10 +431,11 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         {category?.stock_model !== "unlimited" && !unlimited && (
           <InputBlock label="Stock (units)">
             <input
-              type="number" min="0" step="1" required
+              type="number" min="1" step="1" required
               value={stock}
               onChange={(e) => setStock(e.target.value)}
               className={inputCls}
+              placeholder="1"
             />
           </InputBlock>
         )}

@@ -39,6 +39,9 @@ export default async function MarketplacePage({
     sort: first(params, "sort") as CatalogQuery["sort"],
     page: Math.max(1, Number(first(params, "page") ?? "1") || 1),
     perPage: 12,
+    // __TEMPORARY DEBUG__ — /marketplace?debug=raw bypasses all .eq()/filters
+    // and dumps raw listings to the server console. Remove with debugRaw.
+    debugRaw: first(params, "debug") === "raw",
   };
 
   // Fetch filters defensively: an unreachable Supabase, a missing env var, or a

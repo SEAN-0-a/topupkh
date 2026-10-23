@@ -56,6 +56,35 @@ export default async function SellerNewListingPage() {
         c !== null,
     );
 
+  // __CATALOGUE FALLBACK__ — the PostgREST queries above can fail (DB outage,
+  // RLS changes, stale schema cache → error 42704), which previously rendered
+  // EMPTY selects. With zero <option>s the browser either blocks submission
+  // or shows "Please select an item in the list". Now a static catalogue is
+  // used so the form stays usable; the placeholder NEGATIVE ids make it
+  // visually obvious and prevent collisions with real catalogue row ids.
+  // NOTE: submitting an offer with fallback ids will surface the server-side
+  // FK error — run supabase/seed_demo_products.sql / migrations to repair.
+  const gameOptions = games && games.length > 0
+    ? games
+    : FALLBACK_GAMES.map((name, i) => ({ id: -(i + 1), name, slug: slugify(name) }));
+  const categoryOptions = categories.length > 0
+    ? categories
+    : FALLBACK_CATEGORIES.map((name, i) => ({
+        id: -(i + 1),
+        name,
+        slug: slugify(name),
+        stock_model: name === "Boosting" ? ("unlimited" as const) : ("finite" as const),
+      }));
+
+  console.log(
+    "SELL FORM CATALOGUE — games:",
+    games?.length ?? 0,
+    "DB rows · categories:",
+    categories.length,
+    "DB rows · fallback:",
+    !games?.length || !categories.length ? "IN USE" : "off",
+  );
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 text-white">
       <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
@@ -65,7 +94,40 @@ export default async function SellerNewListingPage() {
         </p>
       </div>
 
-      <SellerListingForm games={games ?? []} categories={categories} sellerStatus={sellerStatus} />
+      <SellerListingForm games={gameOptions} categories={categoryOptions} sellerStatus={sellerStatus} />
+      {(gameOptions[0]?.id ?? 0) < 0 && (
+        <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">
+          ⚠️ Catalogue unavailable (games/categories queries failed) — the lists below use static
+          fallback options. Offers can be typed in, but submitting needs the real catalogue to
+          exist in the database.
+        </p>
+      )}
     </div>
   );
 }
+
+/** URL-safe slug from a display name (fallback catalogue only). */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// __CATALOGUE FALLBACK__ (static, only when the DB catalogue is unreachable)
+const FALLBACK_GAMES = [
+  "Roblox",
+  "Mobile Legends",
+  "PUBG Mobile",
+  "Free Fire",
+  "Valorant",
+];
+
+const FALLBACK_CATEGORIES = [
+  "Currency",
+  "Accounts",
+  "Top Ups",
+  "Items",
+  "Boosting",
+  "Gift Cards",
+];

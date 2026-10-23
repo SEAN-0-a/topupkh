@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireRole, type UserContext } from "@/lib/auth";
 
 export type CreateListingResult =
-  | { ok: true; templateId: number; productId: number }
+  | { ok: true; templateId: number; productId: number; published: boolean }
   | { ok: false; message: string };
 
 const DELIVERY_METHODS = new Set(["in_game", "instructions", "digital_file", "creator_services"]);
@@ -50,9 +50,14 @@ function slugify(input: string): string {
  *   server-side.
  * - AUTO-PUBLISH: offers are created with status 'approved' so they appear on
  *   /marketplace immediately (the marketplace query filters status='approved').
- *   The DB eligibility trigger still hard-blocks PROHIBITED game/category
- *   pairs at insert time (0017 keeps that guardrail while removing the
- *   needs_review admin-approval gate).
+ *   THE DB ELIGIBILITY TRIGGER STILL:
+ *     - hard-blocks PROHIBITED game/category pairs at insert time
+ *       (0017 keeps that guardrail while removing the admin-approval gate)
+ *     - downgrades UNCONFIGURED pairs (no eligibility_rules row) from
+ *       'approved' to 'pending_review' — the offer is submitted FOR REVIEW
+ *       until the rule is provisioned (supabase/0018). The action inserts
+ *       'pending_review' directly for those pairs and skips its publish
+ *       update; the trigger is the backstop.
  */
 export async function createListing(input: {
   gameId: number;
@@ -155,11 +160,15 @@ export async function createListing(input: {
     // Ups, Currency…, anything valid — bounced with "This game/category
     // combination is not configured." There is no hardcoded pair mapping
     // here; the policy lives in the DB. Behavior now:
-    //   rule row = 'prohibited'        → hard policy block (unchanged guardrail)
-    //   rule row missing / lookup fail → PROCEED: createListing still requires
-    //     real FK-valid ids (games/product_categories/products FK constraints)
-    //     and the DB eligibility trigger enforces policy at insert time, so a
-    //     genuinely invalid combo fails with its REAL database error, not a
+    //   rule row = 'prohibited'              → hard policy block (guardrail)
+    //   rule row missing (UNCONFIGURED)      → SUBMIT FOR REVIEW: insert proceeds
+    //     with status 'pending_review' (the DB trigger downgrades too, so this
+    //     holds even via the primitive-only fallback — supabase/0018)
+    //   rule row = 'allowed' / 'needs_review'→ AUTO-PUBLISH unchanged (0017)
+    // lookup-failed → PROCEED: createListing still requires real FK-valid ids
+    //     (games/product_categories/products FK constraints) and the DB
+    //     eligibility trigger enforces policy at insert time, so a genuinely
+    //     invalid combo fails with its REAL database error, not a
     //     fabricated one.
     const { data: rule, error: ruleError } = await supabase
       .from("eligibility_rules")
@@ -180,10 +189,11 @@ export async function createListing(input: {
         message: "This product type violates marketplace policy and cannot be listed.",
       };
     }
-    // rule = 'allowed' / 'needs_review' / null / lookup-failed all proceed:
-    // offers are AUTO-PUBLISHED (status 'approved'); prohibited pairs never
-    // reach this point. Category-level review policy is managed in the DB
-    // (see supabase/0017_auto_publish_listings.sql).
+
+    // AUTO-PUBLISH only for pairs with an explicit, valid rule. UNCONFIGURED
+    // pairs (no rule row) submit FOR REVIEW ('pending_review') until an admin
+    // provisions the rule — matching the DB trigger (supabase/0018).
+    const autoPublish = rule?.status === "allowed" || rule?.status === "needs_review";
 
     const title = input.title.trim();
 
@@ -270,10 +280,13 @@ export async function createListing(input: {
           refund_policy: input.refundPolicy.slice(0, 1000),
           ownership_note: input.ownershipNote.slice(0, 1000),
           // AUTO-PUBLISH: 'approved' = the marketplace's published status, so the
-          // listing shows up on /marketplace immediately after submission.
+          // listing shows up on /marketplace immediately after submission —
+          // but ONLY when the (game, category) pair has a valid rule. An
+          // UNCONFIGURED pair submits FOR REVIEW ('pending_review').
           // Prohibited game/category pairs are still hard-blocked by the DB
-          // eligibility trigger (0017).
-          status: "approved",
+          // eligibility trigger (0017). See supabase/0018 for the unconfigured
+          // downgrade (also applied as a trigger-side backstop).
+          status: autoPublish ? "approved" : "pending_review",
         })
         .select("id")
         .single<{ id: number }>();
@@ -296,16 +309,20 @@ export async function createListing(input: {
           .single<{ id: number }>();
         if (error) throw error;
         product = data;
-        // primitive-only insert succeeded but skipped AUTO-PUBLISH ('approved'):
-        // flip the status via a bare primitive UPDATE so the offer still lands
-        // on /marketplace immediately.
-        const { error: publishError } = await supabase
-          .from("products")
-          .update({ status: "approved" })
-          .eq("id", product.id);
-        if (publishError) {
-          // not fatal — the offer exists; publish status can be fixed later
-          console.error("Listing primitive-only publish update error:", publishError);
+        // primitive-only insert succeeded but skipped the AUTO-PUBLISH flip
+        // ('approved'): apply it via a bare primitive UPDATE so the offer
+        // still lands on /marketplace immediately — ONLY for pairs with a
+        // valid rule. UNCONFIGURED pairs stay 'pending_review' (submit for
+        // review); the DB trigger rejects the flip anyway (0018).
+        if (autoPublish) {
+          const { error: publishError } = await supabase
+            .from("products")
+            .update({ status: "approved" })
+            .eq("id", product.id);
+          if (publishError) {
+            // not fatal — the offer exists; publish status can be fixed later
+            console.error("Listing primitive-only publish update error:", publishError);
+          }
         }
       } catch (e) {
         insertError = { message: toErrorMessage(e) };
@@ -323,7 +340,9 @@ export async function createListing(input: {
     }
 
     revalidatePath("/marketplace");
-    return { ok: true, templateId, productId: product.id };
+    // published=false → UNCONFIGURED (game, category) pair: the offer was
+    // submitted for review ('pending_review') and is NOT on /marketplace yet
+    return { ok: true, templateId, productId: product.id, published: autoPublish };
   } catch (e) {
     console.error("Listing create failed:", e);
     return { ok: false, message: toErrorMessage(e) };

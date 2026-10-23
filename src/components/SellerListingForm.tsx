@@ -49,7 +49,10 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ templateId: number } | null>(null);
+  const [success, setSuccess] = useState<{
+    templateId: number;
+    published: boolean;
+  } | null>(null);
 
   const category = categories.find((c) => c.id === Number(categoryId));
 
@@ -109,7 +112,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
       });
 
       if (result.ok) {
-        setSuccess({ templateId: result.templateId });
+        setSuccess({ templateId: result.templateId, published: result.published });
         router.refresh();
       } else {
         setError(formatListingError(result.message));
@@ -145,11 +148,24 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   if (success) {
     return (
       <Notice>
-        ✅ Offer submitted and published! It is live on the{" "}
-        <Link href="/marketplace" className="text-emerald-400">
-          marketplace
-        </Link>{" "}
-        now.
+        {success.published ? (
+          <>
+            ✅ Offer submitted and published! It is live on the{" "}
+            <Link href="/marketplace" className="text-emerald-400">
+              marketplace
+            </Link>{" "}
+            now.
+          </>
+        ) : (
+          <>
+            ✅ Offer submitted for review! This game/product-type pair isn&apos;t
+            configured yet, so your offer goes live on the{" "}
+            <Link href="/marketplace" className="text-emerald-400">
+              marketplace
+            </Link>{" "}
+            once an admin provisions it.
+          </>
+        )}
         <div className="mt-3 flex justify-center gap-3 text-xs">
           <Link
             href={`/offer/${success.templateId}`}

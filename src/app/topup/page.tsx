@@ -1,24 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import KHQRModal from "@/components/KHQRModal";
 
-const PACKAGES = [
-  { id: 1, name: "800 Robux", price: 9.99 },
-  { id: 2, name: "1,700 Robux", price: 19.99 },
-  { id: 3, name: "4,500 Robux", price: 49.99 },
-  { id: 4, name: "10,000 Robux", price: 99.99 },
-];
+/**
+ * LIVE MARKETPLACE FEED — no hardcoded demo packages. Packages are real,
+ * currently-approvved in-stock listings straight from public.products, gated
+ * exactly like the homepage/marketplace grids:
+ *   is_deleted = false · status = 'approved'
+ *   stock_is_unlimited = true OR stock > 0
+ */
+type TopUpPackage = { id: number; name: string; price: number };
+
+type FeedState = "loading" | "ready" | "empty" | "error";
 
 export default function HomePage() {
+  const [packages, setPackages] = useState<TopUpPackage[]>([]);
+  const [feedState, setFeedState] = useState<FeedState>("loading");
   const [playerId, setPlayerId] = useState("");
-  const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
+  const [selectedPackage, setSelectedPackage] = useState<TopUpPackage | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeOrder, setActiveOrder] = useState<{ id: number; price: number } | null>(null);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, title, price_usd")
+        .eq("is_deleted", false)
+        .eq("status", "approved")
+        .or("stock_is_unlimited.eq.true,stock.gt.0")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!alive) return;
+      if (error) {
+        console.error("Top-up feed query failed:", error);
+        setFeedState("error");
+        return;
+      }
+      const rows = ((data ?? []) as { id: number; title: string; price_usd: number }[]).map(
+        (r) => ({ id: r.id, name: r.title, price: r.price_usd }),
+      );
+      setPackages(rows);
+      if (rows.length > 0) setSelectedPackage(rows[0]); // sensible default pick
+      setFeedState(rows.length > 0 ? "ready" : "empty");
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPackage) {
+      alert("សូមជ្រើសរើសកញ្ចប់! (Please select a package)");
+      return;
+    }
     if (!playerId.trim()) {
       alert("សូមបញ្ចូល Roblox Player ID ឬ User ID! (Please enter Player ID)");
       return;
@@ -87,31 +127,60 @@ export default function HomePage() {
             <label className="block text-xs text-gray-400 mb-1 font-medium">
               ជ្រើសរើសកញ្ចប់ (Select Package)
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {PACKAGES.map((pkg) => (
-                <button
-                  key={pkg.id}
-                  type="button"
-                  onClick={() => setSelectedPackage(pkg)}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedPackage.id === pkg.id
-                      ? "border-emerald-500 bg-emerald-500/10 text-white"
-                      : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-700"
-                  }`}
-                >
-                  <div className="font-bold text-sm text-white">{pkg.name}</div>
-                  <div className="text-emerald-400 font-mono text-xs">${pkg.price} USD</div>
-                </button>
-              ))}
-            </div>
+            {feedState === "loading" && (
+              <p className="rounded-xl border border-gray-800 bg-black/50 px-3 py-3 text-center text-xs text-gray-400">
+                ⏳ កំពុងផ្ទុកកញ្ចប់… (Loading live offers…)
+              </p>
+            )}
+            {feedState === "empty" && (
+              <p className="rounded-xl border border-gray-800 bg-black/50 px-3 py-3 text-center text-xs text-gray-400">
+                No top-up offers available right now — browse the{" "}
+                <Link href="/marketplace" className="text-emerald-400 hover:underline">
+                  marketplace
+                </Link>{" "}
+                instead. We don&apos;t show fake demo packages.
+              </p>
+            )}
+            {feedState === "error" && (
+              <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-3 text-center text-xs text-red-300">
+                Couldn&apos;t load the offers — please retry in a moment or open the{" "}
+                <Link href="/marketplace" className="text-emerald-400 hover:underline">
+                  marketplace
+                </Link>
+                .
+              </p>
+            )}
+            {feedState === "ready" && (
+              <div className="grid grid-cols-2 gap-2">
+                {packages.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => setSelectedPackage(pkg)}
+                    className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      selectedPackage?.id === pkg.id
+                        ? "border-emerald-500 bg-emerald-500/10 text-white"
+                        : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-700"
+                    }`}
+                  >
+                    <div className="font-bold text-sm text-white">{pkg.name}</div>
+                    <div className="text-emerald-400 font-mono text-xs">${pkg.price} USD</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || feedState !== "ready" || !selectedPackage}
             className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold py-3 rounded-xl cursor-pointer transition-all text-sm mt-2"
           >
-            {loading ? "កំពុងដំណើរការ..." : `បន្តការទូទាត់ ($${selectedPackage.price} USD)`}
+            {loading
+              ? "កំពុងដំណើរការ..."
+              : selectedPackage
+                ? `បន្តការទូទាត់ ($${selectedPackage.price} USD)`
+                : "ជ្រើសរើសកញ្ចប់ជាមុន (Select a package first)"}
           </button>
         </form>
       </div>

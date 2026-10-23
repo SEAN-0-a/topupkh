@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BuyButton from "@/components/BuyButton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserContext } from "@/lib/auth";
 
 const DELIVERY_LABELS: Record<string, string> = {
   in_game: "Delivered in game",
@@ -48,11 +49,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       rating_sum: number;
       rating_count: number;
       created_at: string;
+      sellers: { user_id: string } | { user_id: string }[] | null;
     }>();
 
-  // RLS guarantees only approved products are visible to the public;
-  // the extra status check keeps direct 404s honest.
-  if (!product || product.status !== "approved") notFound();
+  // The listing must be approved to be PUBLIC — but the seller who owns it (and
+  // staff) must still see their own freshly created row, otherwise the
+  // "View the product page" button on the success screen 404s for
+  // pending_review offers (unconfigured game/category pairs).
+  const seller = Array.isArray(product?.sellers) ? product?.sellers[0] : product?.sellers;
+  const user = await getUserContext();
+  const isOwner = !!user && seller?.user_id === user?.userId;
+  const isLive = product?.status === "approved";
+
+  // RLS guarantees only approved products + own rows are visible;
+  // the extra check keeps direct 404s honest for everyone else.
+  if (!product || (!isLive && !isOwner)) notFound();
+  const isPending = !isLive && isOwner;
 
   const created = new Date(product.created_at).toLocaleDateString();
   const rating =
@@ -111,7 +123,18 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             )}
           </ul>
 
-          <BuyButton productId={product.id} disabled={inStock ? undefined : "Out of stock"} />
+          <BuyButton
+            productId={product.id}
+            disabled={isPending ? "Pending review" : inStock ? undefined : "Out of stock"}
+          />
+
+          {isPending && (
+            <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">
+              ⏳ This offer was submitted for review — it isn&apos;t on the public marketplace yet
+              (this game/category pair isn&apos;t configured). It goes live automatically once an
+              admin provisions the pair. Only you can see this page for now.
+            </p>
+          )}
 
           <p className="text-[11px] text-gray-500">
             Protected checkout: pay through this site in USD via KHQR. Funds are released only after

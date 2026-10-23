@@ -50,7 +50,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
-    templateId: number;
+    productId: number;
     published: boolean;
   } | null>(null);
 
@@ -112,7 +112,10 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
       });
 
       if (result.ok) {
-        setSuccess({ templateId: result.templateId, published: result.published });
+        // productId (public.products PK) is the route param /product/[id] renders —
+        // NOT templateId, which is the marketplace's /offer/[template group] page
+        // and was the cause of the 404 on the success screen.
+        setSuccess({ productId: result.productId, published: result.published });
         router.refresh();
       } else {
         setError(formatListingError(result.message));
@@ -168,7 +171,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         )}
         <div className="mt-3 flex justify-center gap-3 text-xs">
           <Link
-            href={`/offer/${success.templateId}`}
+            href={`/product/${success.productId}`}
             className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-black hover:bg-emerald-400"
           >
             View the product page

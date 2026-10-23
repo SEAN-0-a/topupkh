@@ -48,16 +48,19 @@ function slugify(input: string): string {
  *   redirects to /seller/verify BEFORE any form data is processed.
  * - The browser supplies ONLY display fields; every status/computation is
  *   server-side.
- * - AUTO-PUBLISH: offers are created with status 'approved' so they appear on
- *   /marketplace immediately (the marketplace query filters status='approved').
- *   THE DB ELIGIBILITY TRIGGER STILL:
+ * - AUTO-PUBLISH: every offer is INSERTED with status 'approved' so it is
+ *   immediately viewable on /product/[id] right after the success redirect.
+ *   THE DB ELIGIBILITY TRIGGER (0001, rewritten by 0017/0018) REMAINS THE
+ *   FINAL AUTHORITY over what persists:
  *     - hard-blocks PROHIBITED game/category pairs at insert time
  *       (0017 keeps that guardrail while removing the admin-approval gate)
  *     - downgrades UNCONFIGURED pairs (no eligibility_rules row) from
- *       'approved' to 'pending_review' — the offer is submitted FOR REVIEW
- *       until the rule is provisioned (supabase/0018). The action inserts
- *       'pending_review' directly for those pairs and skips its publish
- *       update; the trigger is the backstop.
+ *       'approved' to 'pending_review' — the offer stays owner-only until
+ *       an admin provisions the rule (supabase/0018); seller-session
+ *       self-approval is separately banned by RLS, so the app layer cannot
+ *       bypass it
+ *   The action therefore READS THE PERSISTED STATUS BACK after insert and
+ *   returns `published = status === 'approved'` — ground truth, never a guess.
  */
 export async function createListing(input: {
   gameId: number;
@@ -190,11 +193,16 @@ export async function createListing(input: {
       };
     }
 
-    // AUTO-PUBLISH only for pairs with an explicit, valid rule. UNCONFIGURED
-    // pairs (no rule row) submit FOR REVIEW ('pending_review') until an admin
-    // provisions the rule — matching the DB trigger (supabase/0018).
-    const autoPublish = rule?.status === "allowed" || rule?.status === "needs_review";
-
+    // AUTO-PUBLISH now lives in the INSERT default itself: every listing is
+    // created 'approved'. The DB eligibility trigger (0001, rewritten by
+    // 0017/0018) is the single authority over what actually persists:
+    //   allowed / needs_review pair → insert stays 'approved' (fully public,
+    //     instantly viewable on /product/[id] and /marketplace right after
+    //     the redirect)
+    //   UNCONFIGURED pair           → trigger downgrades the insert to
+    //     'pending_review' (DB-side review gate; the owner can still open the
+    //     page — /product/[id] owner-gates unapproved rows)
+    //   PROHIBITED pair             → trigger raises the real DB error
     const title = input.title.trim();
 
     // ---------- canonical template: reuse or create ----------
@@ -279,14 +287,13 @@ export async function createListing(input: {
           estimated_minutes: input.estimatedMinutes,
           refund_policy: input.refundPolicy.slice(0, 1000),
           ownership_note: input.ownershipNote.slice(0, 1000),
-          // AUTO-PUBLISH: 'approved' = the marketplace's published status, so the
-          // listing shows up on /marketplace immediately after submission —
-          // but ONLY when the (game, category) pair has a valid rule. An
-          // UNCONFIGURED pair submits FOR REVIEW ('pending_review').
-          // Prohibited game/category pairs are still hard-blocked by the DB
-          // eligibility trigger (0017). See supabase/0018 for the unconfigured
-          // downgrade (also applied as a trigger-side backstop).
-          status: autoPublish ? "approved" : "pending_review",
+          // AUTO-PUBLISH DEFAULT: insert as 'approved' so a newly created
+          // listing is immediately viewable on /product/[id] with no 404.
+          // The eligibility trigger is the final arbiter: it keeps this status
+          // for configured pairs, downgrades UNCONFIGURED pairs to
+          // 'pending_review' at INSERT time, and hard-blocks PROHIBITED pairs
+          // (0017/0018). Persisted reality is read back below — never assumed.
+          status: "approved",
         })
         .select("id")
         .single<{ id: number }>();
@@ -309,18 +316,21 @@ export async function createListing(input: {
           .single<{ id: number }>();
         if (error) throw error;
         product = data;
-        // primitive-only insert succeeded but skipped the AUTO-PUBLISH flip
-        // ('approved'): apply it via a bare primitive UPDATE so the offer
-        // still lands on /marketplace immediately — ONLY for pairs with a
-        // valid rule. UNCONFIGURED pairs stay 'pending_review' (submit for
-        // review); the DB trigger rejects the flip anyway (0018).
-        if (autoPublish) {
+        // primitive-only insert succeeded but landed on the column default
+        // ('pending_review'): attempt a bare UPDATE flip to 'approved' so the
+        // offer still publishes immediately. Authority stays with the DB —
+        // for seller sessions the RLS self-approval ban (0001
+        // products_seller_write `status <> 'approved'`) rejects the flip (not
+        // fatal: the read-back below then reports 'pending_review' honestly),
+        // while staff sessions (products_staff_all) go through.
+        {
           const { error: publishError } = await supabase
             .from("products")
             .update({ status: "approved" })
             .eq("id", product.id);
           if (publishError) {
-            // not fatal — the offer exists; publish status can be fixed later
+            // not fatal — the offer exists; the success banner reflects the
+            // persisted status from the read-back below
             console.error("Listing primitive-only publish update error:", publishError);
           }
         }
@@ -345,9 +355,29 @@ export async function createListing(input: {
     // never lands on a stale deployment-cache shell that 404s (or hides) the
     // brand-new row.
     revalidatePath(`/product/${product.id}`);
-    // published=false → UNCONFIGURED (game, category) pair: the offer was
-    // submitted for review ('pending_review') and is NOT on /marketplace yet
-    return { ok: true, templateId, productId: product.id, published: autoPublish };
+
+    // ---------- ground-truth status read-back ----------
+    // The eligibility trigger may have downgraded an UNCONFIGURED pair's
+    // 'approved' insert to 'pending_review' at INSERT time (0018) — never
+    // report what we SENT, report what the DB actually PERSISTED. A failed
+    // read-back conservatively counts the listing as not-yet-published (the
+    // owner still sees it via /product/[id] owner-gating either way).
+    const { data: persisted, error: persistError } = await supabase
+      .from("products")
+      .select("status")
+      .eq("id", product.id)
+      .maybeSingle<{ status: string }>();
+    if (persistError) {
+      console.error("Listing status read-back error:", persistError);
+    }
+    const published = persisted?.status === "approved";
+
+    // published=true  → live on /marketplace AND publicly viewable on
+    //                   /product/[id] right now
+    // published=false → the DB review gate kept it unapproved (unconfigured
+    //                   pair) — the owner can still open the page; the form
+    //                   shows the "pending admin review" banner
+    return { ok: true, templateId, productId: product.id, published };
   } catch (e) {
     console.error("Listing create failed:", e);
     return { ok: false, message: toErrorMessage(e) };

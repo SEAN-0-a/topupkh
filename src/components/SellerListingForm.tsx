@@ -148,6 +148,35 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
     );
   }
 
+  // Reset every field back to its initial state so the seller can file the
+  // next listing without a full page reload.
+  function resetForm() {
+    setGameId(games[0]?.id ?? 0);
+    setCategoryId(categories[0]?.id ?? 0);
+    setTitle("");
+    setDescription("");
+    setPrice("");
+    setOriginalPrice("");
+    setDeliveryMethod("in_game");
+    setDeliveryDetails("");
+    setUnlimited(false);
+    setStock("1");
+    setEstimatedMinutes("");
+    setRefundPolicy(
+      "Contact support within 48 hours if the product was not delivered as described.",
+    );
+    setOwnershipNote("");
+    setGameName(games[0]?.name ?? "");
+    setOriginalEmail(true);
+    setOpenEmailAccess(true);
+    setWarrantyDays("5");
+    setDeliveryTime("");
+    setInventoryValue("");
+    setImageUrls([]);
+    setSuccess(null);
+    setError(null);
+  }
+
   if (success) {
     return (
       <Notice>
@@ -161,27 +190,44 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           </>
         ) : (
           <>
-            ✅ Offer submitted for review! This game/product-type pair isn&apos;t
-            configured yet, so your offer goes live on the{" "}
-            <Link href="/marketplace" className="text-emerald-400">
-              marketplace
-            </Link>{" "}
-            once an admin provisions it.
+            🎉 Listing Submitted! Your product is currently pending admin review and will be
+            published shortly. Until then only you can see it — opening its product page now would
+            show a 404 to everyone else.
           </>
         )}
         <div className="mt-3 flex justify-center gap-3 text-xs">
-          <Link
-            href={`/product/${success.productId}`}
-            className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-black hover:bg-emerald-400"
-          >
-            View the product page
-          </Link>
-          <Link
-            href="/seller/dashboard"
-            className="rounded-xl border border-gray-700 px-4 py-2 text-gray-300 hover:border-emerald-500"
-          >
-            My dashboard
-          </Link>
+          {success.published ? (
+            <>
+              <Link
+                href={`/product/${success.productId}`}
+                className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-black hover:bg-emerald-400"
+              >
+                View the product page
+              </Link>
+              <Link
+                href="/seller/dashboard"
+                className="rounded-xl border border-gray-700 px-4 py-2 text-gray-300 hover:border-emerald-500"
+              >
+                My dashboard
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/seller/dashboard"
+                className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-black hover:bg-emerald-400"
+              >
+                View My Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-xl border border-gray-700 px-4 py-2 text-gray-300 hover:border-emerald-500"
+              >
+                Create Another Listing
+              </button>
+            </>
+          )}
         </div>
       </Notice>
     );

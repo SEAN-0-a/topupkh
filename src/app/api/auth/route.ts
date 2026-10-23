@@ -26,6 +26,18 @@ interface SiteverifyOutcome {
   cdata?: string;
 }
 
+/** Runtime type guard: siteverify must actually deliver the documented shape
+ *  (a `success` boolean). Anything else degrades to 502 instead of being
+ *  trusted blindly through an unchecked cast. */
+function isSiteverifyOutcome(value: unknown): value is SiteverifyOutcome {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "success" in value &&
+    typeof (value as { success: unknown }).success === "boolean"
+  );
+}
+
 export async function POST(request: Request) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
@@ -60,14 +72,14 @@ export async function POST(request: Request) {
     formData.append("remoteip", remoteIp);
   }
 
-  let outcome: SiteverifyOutcome;
+  let payload: unknown = null;
   try {
     const siteverifyRes = await fetch(SITEVERIFY_URL, {
       method: "POST",
       body: formData,
       cache: "no-store",
     });
-    outcome = (await siteverifyRes.json()) as SiteverifyOutcome;
+    payload = await siteverifyRes.json();
   } catch (err) {
     console.error("Turnstile siteverify request failed:", err);
     return Response.json(
@@ -75,6 +87,16 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+
+  // narrowed by the guard — no definite assignment, no unchecked cast
+  if (!isSiteverifyOutcome(payload)) {
+    console.error("Turnstile siteverify returned an unexpected payload:", payload);
+    return Response.json(
+      { ok: false, message: "Could not contact the verification service. Please try again." },
+      { status: 502 },
+    );
+  }
+  const outcome = payload;
 
   if (!outcome.success) {
     console.warn("Turnstile verification rejected a token:", outcome["error-codes"]);

@@ -122,8 +122,11 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   if (success) {
     return (
       <Notice>
-        ✅ Offer submitted! It will appear publicly when an admin approves it (typically within
-        24h).
+        ✅ Offer submitted and published! It is live on the{" "}
+        <Link href="/marketplace" className="text-emerald-400">
+          marketplace
+        </Link>{" "}
+        now.
         <div className="mt-3 flex justify-center gap-3 text-xs">
           <Link
             href={`/offer/${success.templateId}`}

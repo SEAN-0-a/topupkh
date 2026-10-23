@@ -71,10 +71,15 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   function formatListingError(error: unknown): string {
     console.error("Listing error payload:", error);
 
+    // PostgREST/Auth payloads carry `message` / `error_description`; stringify
+    // any other shape. Property-bag casts are to `unknown`-typed fields — the
+    // runtime `typeof` line below does the real narrowing, never `any`.
     const errorMessage =
       typeof error === "string"
         ? error
-        : (error as any)?.message ?? (error as any)?.error_description ?? JSON.stringify(error);
+        : ((error as { message?: unknown })?.message ??
+          (error as { error_description?: unknown })?.error_description ??
+          JSON.stringify(error));
 
     // a nested non-string `message` must not degrade into "[object Object]"
     return typeof errorMessage === "string" ? errorMessage : String(errorMessage);
@@ -190,9 +195,11 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
           </>
         ) : (
           <>
-            🎉 Listing Submitted! Your product is currently pending admin review and will be
-            published shortly. Until then only you can see it — opening its product page now would
-            show a 404 to everyone else.
+            🎉 Listing Submitted! Your product is pending admin review.
+            <br />
+            <span className="text-[11px] text-gray-400">
+              It will be published shortly — until then only you can open it.
+            </span>
           </>
         )}
         <div className="mt-3 flex justify-center gap-3 text-xs">
@@ -217,7 +224,7 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
                 href="/seller/dashboard"
                 className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-black hover:bg-emerald-400"
               >
-                View My Dashboard
+                View Seller Dashboard
               </Link>
               <button
                 type="button"

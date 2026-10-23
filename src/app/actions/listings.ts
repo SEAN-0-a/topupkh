@@ -19,10 +19,15 @@ const DELIVERY_METHODS = new Set(["in_game", "instructions", "digital_file", "cr
  * Not exported: "use server" files may only export async actions.
  */
 function toErrorMessage(err: unknown): string {
+  // PostgREST/Auth payloads carry `message` / `error_description`; stringify
+  // any other shape. Property-bag casts are to `unknown`-typed fields — the
+  // runtime `typeof` line below does the real narrowing, never `any`.
   const message =
     typeof err === "string"
       ? err
-      : (err as any)?.message ?? (err as any)?.error_description ?? JSON.stringify(err);
+      : ((err as { message?: unknown })?.message ??
+        (err as { error_description?: unknown })?.error_description ??
+        JSON.stringify(err));
   return typeof message === "string" ? message : String(message);
 }
 

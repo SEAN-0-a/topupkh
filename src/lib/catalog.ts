@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Product, ProductCategory, Game } from "@/lib/types";
+import type { Product, ProductCategory, Game, Seller } from "@/lib/types";
 
 export type CatalogQuery = {
   q?: string;
@@ -41,30 +41,34 @@ function sanitizeIlike(term: string) {
 }
 
 /**
- * Approved, non-deleted, in-stock products with joined display data.
- * Visibility itself is additionally enforced by RLS (approved-only for the
- * public role), so this filter is defense in depth, not the only gate.
+ * One page-fetch pass. `strict = true` = production filters (!inner joins +
+ * the approved-seller guard, which SILENTLY DROPS any listing whose joined
+ * row is missing/hidden). `strict = false` = left joins — the listing row
+ * survives with null join data. Both passes always enforce the marketplace
+ * visibility gates: is_deleted=false, status='approved', in stock, RLS.
  */
-export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPage> {
+async function fetchProductsPage(
+  query: CatalogQuery,
+  strict: boolean,
+): Promise<CatalogPage> {
   const supabase = await createSupabaseServerClient();
   const page = Math.max(1, query.page ?? 1);
   const perPage = Math.min(48, Math.max(1, query.perPage ?? 12));
 
+  // strict: keyed !inner joins — a missing joined row DROPS the listing.
+  // relaxed: left joins — the listing survives with null join data.
+  const joinShape = strict
+    ? `games!inner ( name, slug ), product_categories!inner ( name, slug ), sellers!inner ( display_name, rating_sum, rating_count, completed_sales )`
+    : `games ( name, slug ), product_categories ( name, slug ), sellers ( display_name, rating_sum, rating_count, completed_sales )`;
+
   let qb = supabase
     .from("products")
-    .select(
-      `
-        *,
-        games!inner ( name, slug ),
-        product_categories!inner ( name, slug ),
-        sellers!inner ( display_name, rating_sum, rating_count, completed_sales )
-      `,
-      { count: "exact" },
-    )
+    .select(`*, ${joinShape}`, { count: "exact" })
     .eq("is_deleted", false)
-    .eq("status", "approved")
-    .eq("sellers.status", "approved")
-    .or("stock_is_unlimited.eq.true,stock.gt.0");
+    .eq("status", "approved");
+
+  if (strict) qb = qb.eq("sellers.status", "approved");
+  qb = qb.or("stock_is_unlimited.eq.true,stock.gt.0");
 
   const term = sanitizeIlike(query.q ?? "");
   if (term.length >= 1) {
@@ -88,7 +92,20 @@ export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPag
 
   if (error) throw new Error(`Failed to load products: ${error.message}`);
 
-  const items = (data ?? []) as unknown as Product[];
+  // Normalize: PostgREST returns joins at the top level, but the Product type
+  // and ProductCard read them nested under `joined`. Build the nested shape
+  // from the raw relations so both render paths have data; null joins are
+  // tolerated and ProductCard falls back gracefully.
+  const rows = (data ?? []) as unknown as RawProductRow[];
+  const items = rows.map((r) => ({
+    ...r,
+    joined: {
+      games: r.games ?? null,
+      product_categories: r.product_categories ?? null,
+      sellers: r.sellers ?? null,
+    },
+  })) as unknown as Product[];
+
   const total = count ?? 0;
   return {
     items,
@@ -97,6 +114,46 @@ export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPag
     perPage,
     totalPages: Math.max(1, Math.ceil(total / perPage)),
   };
+}
+
+type RawProductRow = Product & {
+  games: Pick<Game, "name" | "slug"> | null;
+  product_categories: Pick<ProductCategory, "name" | "slug"> | null;
+  sellers: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
+};
+
+/**
+ * Public marketplace listing loader. Runs the STRICT pass first; if it fails
+ * or returns nothing, retries with relaxed joins so approved listings stay
+ * visible even when optional joined fields (game/category/seller) are missing
+ * or hidden. Only the core visibility gates are never relaxed.
+ */
+export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPage> {
+  let strict: CatalogPage | null = null;
+  let strictError: unknown = null;
+  try {
+    strict = await fetchProductsPage(query, true);
+  } catch (e) {
+    strictError = e;
+  }
+
+  if (strict && strict.items.length > 0) return strict;
+
+  try {
+    const relaxed = await fetchProductsPage(query, false);
+    // Only swap results when the relaxed pass actually finds listings the
+    // strict pass lost; an empty relaxed result means the market is empty.
+    if (relaxed.items.length > 0) return relaxed;
+  } catch {
+    // Ignore — the strict error/result is reported below.
+  }
+
+  if (strictError) {
+    throw strictError instanceof Error
+      ? strictError
+      : new Error("Failed to load products.");
+  }
+  return strict as CatalogPage; // honest empty result from the strict pass
 }
 
 /** Games that have at least one approved product (for hompepage + filters). */

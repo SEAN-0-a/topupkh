@@ -18,11 +18,17 @@ const PLACEHOLDER =
  * bold 2-line title, prominent price. Used on homepage + marketplace.
  */
 export default function ProductCard({ product }: { product: Product }) {
-  const joined = product.joined;
-  const game = joined?.games?.name ?? "";
-  const gameSlug = joined?.games?.slug;
-  const category = joined?.product_categories?.name ?? "";
-  const seller = joined?.sellers?.display_name ?? "Seller";
+  // `listProducts` nests the joined display data under `joined`; a raw
+  // PostgREST select returns the same relations at the TOP level. Accept
+  // either shape, and treat every joined field as optional — a missing
+  // game/category/seller row must fall back to safe text, never throw.
+  const game = product.joined?.games ?? product.games;
+  const category = product.joined?.product_categories ?? product.product_categories;
+  const seller = product.joined?.sellers ?? product.sellers;
+  const gameName = game?.name ?? "";
+  const gameSlug = game?.slug;
+  const categoryName = category?.name ?? "";
+  const sellerName = seller?.display_name ?? "Seller";
   const rating = fmtRating(product.rating_sum, product.rating_count);
   const discount =
     product.original_price_usd && product.original_price_usd > product.price_usd
@@ -47,12 +53,12 @@ export default function ProductCard({ product }: { product: Product }) {
         />
 
         {/* game tag over the image */}
-        {game && (
+        {gameName && (
           <Link
             href={gameSlug ? `/marketplace?game=${gameSlug}` : "/marketplace"}
             className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-black/90"
           >
-            🎮 {game}
+            🎮 {gameName}
           </Link>
         )}
 
@@ -68,7 +74,7 @@ export default function ProductCard({ product }: { product: Product }) {
       <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-1.5 flex items-center gap-2 text-[10px]">
           <span className="rounded-full bg-purple-500/10 px-2 py-0.5 font-semibold text-purple-300">
-            {category}
+            {categoryName}
           </span>
           <span className={`rounded-full px-2 py-0.5 font-semibold ${
             product.stock_is_unlimited
@@ -88,7 +94,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <p className="mt-1.5 text-[11px] text-gray-400">
           ដោយ By{" "}
-          <span className="font-semibold text-gray-300">{seller}</span>
+          <span className="font-semibold text-gray-300">{sellerName}</span>
           {rating && <span className="ml-1.5 text-yellow-400">★ {rating}</span>}
         </p>
 

@@ -152,11 +152,20 @@ export type Product = {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * Joined display data. `listProducts(nested)` populates this shape; a raw
+   * PostgREST select returns the same relations at the TOP level (below).
+   * Read both via `product.joined?.x ?? product.x` — never assume either
+   * is present: relaxed queries may return null joins for legacy/mock rows.
+   */
   joined?: {
-    games: Pick<Game, "name" | "slug">;
-    product_categories: Pick<ProductCategory, "name" | "slug">;
-    sellers: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales">;
+    games?: Pick<Game, "name" | "slug"> | null;
+    product_categories?: Pick<ProductCategory, "name" | "slug"> | null;
+    sellers?: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
   };
+  games?: Pick<Game, "name" | "slug"> | null;
+  product_categories?: Pick<ProductCategory, "name" | "slug"> | null;
+  sellers?: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
 };
 
 export type Order = {

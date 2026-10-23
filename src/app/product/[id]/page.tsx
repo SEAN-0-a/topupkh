@@ -52,6 +52,14 @@ const PRODUCT_STUB_COLUMNS =
   "delivery_details, stock, stock_is_unlimited, estimated_minutes, refund_policy, " +
   "ownership_note, sold_count, rating_sum, rating_count, created_at";
 
+/** Last-resort minimal fallback: bared-down core columns only, soft-delete
+ *  filtered client-side. If reads #1/#2 died on a medium-specific column
+ *  (sold_count / rating_sum / …) or the is_deleted predicate itself, this
+ *  still proves the row exists — the page renders owner-gated instead of 404. */
+const PRODUCT_MINIMAL_COLUMNS =
+  "id, seller_id, title, description, image_url, price_usd, stock, " +
+  "stock_is_unlimited, is_deleted, created_at";
+
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; // Next.js 16: params is a Promise
   if (!/^\d+$/.test(id)) notFound();
@@ -64,14 +72,37 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   // profiles row still existing (crash-era OAuth accounts may not have one;
   // getUserContext() returns null for them and would 404 their own listing)
   // ---------------------------------------------------------------------------
+  // read #1 and the auth session are independent — run them concurrently
+  // (one fewer serial round-trip; the sellers lookup below needs the auth id)
+  const [authUserResult, fullRead] = await Promise.allSettled([
+    supabase.auth.getUser(),
+    supabase
+      .from("products")
+      .select(PRODUCT_COLUMNS)
+      .eq("id", productId)
+      .eq("is_deleted", false)
+      .maybeSingle<ProductDetail>(),
+  ]);
+
   let authUserId: string | null = null;
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  if (authUserResult.status === "fulfilled") {
+    const user = authUserResult.value.data.user;
     authUserId = user && !user.is_anonymous ? user.id : null;
-  } catch {
+  } else {
     // broken cookie / transient auth failure — treat as anonymous below
+    console.error("[/product] auth session lookup failed:", authUserResult.reason);
+  }
+
+  if (fullRead.status === "rejected") {
+    console.error("[/product] full read threw:", fullRead.reason);
+  }
+
+  let product: ProductDetail | null =
+    fullRead.status === "fulfilled" ? (fullRead.value.data ?? null) : null;
+  let degraded = false;
+
+  if (fullRead.status === "fulfilled" && fullRead.value.error) {
+    console.error("[/product] full read failed:", fullRead.value.error.message);
   }
 
   // the caller's own sellers row id — mirrors the exact predicate
@@ -85,44 +116,88 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       .eq("user_id", authUserId)
       .maybeSingle<{ id: number }>();
     mySellerId = mySeller?.id ?? null;
+
+    // ---------------------------------------------------------------------------
+    // read #2 (owner-only fallback) and #3 below are only meaningful when the
+    // RLS lets this caller see the row; skip them entirely for anonymous users —
+    // anon either sees read #1's approved product or gets a 404.
+    // ---------------------------------------------------------------------------
+    if (!product || !product.status) {
+      // stub read — primitive-only columns, so an enum-typed column / stale
+      // plan can't kill it. Proves the row exists and is visible under RLS so
+      // the seller lands on their listing instead of a 404.
+      const { data: stub, error: stubError } = await supabase
+        .from("products")
+        .select(PRODUCT_STUB_COLUMNS)
+        .eq("id", productId)
+        .eq("is_deleted", false)
+        .maybeSingle<Omit<ProductDetail, "delivery_method" | "status">>();
+      if (stubError) console.error("[/product] stub read failed:", stubError.message);
+
+      if (stub) {
+        degraded = true;
+        product = {
+          ...stub,
+          delivery_method: "in_game",
+          // unknown enum value — treat conservatively as un-published (owner-only)
+          status: "pending_review",
+        } as ProductDetail;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // read #1 — the full explicit-column record (also checked for error: a stale
-  // plan must not masquerade as "no row")
-  // ---------------------------------------------------------------------------
-  const { data: full, error: fullError } = await supabase
-    .from("products")
-    .select(PRODUCT_COLUMNS)
-    .eq("id", productId)
-    .eq("is_deleted", false)
-    .maybeSingle<ProductDetail>();
-  if (fullError) console.error("[/product] full read failed:", fullError.message);
-
-  let product: ProductDetail | null = full ?? null;
-  let degraded = false;
-
-  // ---------------------------------------------------------------------------
-  // read #2 (fallback) — primitive-only stub. If the full read died on an enum
-  // column / stale plan, this still proves the row exists and is visible under
-  // RLS, so the seller lands on their listing instead of a 404.
+  // read #3 (minimal fallback) — direct query on public.products with only the
+  // barest core columns; soft-delete filtered client-side. Runs for any caller
+  // (RLS still gates visibility server-side): rescues rows whose newer columns
+  // (sold_count / rating_sum / …) or the is_deleted SQL predicate failed reads
+  // #1/#2. status is treated as unknown → un-published, so this can ONLY ever
+  // widen the page for the owner; strangers still get a 404.
   // ---------------------------------------------------------------------------
   if (!product) {
-    const { data: stub, error: stubError } = await supabase
+    const { data: minimal, error: minimalError } = await supabase
       .from("products")
-      .select(PRODUCT_STUB_COLUMNS)
+      .select(PRODUCT_MINIMAL_COLUMNS)
       .eq("id", productId)
-      .eq("is_deleted", false)
-      .maybeSingle<Omit<ProductDetail, "delivery_method" | "status">>();
-    if (stubError) console.error("[/product] stub read failed:", stubError.message);
+      .maybeSingle<
+        Pick<
+          ProductDetail,
+          | "id"
+          | "seller_id"
+          | "title"
+          | "description"
+          | "image_url"
+          | "price_usd"
+          | "stock"
+          | "stock_is_unlimited"
+          | "created_at"
+        > & { is_deleted: boolean | null }
+      >();
+    if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
 
-    if (stub) {
+    if (minimal && minimal.is_deleted !== true) {
       degraded = true;
       product = {
-        ...stub,
+        id: minimal.id,
+        seller_id: minimal.seller_id,
+        title: minimal.title,
+        description: minimal.description,
+        image_url: minimal.image_url,
+        price_usd: minimal.price_usd,
+        original_price_usd: null,
         delivery_method: "in_game",
-        // unknown enum value — treat conservatively as un-published (owner-only)
+        delivery_details: "",
+        stock: minimal.stock,
+        stock_is_unlimited: minimal.stock_is_unlimited,
+        estimated_minutes: null,
+        refund_policy: "",
+        ownership_note: "",
+        // unknown status — conservative: visible to the owner only
         status: "pending_review",
+        sold_count: 0,
+        rating_sum: 0,
+        rating_count: 0,
+        created_at: minimal.created_at,
       } as ProductDetail;
     }
   }
@@ -207,11 +282,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           />
 
           {isPending && (
-            <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">
-              ⏳ This offer was submitted for review — it isn&apos;t on the public marketplace yet
-              (this game/category pair isn&apos;t configured). It goes live automatically once an
-              admin provisions the pair. Only you can see this page for now.
-            </p>
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">
+              <p className="font-bold">⏳ Listing Pending Review</p>
+              <p className="mt-1">
+                {product.status === "draft" ? (
+                  "⏳ This listing is a draft — finish and publish it from your dashboard. It isn't on the public marketplace yet, and only you can see this page."
+                ) : (
+                  "⏳ This offer was submitted for review — it isn't on the public marketplace yet (this game/category pair isn't configured). It goes live automatically once an admin provisions the pair. Only you can see this page for now."
+                )}
+              </p>
+            </div>
           )}
 
           <p className="text-[11px] text-gray-500">

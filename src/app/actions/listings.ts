@@ -340,6 +340,11 @@ export async function createListing(input: {
     }
 
     revalidatePath("/marketplace");
+    // instant-view guarantee: the success screen redirects straight to this
+    // route, so bust any cached entry for it in the same request — the seller
+    // never lands on a stale deployment-cache shell that 404s (or hides) the
+    // brand-new row.
+    revalidatePath(`/product/${product.id}`);
     // published=false → UNCONFIGURED (game, category) pair: the offer was
     // submitted for review ('pending_review') and is NOT on /marketplace yet
     return { ok: true, templateId, productId: product.id, published: autoPublish };

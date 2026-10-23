@@ -83,6 +83,9 @@ export async function setProductStatus(
     revalidatePath("/admin/products");
     revalidatePath("/marketplace");
     revalidatePath(`/offers/${productId}`);
+    // the public detail page — so an admin-approved listing is instantly
+    // live/fresh for the seller redirected onto /product/[id]
+    revalidatePath(`/product/${productId}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, message: msg(e) };
@@ -138,6 +141,7 @@ export async function adminDeleteProduct(
     revalidatePath("/admin/products");
     revalidatePath("/marketplace");
     revalidatePath(`/offers/${productId}`);
+    revalidatePath(`/product/${productId}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, message: msg(e) };

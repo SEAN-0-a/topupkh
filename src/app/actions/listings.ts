@@ -32,8 +32,12 @@ function slugify(input: string): string {
  *   rejected sellers are unauthenticated for listing creation: the action
  *   redirects to /seller/verify BEFORE any form data is processed.
  * - The browser supplies ONLY display fields; every status/computation is
- *   server-side (pending_review; admin approval still required after this).
- * - The DB eligibility trigger independently rejects prohibited categories.
+ *   server-side.
+ * - AUTO-PUBLISH: offers are created with status 'approved' so they appear on
+ *   /marketplace immediately (the marketplace query filters status='approved').
+ *   The DB eligibility trigger still hard-blocks PROHIBITED game/category
+ *   pairs at insert time (0017 keeps that guardrail while removing the
+ *   needs_review admin-approval gate).
  */
 export async function createListing(input: {
   gameId: number;
@@ -162,9 +166,9 @@ export async function createListing(input: {
       };
     }
     // rule = 'allowed' / 'needs_review' / null / lookup-failed all proceed:
-    // offers must still pass admin review before going public.
-    // 'needs_review' is fine: the offer starts as pending_review and needs an
-    // admin approval before it can ever be 'approved' (DB trigger enforces).
+    // offers are AUTO-PUBLISHED (status 'approved'); prohibited pairs never
+    // reach this point. Category-level review policy is managed in the DB
+    // (see supabase/0017_auto_publish_listings.sql).
 
     const title = input.title.trim();
 
@@ -233,7 +237,11 @@ export async function createListing(input: {
         estimated_minutes: input.estimatedMinutes,
         refund_policy: input.refundPolicy.slice(0, 1000),
         ownership_note: input.ownershipNote.slice(0, 1000),
-        status: "pending_review",
+        // AUTO-PUBLISH: 'approved' = the marketplace's published status, so the
+        // listing shows up on /marketplace immediately after submission.
+        // Prohibited game/category pairs are still hard-blocked by the DB
+        // eligibility trigger (0017).
+        status: "approved",
       })
       .select("id")
       .single<{ id: number }>();

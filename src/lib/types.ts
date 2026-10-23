@@ -166,6 +166,12 @@ export type Product = {
   games?: Pick<Game, "name" | "slug"> | null;
   product_categories?: Pick<ProductCategory, "name" | "slug"> | null;
   sellers?: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
+  /**
+   * true for rows surfaced through the legacy-`listings` bridge: they have a
+   * UUID id and must be opened at /listings/[id], never /product/[id]
+   * (which is numeric-id + RLS-gated by the products table).
+   */
+  isLegacyListing?: boolean;
 };
 
 export type Order = {

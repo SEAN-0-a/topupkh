@@ -37,7 +37,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link
-      href={`/product/${product.id}`}
+      href={product.isLegacyListing ? `/listings/${product.id}` : `/product/${product.id}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 text-left shadow-lg transition-all hover:-translate-y-0.5 hover:border-emerald-500/60 hover:shadow-emerald-500/10"
     >
       {/* ---- large visual ---- */}

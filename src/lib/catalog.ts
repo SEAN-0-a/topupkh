@@ -252,6 +252,8 @@ function legacyListingToProduct(row: LegacyListingRow): Product {
     is_deleted: false,
     created_at: createdAt,
     updated_at: createdAt,
+    // legacy-bridge marker: routes the card to /listings/[id] (uuid detail)
+    isLegacyListing: true,
   } as unknown as Product;
 }
 

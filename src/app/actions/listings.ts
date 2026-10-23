@@ -149,10 +149,11 @@ export async function createListing(input: {
       .eq("category_id", input.categoryId)
       .maybeSingle<{ status: string }>();
 
-    console.log(
-      "CREATE LISTING eligibility rule lookup:",
-      JSON.stringify({ rule: rule ? rule.status : null, error: ruleError?.message ?? null }),
-    );
+    // a failed lookup must never masquerade as "unconfigured" — surface the raw
+    // Supabase error in the server console for diagnosis
+    if (ruleError) {
+      console.error("Listing eligibility lookup error:", ruleError);
+    }
 
     if (rule?.status === "prohibited") {
       return {
@@ -182,11 +183,6 @@ export async function createListing(input: {
       templateId = existingTemplate.id;
     } else {
       // fill in first-offer content basics so the group page looks complete.
-      // Payload hygiene: plain integers/text only — no enum casts, no role
-      // fields; a 42704 "type user_role does not exist" here is therefore a
-      // DATABASE-SIDE problem (PostgREST stale prepared plan resolving the
-      // table's RLS policies), not a payload problem. See supabase/
-      // 0015_fix_stale_schema_cache.sql for the one-line fix.
       const { data: created, error: createError } = await supabase
         .from("product_templates")
         .insert({
@@ -200,16 +196,11 @@ export async function createListing(input: {
         .select("id")
         .single<{ id: number }>();
       if (createError || !created) {
-        console.log(
-          "CREATE LISTING template insert failed:",
-          JSON.stringify({
-            code: createError?.code ?? null,
-            message: createError?.message ?? "unknown",
-          }),
-        );
+        // raw Supabase error goes to the server console for diagnosis
+        console.error("Listing product_templates insert error:", createError);
         return {
           ok: false,
-          message: `Could not create product page: ${explainDbError(createError) ?? "unknown error"}`,
+          message: `Could not create product page: ${createError?.message ?? "unknown error"}`,
         };
       }
       templateId = created.id;
@@ -248,37 +239,18 @@ export async function createListing(input: {
       .single<{ id: number }>();
 
     if (productError || !product) {
-      console.log(
-        "CREATE LISTING product insert failed:",
-        JSON.stringify({
-          code: productError?.code ?? null,
-          message: productError?.message ?? "unknown",
-        }),
-      );
+      // raw Supabase error goes to the server console for diagnosis
+      console.error("Listing products insert error:", productError);
       return {
         ok: false,
-        message: `Could not create offer: ${explainDbError(productError) ?? "unknown error"}`,
+        message: `Could not create offer: ${productError?.message ?? "unknown error"}`,
       };
     }
 
     revalidatePath("/marketplace");
     return { ok: true, templateId, productId: product.id };
   } catch (e) {
+    console.error("Listing create failed:", e);
     return { ok: false, message: e instanceof Error ? e.message : "Unexpected error." };
   }
-}
-
-/**
- * Translate PostgREST error codes into actionable, seller-readable messages.
- * 42704 'type "user_role" does not exist' = stale PostgREST prepared plan that
- * only a schema-cache reload can clear (DB-side, see 0015 SQL file) — retrying
- * or changing the payload can never fix it, so say exactly that.
- */
-function explainDbError(err: { code?: string; message?: string } | null): string | null {
-  if (!err) return null;
-  const code = err.code ?? "";
-  if (code === "42704" || /user_role.*does not exist/.test(err.message ?? "")) {
-    return "The server's database cache is stale. An admin must run supabase/0015_fix_stale_schema_cache.sql in the Supabase SQL Editor (it reloads the schema cache), then simply submit again — no retry or change to your offer is needed.";
-  }
-  return err.message ?? "unknown error";
 }

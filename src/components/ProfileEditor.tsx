@@ -40,6 +40,17 @@ export default function ProfileEditor({
   const [username, setUsername] = useState(profile.username ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
 
+  const autoShopName = `${displayName.trim() || "Player"} Shop`;
+
+  // Shop name starts as the auto-provisioned value ("{display_name} Shop",
+  // matching the signup trigger in migration 0019). It mirrors the display
+  // name in real time UNTIL the user manually edits it — then it's theirs, and
+  // display-name changes stop touching it.
+  const [shopName, setShopName] = useState(profile.shop_name ?? autoShopName);
+  const [shopNameTouched, setShopNameTouched] = useState(
+    profile.shop_name != null && profile.shop_name !== `${profile.display_name} Shop`,
+  );
+
   // Pending avatar file + in-browser preview before upload
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -68,6 +79,20 @@ export default function ProfileEditor({
     setPreviewUrl(null);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function updateDisplayName(value: string) {
+    setDisplayName(value);
+    // Real-time auto-sync: keep the shop name trailing the display name until
+    // the shop field itself has been edited.
+    if (!shopNameTouched) {
+      setShopName(`${value.trim() || "Player"} Shop`);
+    }
+  }
+
+  function updateShopName(value: string) {
+    setShopName(value);
+    setShopNameTouched(true);
   }
 
   /** Upload the picked file to the public `avatars` bucket, then persist the URL. */
@@ -114,7 +139,7 @@ export default function ProfileEditor({
     setSaving(true);
     setNote(null);
     try {
-      const saved = await updateProfile({ displayName, username });
+      const saved = await updateProfile({ displayName, username, shopName });
       if (!saved.ok) throw new Error(saved.message);
       setNote({ kind: "success", text: "Profile saved!" });
       router.refresh();
@@ -243,11 +268,29 @@ export default function ProfileEditor({
             <input
               type="text"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => updateDisplayName(e.target.value)}
               maxLength={40}
               required
               className="mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-300">
+              Shop name
+            </label>
+            <input
+              type="text"
+              value={shopName}
+              onChange={(e) => updateShopName(e.target.value)}
+              maxLength={80}
+              placeholder={autoShopName}
+              className="mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              {shopNameTouched
+                ? "Custom shop name — editing the display name no longer changes it."
+                : "Auto-filled from your display name in real time — edit to customise."}
+            </p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-300">

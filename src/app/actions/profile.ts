@@ -19,6 +19,7 @@ export type UpdateProfileResult =
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{2,24}$/;
 const URL_LIMIT = 500;
+const SHOP_NAME_LIMIT = 80; // mirrors submit_seller_kyc validation (0010)
 
 function msg(e: unknown): string {
   if (e instanceof Error && e.message) return e.message;
@@ -26,12 +27,13 @@ function msg(e: unknown): string {
 }
 
 /**
- * Update display name / username / avatar URL on the caller's own profile.
- * All fields optional — only provided values are written.
+ * Update display name / username / shop name / avatar URL on the caller's own
+ * profile. All fields optional — only provided values are written.
  */
 export async function updateProfile(input: {
   displayName?: string;
   username?: string;
+  shopName?: string;
   avatarUrl?: string | null;
 }): Promise<UpdateProfileResult> {
   try {
@@ -62,6 +64,21 @@ export async function updateProfile(input: {
       }
     }
 
+    if (input.shopName !== undefined) {
+      const shopName = input.shopName.trim();
+      if (shopName.length === 0) {
+        // Clearing the branding is allowed — listings fall back to the display name.
+        patch.shop_name = null;
+      } else if (shopName.length < 2 || shopName.length > SHOP_NAME_LIMIT) {
+        return {
+          ok: false,
+          message: `Shop name must be 2–${SHOP_NAME_LIMIT} characters.`,
+        };
+      } else {
+        patch.shop_name = shopName;
+      }
+    }
+
     if (input.avatarUrl !== undefined) {
       if (input.avatarUrl === null || input.avatarUrl === "") {
         patch.avatar_url = null;
@@ -89,6 +106,14 @@ export async function updateProfile(input: {
       // unique violation on profiles.username
       if (error.code === "23505" || /duplicate key|unique/i.test(error.message)) {
         return { ok: false, message: "That username is already taken." };
+      }
+      // 0010 column grants exclude shop_name until 0019 is applied
+      if (patch.shop_name !== undefined && /permission denied/i.test(error.message)) {
+        return {
+          ok: false,
+          message:
+            "Database not updated for shop-name editing yet. Apply supabase/migrations/0019_dynamic_user_profile_names.sql first.",
+        };
       }
       throw new Error(error.message);
     }

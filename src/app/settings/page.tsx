@@ -103,7 +103,7 @@ export default async function SettingsPage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="text-lg font-bold text-white">Account settings</h1>
         <p className="mt-1 text-xs text-gray-400">
-          Update your profile details, avatar, and see your account standing.
+          Update your profile details, shop branding, avatar, and see your account standing.
         </p>
 
         <ProfileEditor

@@ -48,6 +48,12 @@ npx tsc --noEmit   # TypeScript check
       compatibility views so old pages keep working; no-op on fresh projects)*
    2. `supabase/migrations/0001_marketplace_schema.sql`
    3. `supabase/migrations/0002_order_lifecycle.sql`
+   4. `supabase/migrations/0019_dynamic_user_profile_names.sql`
+      *(dynamic signup trigger `handle_new_user()`: display names from Google
+      OAuth metadata / email prefix instead of the hardcoded
+      'Cambodian Gamer', auto-provisioned `{name} Shop`, and the
+      `shop_name` column grant that lets /settings save edits — required
+      before shop-name editing works on the settings page)*
 
    Quick fix only: if you hit
    `"Could not find the table public.games in the schema cache"` or

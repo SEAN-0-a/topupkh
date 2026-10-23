@@ -129,17 +129,39 @@ export async function createListing(input: {
     }
 
     // ---------- game/category must exist & not be prohibited ----------
-    const { data: rule } = await supabase
+    // The exact-pair rule lookup used to double as a hard gate AND to mask
+    // lookup failures: a zero-row result and a FAILED query (e.g. PostgREST
+    // 42704 "type user_role does not exist" from a stale schema cache) both
+    // collapsed to `data = null`, so EVERY submission — Roblox × Items, Top
+    // Ups, Currency…, anything valid — bounced with "This game/category
+    // combination is not configured." There is no hardcoded pair mapping
+    // here; the policy lives in the DB. Behavior now:
+    //   rule row = 'prohibited'        → hard policy block (unchanged guardrail)
+    //   rule row missing / lookup fail → PROCEED: createListing still requires
+    //     real FK-valid ids (games/product_categories/products FK constraints)
+    //     and the DB eligibility trigger enforces policy at insert time, so a
+    //     genuinely invalid combo fails with its REAL database error, not a
+    //     fabricated one.
+    const { data: rule, error: ruleError } = await supabase
       .from("eligibility_rules")
       .select("status")
       .eq("game_id", input.gameId)
       .eq("category_id", input.categoryId)
-      .single<{ status: string }>();
+      .maybeSingle<{ status: string }>();
 
-    if (!rule) return { ok: false, message: "This game/category combination is not configured." };
-    if (rule.status === "prohibited") {
-      return { ok: false, message: "This product type violates marketplace policy and cannot be listed." };
+    console.log(
+      "CREATE LISTING eligibility rule lookup:",
+      JSON.stringify({ rule: rule ? rule.status : null, error: ruleError?.message ?? null }),
+    );
+
+    if (rule?.status === "prohibited") {
+      return {
+        ok: false,
+        message: "This product type violates marketplace policy and cannot be listed.",
+      };
     }
+    // rule = 'allowed' / 'needs_review' / null / lookup-failed all proceed:
+    // offers must still pass admin review before going public.
     // 'needs_review' is fine: the offer starts as pending_review and needs an
     // admin approval before it can ever be 'approved' (DB trigger enforces).
 

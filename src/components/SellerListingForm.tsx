@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createListing } from "@/app/actions/listings";
+import ImageDropzone from "@/components/ImageDropzone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Game, ProductCategory } from "@/lib/types";
 
@@ -56,12 +57,6 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
     setGameId(nextId);
     // pre-fill the seller-facing game label from the catalogue entry
     setGameName(games.find((g) => g.id === nextId)?.name ?? "");
-  }
-
-  function addImageUrl(raw: string) {
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-    setImageUrls((prev) => (prev.includes(trimmed) ? prev : prev.slice(0, 7).concat(trimmed)));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -210,59 +205,12 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         </InputBlock>
 
         <div>
-          <InputBlock label="Gallery images (up to 8 — the first one becomes the cover)">
-            <input
-              id="gallery-url-input"
-              type="url"
-              className={inputCls}
-              placeholder="https://… (paste a URL, then press Add or Enter)"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addImageUrl(e.currentTarget.value);
-                  e.currentTarget.value = "";
-                }
-              }}
+          <InputBlock label="Gallery photos (up to 8 — the first one becomes the cover)">
+            <ImageDropzone
+              maxImages={8}
+              onChange={setImageUrls}
             />
           </InputBlock>
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById("gallery-url-input") as HTMLInputElement | null;
-                if (el) {
-                  addImageUrl(el.value);
-                  el.value = "";
-                }
-              }}
-              className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-2 text-[11px] font-bold text-emerald-400 transition-colors hover:border-emerald-500 disabled:opacity-50"
-            >
-              + Add image
-            </button>
-            <span className="text-[10px] text-gray-500">{imageUrls.length}/8 attached</span>
-          </div>
-          {imageUrls.length > 0 && (
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {imageUrls.map((u, i) => (
-                <li
-                  key={u}
-                  className="flex items-center gap-2 rounded-full border border-gray-800 bg-black py-1 pl-1 pr-2.5 text-[11px] text-gray-300"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u} alt="" className="h-6 w-6 rounded-full object-cover" />
-                  <span className="max-w-[140px] truncate">{i === 0 ? "★ Cover" : `#${i + 1}`}</span>
-                  <button
-                    type="button"
-                    onClick={() => setImageUrls((prev) => prev.filter((x) => x !== u))}
-                    className="text-red-400 transition-colors hover:text-red-300"
-                    aria-label={`Remove image ${i + 1}`}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       </fieldset>
 

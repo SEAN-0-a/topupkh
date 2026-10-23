@@ -11,6 +11,21 @@ export type CreateListingResult =
 
 const DELIVERY_METHODS = new Set(["in_game", "instructions", "digital_file", "creator_services"]);
 
+/**
+ * Convert ANY thrown/returned error shape (Error instance, PostgREST/Auth
+ * response object with `message`/`error_description`, plain object, string,
+ * null/undefined) into a readable string. String() on a plain object produces
+ * "[object Object]", so non-string objects are JSON-stringified instead.
+ * Not exported: "use server" files may only export async actions.
+ */
+function toErrorMessage(err: unknown): string {
+  const message =
+    typeof err === "string"
+      ? err
+      : (err as any)?.message ?? (err as any)?.error_description ?? JSON.stringify(err);
+  return typeof message === "string" ? message : String(message);
+}
+
 /** URL-safe, guaranteed-unique-within-(game,category) slug. */
 function slugify(input: string): string {
   return (
@@ -68,7 +83,7 @@ export async function createListing(input: {
   try {
     ctx = await requireRole("seller", "admin");
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Unexpected error." };
+    return { ok: false, message: toErrorMessage(e) };
   }
 
   // ---------- STRICT VERIFICATION GUARDRAIL (outside try/catch so redirect
@@ -204,7 +219,7 @@ export async function createListing(input: {
         console.error("Listing product_templates insert error:", createError);
         return {
           ok: false,
-          message: `Could not create product page: ${createError?.message ?? "unknown error"}`,
+          message: `Could not create product page: ${toErrorMessage(createError) || "unknown error"}`,
         };
       }
       templateId = created.id;
@@ -265,7 +280,7 @@ export async function createListing(input: {
       if (error) throw error; // caught below, message surfaced raw
       product = data;
     } catch (e) {
-      insertError = { message: e instanceof Error ? e.message : String(e) };
+      insertError = { message: toErrorMessage(e) };
     }
 
     // Fallback #2: retry with the PRIMITIVE-ONLY payload. Enum/string-literal
@@ -293,7 +308,7 @@ export async function createListing(input: {
           console.error("Listing primitive-only publish update error:", publishError);
         }
       } catch (e) {
-        insertError = { message: e instanceof Error ? e.message : String(e) };
+        insertError = { message: toErrorMessage(e) };
       }
     }
 
@@ -311,6 +326,6 @@ export async function createListing(input: {
     return { ok: true, templateId, productId: product.id };
   } catch (e) {
     console.error("Listing create failed:", e);
-    return { ok: false, message: e instanceof Error ? e.message : "Unexpected error." };
+    return { ok: false, message: toErrorMessage(e) };
   }
 }

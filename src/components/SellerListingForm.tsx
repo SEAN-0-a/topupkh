@@ -61,16 +61,19 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
 
   /**
    * Server actions serialize thrown/returned values; a raw object here renders
-   * as "[object Object]". Extract its `message` when present, stringify the
-   * rest, and always fall back to a plain string.
+   * as "[object Object]". Prefer `message` / `error_description` (PostgREST &
+   * Auth-style payloads), stringify anything else with JSON so every shape
+   * ends up as readable text, and log the full object for devtools.
    */
   function formatListingError(error: unknown): string {
+    console.error("Listing error payload:", error);
+
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : typeof error === "object" && error !== null && "message" in error
-          ? (error as any).message
-          : String(error);
+      typeof error === "string"
+        ? error
+        : (error as any)?.message ?? (error as any)?.error_description ?? JSON.stringify(error);
+
+    // a nested non-string `message` must not degrade into "[object Object]"
     return typeof errorMessage === "string" ? errorMessage : String(errorMessage);
   }
 
@@ -109,13 +112,9 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
         setSuccess({ templateId: result.templateId });
         router.refresh();
       } else {
-        if (typeof result.message !== "string") {
-          console.error("Listing error payload:", result.message);
-        }
         setError(formatListingError(result.message));
       }
     } catch (error) {
-      console.error("Listing error payload:", error);
       setError(formatListingError(error));
     } finally {
       setLoading(false);

@@ -92,6 +92,14 @@ async function fetchProductsPage(
     ascending: sortDef.ascending,
     nullsFirst: false, // unrated/unsold products go last, not first
   });
+  // Secondary tie-break: items that tie on the primary sort — critically, the
+  // whole zero-sold cohort behind "popular" (sold_count DESC) — are ordered
+  // newest-first, so freshly listed approved/in-stock products climb the feed
+  // regardless of completed-order count instead of parking at the tail.
+  // Never applied when the primary sort IS created_at (newest).
+  if (sortDef.column !== "created_at") {
+    qb = qb.order("created_at", { ascending: false });
+  }
 
   const from = (page - 1) * perPage;
   const { data, error, count } = await qb.range(from, from + perPage - 1);

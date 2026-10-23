@@ -82,6 +82,8 @@ export async function setProductStatus(
 
     revalidatePath("/admin/products");
     revalidatePath("/marketplace");
+    // approve/pause flips the homepage feed membership of this listing
+    revalidatePath("/");
     revalidatePath(`/offers/${productId}`);
     // the public detail page — so an admin-approved listing is instantly
     // live/fresh for the seller redirected onto /product/[id]
@@ -140,6 +142,7 @@ export async function adminDeleteProduct(
 
     revalidatePath("/admin/products");
     revalidatePath("/marketplace");
+    revalidatePath("/");
     revalidatePath(`/offers/${productId}`);
     revalidatePath(`/product/${productId}`);
     return { ok: true };

@@ -361,6 +361,10 @@ export async function createListing(input: {
     }
 
     revalidatePath("/marketplace");
+    // the homepage feed (featured + recent strips) reads the same
+    // approved/in-stock query — bust it in the same request so a freshly
+    // created listing is on the grid immediately, no refresh needed
+    revalidatePath("/");
     // instant-view guarantee: the success screen redirects straight to this
     // route, so bust any cached entry for it in the same request — the seller
     // never lands on a stale deployment-cache shell that 404s (or hides) the

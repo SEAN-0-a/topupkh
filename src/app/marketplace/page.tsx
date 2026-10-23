@@ -8,6 +8,10 @@ import type { CatalogQuery } from "@/lib/catalog";
 import type { Game } from "@/lib/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// Live marketplace: new/approved/in-stock listings must appear without a
+// cache hop. The homepage already opts out via its own force-dynamic export.
+export const dynamic = "force-dynamic";
+
 type Params = { [key: string]: string | string[] | undefined };
 
 function first(params: Params, key: string): string | undefined {

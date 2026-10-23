@@ -75,7 +75,10 @@ export async function createOrder(
   } catch (e) {
     return { ok: false, message: msg(e) };
   } finally {
+    // purchase decrements/reserves stock via the DB trigger — the listing can
+    // become sold out (dropped by the feed's stock filter), so bust the grids
     revalidatePath("/marketplace");
+    revalidatePath("/");
   }
 }
 

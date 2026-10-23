@@ -48,8 +48,10 @@ export default async function CheckoutOrderPage({
       id: number;
       public_ref: string;
       buyer_id: string;
+      product_id: number;
       status: string;
       subtotal: number;
+      unit_price: number;
       platform_fee: number;
       seller_proceeds: number;
       commission_rate: number;
@@ -105,7 +107,14 @@ export default async function CheckoutOrderPage({
       {order.status === "pending_payment" && (
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
           <h2 className="mb-3 text-sm font-bold">1️⃣ Payment</h2>
-          <PayPanel orderId={order.id} amount={order.subtotal} />
+          <PayPanel
+            orderId={order.id}
+            publicRef={order.public_ref}
+            amount={order.subtotal}
+            productId={order.product_id}
+            quantity={order.quantity}
+            unitPrice={order.unit_price}
+          />
         </div>
       )}
 

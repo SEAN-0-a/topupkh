@@ -1,0 +1,325 @@
+/**
+ * POST /api/webhooks/aba
+ *
+ * ABA PayWay payment callback. PayWay calls this with form/JSON fields
+ * (`tran_id`/`public_ref`, `amount`, `status`, `hash`, ...) after the buyer
+ * finishes (or fails/cancels) a purchase.
+ *
+ * Flow:
+ *   1. Parse the body (JSON or urlencoded).
+ *   2. VERIFY THE SIGNATURE FIRST — the webhook runs with a service-role
+ *      client (RLS bypass), so an unauthenticated caller must never get
+ *      further than this step.
+ *   3. status == 0 / 'success' → order `pending_payment` → `paid`, confirm
+ *      the pending payment_attempt, log the raw payload into payment_events,
+ *      and run fulfillment (buyer notification + crediting hook).
+ *      Non-success statuses → event logged, attempt cancelled, order
+ *      cancelled if it never left `pending_payment`.
+ *   4. Always answer ABA with 200 { status: 'success' } once the payload was
+ *      verified and processed, so their gateway stops retrying.
+ *
+ * Returns: 200 { status: 'success' }  - verified and processed (or already done)
+ *          200 { status: 'success', processed: false | reason }
+ *                                      - verified, but nothing to do (unknown
+ *                                        ref or a non-success status we recorded)
+ *          401 { status: 'rejected' } - signature verification failed
+ *          400 { status: 'rejected' } - unparseable body / missing fields
+ *          500 { status: 'error' }    - server not configured / DB write failed
+ *
+ * Env:
+ *   ABA_PAYWAY_API_KEY         - same secret that signs checkout, verify here
+ *   SUPABASE_SERVICE_ROLE_KEY  - RLS-bypassing DB writes (src/lib/supabase/admin.ts)
+ */
+
+import crypto from "node:crypto";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// crypto is only available in the Node.js runtime — pin it explicitly so the
+// handler never accidentally runs on an Edge bundle.
+export const runtime = "nodejs";
+
+export const dynamic = "force-dynamic";
+
+// Order statuses that mean "payment already settled" — replays of the same
+// webhook are ACKNOWLEDGED but not re-processed (idempotent).
+const SETTLED_STATUSES = new Set(["paid", "processing", "delivering", "completed"]);
+const PENDING_STATUSES = new Set(["pending_payment", "pending_verification", "in_escrow"]);
+
+/* ------------------------------------------------------------------ parsing */
+
+type WebhookFields = Record<string, string>;
+
+/** JSON first (per spec), form-urlencoded fallback (PayWay posts fields too). */
+async function readFields(request: Request): Promise<WebhookFields | null> {
+  const raw = await request.text();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const out: WebhookFields = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        out[k] = v == null ? "" : String(v); // e.g. numeric status coerced from number
+      }
+      return out;
+    }
+    return null;
+  } catch {
+    // not JSON — try x-www-form-urlencoded key=value&...
+    try {
+      const params = new URLSearchParams(raw);
+      const out: WebhookFields = {};
+      params.forEach((v, k) => {
+        out[k] = v;
+      });
+      return Object.keys(out).length > 0 ? out : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/* ------------------------------------------------- signature verification */
+
+/**
+ * Fields ABA includes in the callback HMAC, in the documented concatenation
+ * order. If your merchant agreement's callback spec lists a different order,
+ * change THIS LIST ONLY — everything else is mechanical.
+ */
+const CALLBACK_SIGN_FIELDS = [
+  "req_time",
+  "merchant_id",
+  "tran_id",
+  "amount",
+  "type",
+  "payment_option",
+  "status",
+  "return_params",
+] as const;
+
+function isHashValid(fields: WebhookFields, apiKey: string): boolean {
+  const provided = fields.hash ?? fields.signature ?? "";
+  if (!provided) return false;
+
+  // only fields that are actually present participate in the concatenation
+  const concat = CALLBACK_SIGN_FIELDS.filter((f) => f in fields)
+    .map((f) => fields[f])
+    .join("");
+
+  const hmac = crypto.createHmac("sha512", apiKey).update(concat);
+  const candidates = new Set<string>();
+  candidates.add(hmac.digest("base64").trim());
+  candidates.add(hmac.digest("hex").toUpperCase()); // older PHP-style integrations
+  candidates.add(hmac.digest("hex").toLowerCase());
+
+  for (const expected of candidates) {
+    const a = Buffer.from(expected);
+    const b = Buffer.from(provided.trim());
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+  return false;
+}
+
+/* --------------------------------------------------------------- bookkeeping */
+
+/**
+ * provider_ref keys the attempt (unique index = one PayWay transaction).
+ * Inserted directly as `confirmed` on a first-contact success callback;
+ * replays surface the existing row so payment_events never loses attempts.
+ */
+async function getOrCreateAttempt(
+  supabase: SupabaseClient,
+  order: OrderRow,
+  amount: string,
+  paid: boolean,
+): Promise<{ data: { id: number } | null; error: Error | null }> {
+  const { data: existing, error: readError } = await supabase
+    .from("payment_attempts")
+    .select("id")
+    .eq("provider_ref", order.public_ref)
+    .maybeSingle<{ id: number }>();
+  if (readError) return { data: null, error: new Error(readError.message) };
+  if (existing) return { data: existing, error: null };
+
+  return await supabase
+    .from("payment_attempts")
+    .insert({
+      order_id: order.id,
+      provider: "aba_payway",
+      provider_ref: order.public_ref,
+      amount: amount || order.subtotal,
+      currency: "USD",
+      status: paid ? "confirmed" : "cancelled",
+      ...(paid ? { confirmed_at: new Date().toISOString() } : {}),
+    })
+    .select("id")
+    .single<{ id: number }>();
+}
+
+/* ------------------------------------------------------------ fulfillment */
+
+interface OrderRow {
+  id: number;
+  public_ref: string;
+  buyer_id: string;
+  status: string;
+  subtotal: number;
+}
+
+/**
+ * Fulfillment after a verified payment — the payment_attempt / payment_events
+ * bookkeeping already happened in the handler; THIS simply:
+ *   - notifies the buyer
+ *   - credits the purchase — the game top-up / points crediting engine is not
+ *     built yet (docs/PAYMENTS.md §4 marks it as such); wire it in at the
+ *     marked spot without touching the DB bookkeeping above.
+ */
+async function fulfillOrder(order: OrderRow, amount: string) {
+  const supabase = createSupabaseAdminClient();
+
+  // 1. notify the buyer — mirrors confirm_payment() in migration 0008
+  await supabase.from("notifications").insert({
+    user_id: order.buyer_id,
+    type: "payment_confirmed",
+    title: `Payment confirmed for order #${order.id} — USD ${amount}.`,
+    link: `/orders/${order.id}`,
+  });
+
+  // 2. TODO: wire the top-up/points crediting engine here once it exists.
+  console.log(`[fulfillment] paid order #${order.id} (${order.public_ref}) for USD ${amount} — crediting hook pending`);
+}
+
+/* --------------------------------------------------------------- handler */
+
+export async function POST(request: Request) {
+  const apiKey = process.env.ABA_PAYWAY_API_KEY;
+  if (!apiKey) {
+    console.error("ABA_PAYWAY_API_KEY is not set — cannot verify webhook signatures.");
+    return Response.json({ status: "error", message: "Webhook is not configured." }, { status: 500 });
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("SUPABASE_SERVICE_ROLE_KEY is not set — webhook cannot write to the database.");
+    return Response.json({ status: "error", message: "Webhook is not configured." }, { status: 500 });
+  }
+
+  const fields = await readFields(request);
+  if (!fields) {
+    return Response.json({ status: "rejected", message: "Unparseable payload." }, { status: 400 });
+  }
+
+  // --- 1. verify the caller BEFORE touching the database ---------------------
+  if (!isHashValid(fields, apiKey)) {
+    console.error(
+      "[aba-webhook] signature verification FAILED — payload ignored. keys:",
+      Object.keys(fields).join(","),
+    );
+    // record nothing: an unverified payload is not evidence of anything
+    return Response.json({ status: "rejected", message: "Invalid signature." }, { status: 401 });
+  }
+
+  const publicRef = fields.public_ref ?? fields.tran_id ?? "";
+  const amount = fields.amount ?? "";
+  const status = String(fields.status ?? "").toLowerCase();
+  const paid = status === "0" || status === "success" || status === "paid";
+
+  if (!publicRef) {
+    return Response.json({ status: "rejected", message: "Missing tran_id/public_ref." }, { status: 400 });
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  // --- 2. find the order and current payment row ------------------------------
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("id, public_ref, buyer_id, status, subtotal")
+    .eq("public_ref", publicRef)
+    .maybeSingle<OrderRow>();
+
+  if (orderError) {
+    console.error(`[aba-webhook] order lookup failed for ${publicRef}:`, orderError.message);
+    return Response.json({ status: "error", message: "Order lookup failed." }, { status: 500 });
+  }
+  if (!order) {
+    // signature was valid — a real gateway callback for an order we don't know.
+    console.error(`[aba-webhook] verified callback references unknown order ${publicRef}`);
+    return Response.json({ status: "success", processed: false, reason: "unknown order" });
+  }
+
+  // --- 3. get-or-create the payment_attempt and log the raw payload ----------
+  // provider_ref = public_ref (NOT NULL), so the unique index genuinely
+  // dedupes; every replay still lands in payment_events for the audit trail.
+  const { data: attempt, error: attemptError } = await getOrCreateAttempt(supabase, order, amount, paid);
+  if (attemptError) {
+    console.error(`[aba-webhook] payment_attempt bookkeeping failed for ${publicRef}:`, attemptError);
+    // bookkeeping failure must NOT lose the payment — continue processing
+  }
+  if (attempt?.id) {
+    await supabase.from("payment_events").insert({
+      payment_attempt_id: attempt.id,
+      event_type: paid ? "purchase_success" : "purchase_failure",
+      payload: fields,
+      signature_verified: true,
+    });
+  }
+
+  // --- 4. idempotency: never re-settle an order --------------------------------
+  if (SETTLED_STATUSES.has(order.status)) {
+    console.log(`[aba-webhook] order #${order.id} already ${order.status} — replay acknowledged.`);
+    return Response.json({ status: "success", processed: false, reason: "already processed" });
+  }
+
+  // --- 5. the actual state change ----------------------------------------------
+  if (paid) {
+    // updated_at is maintained by the orders_touch trigger; set it explicitly
+    // anyway so the intent is visible in the row diff.
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ status: "paid" as const, updated_at: new Date().toISOString() })
+      .eq("id", order.id)
+      .in("status", ["pending_payment", "pending_verification", "in_escrow"]);
+
+    if (updateError) {
+      console.error(`[aba-webhook] failed to mark order #${order.id} paid:`, updateError.message);
+      return Response.json({ status: "error", message: "Order update failed." }, { status: 500 });
+    }
+
+    // flip a not-yet-settled attempt to confirmed (fresh rows are created as
+    // confirmed; this only moves rows that predate the webhook — e.g. inserted
+    // during the manual-pilot era)
+    if (attempt?.id) {
+      await supabase
+        .from("payment_attempts")
+        .update({
+          status: "confirmed",
+          confirmed_at: new Date().toISOString(),
+          provider_ref: order.public_ref,
+        })
+        .eq("id", attempt.id)
+        .eq("status", "pending");
+    }
+
+    await fulfillOrder({ ...order, status: "paid" }, amount);
+
+    console.log(`[aba-webhook] order #${order.id} (${order.public_ref}) marked paid for USD ${amount}`);
+    return Response.json({ status: "success", processed: true });
+  }
+
+  // verified but NOT a payment: cancel the attempt (and the order if the
+  // buyer never got past pending_payment). Not an error for the gateway.
+  await supabase
+    .from("payment_attempts")
+    .update({ status: "cancelled" })
+    .eq("order_id", order.id)
+    .eq("status", "pending");
+
+  if (PENDING_STATUSES.has(order.status)) {
+    await supabase
+      .from("orders")
+      .update({ status: "cancelled" as const, updated_at: new Date().toISOString() })
+      .eq("id", order.id)
+      .in("status", [...PENDING_STATUSES]);
+  }
+
+  console.log(`[aba-webhook] order #${order.id} (${order.public_ref}) callback status=${status} — recorded.`);
+  return Response.json({ status: "success", processed: false, reason: "payment not successful" });
+}

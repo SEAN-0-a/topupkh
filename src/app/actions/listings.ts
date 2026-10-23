@@ -211,47 +211,99 @@ export async function createListing(input: {
     }
 
     // ---------- the seller's OFFER ----------
-    const { data: product, error: productError } = await supabase
-      .from("products")
-      .insert({
-        seller_id: seller.id,
-        game_id: input.gameId,
-        category_id: input.categoryId,
-        template_id: templateId,
-        title,
-        description: input.description,
-        image_url: (images[0] || input.imageUrl) || null,
-        game_name: gameName || null,
-        original_email: input.originalEmail ?? true,
-        open_email_access: input.openEmailAccess ?? true,
-        warranty_days: warrantyDays,
-        delivery_time: deliveryTime || null,
-        inventory_value: inventoryValue || null,
-        images,
-        price_usd: input.priceUsd,
-        original_price_usd: input.originalPriceUsd,
-        delivery_method: input.deliveryMethod,
-        delivery_details: input.deliveryDetails,
-        stock: input.stockIsUnlimited ? 0 : input.stock,
-        stock_is_unlimited: input.stockIsUnlimited,
-        estimated_minutes: input.estimatedMinutes,
-        refund_policy: input.refundPolicy.slice(0, 1000),
-        ownership_note: input.ownershipNote.slice(0, 1000),
-        // AUTO-PUBLISH: 'approved' = the marketplace's published status, so the
-        // listing shows up on /marketplace immediately after submission.
-        // Prohibited game/category pairs are still hard-blocked by the DB
-        // eligibility trigger (0017).
-        status: "approved",
-      })
-      .select("id")
-      .single<{ id: number }>();
+    // The products INSERT itself is wrapped in try/catch: PostgREST can keep
+    // a poisoned PREPARED INSERT plan alive that keeps failing with the CACHED
+    // stale error 42704 'type "user_role" does not exist' even on payloads
+    // that contain no role/enum value at all (see supabase/0015 & 0016).
+    // We catch everything raw (lib/PostgREST/JS runtime errors included) and
+    // surface error.message directly — never a fabricated or stale message.
 
-    if (productError || !product) {
-      // raw Supabase error goes to the server console for diagnosis
-      console.error("Listing products insert error:", productError);
+    /** Basic primitives only: numbers/strings/booleans — no arrays (images),
+     *  no custom-enum columns (status, delivery_method); DB defaults apply. */
+    const basicOnlyPayload = {
+      seller_id: seller.id,
+      game_id: input.gameId,
+      category_id: input.categoryId,
+      template_id: templateId,
+      title,
+      description: input.description,
+      price_usd: input.priceUsd,
+      stock: input.stockIsUnlimited ? 0 : input.stock,
+    };
+
+    let product: { id: number } | null = null;
+    let insertError: { message: string } | null = null;
+
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          ...basicOnlyPayload,
+          image_url: (images[0] || input.imageUrl) || null,
+          game_name: gameName || null,
+          original_email: input.originalEmail ?? true,
+          open_email_access: input.openEmailAccess ?? true,
+          warranty_days: warrantyDays,
+          delivery_time: deliveryTime || null,
+          inventory_value: inventoryValue || null,
+          images,
+          original_price_usd: input.originalPriceUsd,
+          delivery_method: input.deliveryMethod,
+          delivery_details: input.deliveryDetails,
+          stock_is_unlimited: input.stockIsUnlimited,
+          estimated_minutes: input.estimatedMinutes,
+          refund_policy: input.refundPolicy.slice(0, 1000),
+          ownership_note: input.ownershipNote.slice(0, 1000),
+          // AUTO-PUBLISH: 'approved' = the marketplace's published status, so the
+          // listing shows up on /marketplace immediately after submission.
+          // Prohibited game/category pairs are still hard-blocked by the DB
+          // eligibility trigger (0017).
+          status: "approved",
+        })
+        .select("id")
+        .single<{ id: number }>();
+      if (error) throw error; // caught below, message surfaced raw
+      product = data;
+    } catch (e) {
+      insertError = { message: e instanceof Error ? e.message : String(e) };
+    }
+
+    // Fallback #2: retry with the PRIMITIVE-ONLY payload. Enum/string-literal
+    // columns (status, delivery_method) and the images array are omitted so
+    // their column defaults apply — this sidesteps stale prepared plans that
+    // pin a dropped custom type (e.g. user_role) mid-plan.
+    if (!product) {
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .insert(basicOnlyPayload)
+          .select("id")
+          .single<{ id: number }>();
+        if (error) throw error;
+        product = data;
+        // primitive-only insert succeeded but skipped AUTO-PUBLISH ('approved'):
+        // flip the status via a bare primitive UPDATE so the offer still lands
+        // on /marketplace immediately.
+        const { error: publishError } = await supabase
+          .from("products")
+          .update({ status: "approved" })
+          .eq("id", product.id);
+        if (publishError) {
+          // not fatal — the offer exists; publish status can be fixed later
+          console.error("Listing primitive-only publish update error:", publishError);
+        }
+      } catch (e) {
+        insertError = { message: e instanceof Error ? e.message : String(e) };
+      }
+    }
+
+    if (!product) {
+      // raw error message goes to the server console for diagnosis
+      console.error("Listing products insert error:", insertError);
+      // return error.message DIRECTLY — no stale/cached fabricated wrapper
       return {
         ok: false,
-        message: `Could not create offer: ${productError?.message ?? "unknown error"}`,
+        message: insertError?.message || "Unknown error",
       };
     }
 

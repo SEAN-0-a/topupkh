@@ -333,27 +333,36 @@ export async function listGames(): Promise<Game[]> {
 }
 
 /**
- * Categories whose eligibility rule is 'allowed' — the ONLY categories that
- * may appear as purchasable anywhere on the site.
+ * Categories that may appear as purchasable anywhere on the site, under the
+ * current marketplace policy (see supabase/0017 + 0018):
+ *   rule = 'allowed'      → selectable
+ *   rule = 'needs_review' → selectable (listings auto-publish since 0017)
+ *   rule row missing      → selectable (UNCONFIGURED since 0018: sellers may
+ *                           submit offers for review into the pair)
+ *   rule = 'prohibited'   → hidden, and a category is hidden when ALL of its
+ *                           (game, category) rules are prohibited.
  */
 export async function listActiveCategories(): Promise<(ProductCategory & { status: string })[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("eligibility_rules")
-    .select("status, product_categories ( * )")
-    .eq("status", "allowed");
+    .from("product_categories")
+    .select("*, eligibility_rules ( status )")
+    .eq("is_active", true);
 
   if (error) throw new Error(`Failed to load categories: ${error.message}`);
 
-  return (data ?? [])
-    .map((row) => {
-      // row.product_categories may be object or array depending on the FK shape
-      const cat = Array.isArray(row.product_categories)
-        ? row.product_categories[0]
-        : row.product_categories;
-      return cat ? { ...cat, status: row.status } : null;
+  const rows = (data ?? []) as unknown as (ProductCategory & {
+    eligibility_rules: { status: string }[];
+  })[];
+
+  return rows
+    .filter((row) => {
+      const statuses = (row.eligibility_rules ?? []).map((r) => r.status);
+      // visible only if some rule permits listing (allowed/needs_review) or
+      // the category is unconfigured (no rule rows at all)
+      return statuses.length === 0 || statuses.some((s) => s !== "prohibited");
     })
-    .filter((c): c is ProductCategory & { status: string } => c !== null);
+    .map((row) => ({ ...row, status: row.eligibility_rules?.[0]?.status ?? "allowed" }));
 }
 
 /** Top sellers (approved) by completed sales — real data, no fake ratings. */

@@ -119,8 +119,9 @@ export default async function HomePage() {
       {/* empty-state honesty banners */}
       {dbReady && featuredItems.length === 0 && (
         <Banner>
-          No approved products yet. Listings appear only after a seller posts them AND an admin
-          approves them — we do not display fake demo products.
+          No published products yet. Seller offers are auto-published as soon as their game/category
+          pair is configured — offers on unconfigured pairs go to the admin review queue first. We
+          do not display fake demo products.
         </Banner>
       )}
 

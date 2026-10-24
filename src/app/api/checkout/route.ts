@@ -278,19 +278,12 @@ export async function POST(request: Request) {
     // after `items`, and is echoed in the form body as the `shipping` field.
     const shipping = "0.00";
 
-    // ABA concatenation string — MUST follow ABA's documented order exactly,
-    // with NO separators:
-    //   req_time + merchant_id + tran_id + amount + items + shipping +
-    //   firstname + lastname + email + phone + type + payment_option +
-    //   return_url + cancel_url + continue_success_url
-    //
-    // The pairs below drive BOTH the signature and the outgoing form body
-    // from ONE filtered list: any pair whose value is empty/undefined (e.g.
-    // a user with no `phone`, or optional `firstname`/`lastname`/`email`)
-    // is removed here, so it can never end up hashed but unsent — or sent
-    // but unhashed — which would make ABA's server-side recomputation
-    // disagree with our hash. Required fields further down are hardcoded so
-    // they cannot be filtered out accidentally.
+    // Form-body source: the first 15 fields sent to the gateway, in the same
+    // order as the signature's front slots. Optional fields that resolve to
+    // ""/undefined are omitted from the BODY (ABA recomputes their hash slot
+    // as "" for missing values — consistent with the 24-slot hash below),
+    // while required fields are protected by an allowlist so they can never
+    // be filtered out accidentally.
     const REQUIRED_FIELDS = new Set([
       "req_time",
       "merchant_id",
@@ -325,7 +318,46 @@ export async function POST(request: Request) {
       ] as Array<[string, string]>
     ).filter(([key, value]) => REQUIRED_FIELDS.has(key) || (value !== "" && value != null));
 
-    const signString = paramPairs.map(([, value]) => value).join("");
+    // ABA concatenation string — MUST follow ABA PayWay v3's /purchase spec
+    // exactly: all 24 fields concatenated positionally with NO separators,
+    // and unused optional fields placed as EMPTY STRINGS ("") so the slot
+    // order never shifts:
+    //   req_time + merchant_id + tran_id + amount + items + shipping +
+    //   firstname + lastname + email + phone + type + payment_option +
+    //   return_url + cancel_url + continue_success_url + return_deeplink +
+    //   currency + custom_fields + return_params + payout + lifetime +
+    //   additional_params + google_pay_token + skip_success_page
+    //
+    // Slots left "" here are fields this checkout flow never sends. Do NOT
+    // filter them out — doing so would shift every later slot and break
+    // ABA's server-side recomputation.
+    const signParts: string[] = [
+      reqTime,            //  1 req_time
+      MERCHANT_ID,        //  2 merchant_id
+      publicRef,          //  3 tran_id
+      amount,             //  4 amount
+      itemsB64,           //  5 items           — BASE64-encoded JSON (v3)
+      shipping,           //  6 shipping        — "0.00"
+      firstName,          //  7 firstname
+      lastName,           //  8 lastname
+      email,              //  9 email
+      phone,              // 10 phone           — "" when user has none
+      "purchase",         // 11 type
+      "aba",              // 12 payment_option
+      returnUrl,          // 13 return_url
+      cancelUrl,          // 14 cancel_url
+      continueSuccessUrl, // 15 continue_success_url
+      "",                 // 16 return_deeplink
+      "USD",              // 17 currency        — matches the form body
+      "",                 // 18 custom_fields
+      returnParams,       // 19 return_params   — REAL value (sent; webhook verifies callback HMAC over it)
+      "",                 // 20 payout
+      "",                 // 21 lifetime
+      "",                 // 22 additional_params
+      "",                 // 23 google_pay_token
+      "",                 // 24 skip_success_page
+    ];
+    const signString = signParts.join("");
 
     // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret and is
     // encoded as BASE64, the format required by ABA PayWay's sandbox and demo
@@ -342,10 +374,11 @@ export async function POST(request: Request) {
     console.log("[checkout] ABA sign string:", signString);
     console.log("[checkout] ABA hash:", hash);
 
-    // The form body is generated from the SAME filtered `paramPairs` list
-    // used for the signature, so field presence is identical on both sides.
-    // ABA-hash-excluded extras (`return_params`, `currency`) plus `hash`
-    // itself are appended after the ordered pairs.
+    // The form body is generated from the filtered `paramPairs` list defined
+    // used for the form body. `return_params` and `currency` are NOT in the
+    // 15 ordered pairs, but their values ARE hashed in their fixed v3
+    // positions in `signParts` above (slots 17 and 19) — keep all three in
+    // sync. `hash` itself is appended last.
     const payload = new URLSearchParams({
       ...Object.fromEntries(paramPairs),
       return_params: returnParams,

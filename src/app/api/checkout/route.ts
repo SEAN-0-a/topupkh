@@ -303,14 +303,14 @@ export async function POST(request: Request) {
     const signString = signParts.filter((part) => part !== "").join("");
 
     // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret and is
-    // encoded as plain LOWERCASE HEX, which ABA PayWay's signature check
-    // accepts on many merchant configurations. If the gateway keeps replying
-    // "invalid hash" while everything above matches the payload, switch "hex"
-    // back to "base64" (ABA's original sandbox demo encodes it base64).
+    // encoded as BASE64, the format required by ABA PayWay's sandbox and demo
+    // implementations. If the gateway keeps replying "invalid hash" while
+    // everything above matches the payload, switch "base64" to "hex" (ABA
+    // documents a plain lowercase-hex variant for some merchant setups).
     const hash = crypto
       .createHmac("sha512", API_KEY)
       .update(signString)
-      .digest("hex");
+      .digest("base64");
 
     // Signature debugging aid: shows the exact string that was hashed so the
     // Vercel logs can be diffed field-by-field against the ABA_RAW_RESPONSE.

@@ -283,26 +283,49 @@ export async function POST(request: Request) {
     //   req_time + merchant_id + tran_id + amount + items + shipping +
     //   firstname + lastname + email + phone + type + payment_option +
     //   return_url + cancel_url + continue_success_url
-    // Fields that are empty are omitted entirely, not replaced by an empty
-    // slot (e.g. an undefined `phone`).
-    const signParts: string[] = [
-      reqTime,             // req_time
-      MERCHANT_ID,         // merchant_id
-      publicRef,           // tran_id
-      amount,              // amount
-      itemsB64,            // items       — BASE64-encoded JSON (v3 spec)
-      shipping,            // shipping    — "0.00", right after items per v3 spec
-      firstName,           // firstname
-      lastName,            // lastname
-      email,               // email
-      phone,               // phone
-      "purchase",          // type            — 1: purchase / 2: pre-auth
-      "aba",               // payment_option  — ABA card / KHQR gateway option
-      returnUrl,           // return_url
-      cancelUrl,           // cancel_url
-      continueSuccessUrl,  // continue_success_url
-    ];
-    const signString = signParts.filter((part) => part !== "").join("");
+    //
+    // The pairs below drive BOTH the signature and the outgoing form body
+    // from ONE filtered list: any pair whose value is empty/undefined (e.g.
+    // a user with no `phone`, or optional `firstname`/`lastname`/`email`)
+    // is removed here, so it can never end up hashed but unsent — or sent
+    // but unhashed — which would make ABA's server-side recomputation
+    // disagree with our hash. Required fields further down are hardcoded so
+    // they cannot be filtered out accidentally.
+    const REQUIRED_FIELDS = new Set([
+      "req_time",
+      "merchant_id",
+      "tran_id",
+      "amount",
+      "items",
+      "shipping",
+      "return_url",
+      "cancel_url",
+      "continue_success_url",
+      "type",
+      "payment_option",
+    ]);
+
+    const paramPairs: Array<[string, string]> = (
+      [
+        ["req_time", reqTime],
+        ["merchant_id", MERCHANT_ID],
+        ["tran_id", publicRef],
+        ["amount", amount],
+        ["items", itemsB64],     // BASE64-encoded JSON (v3 spec)
+        ["shipping", shipping],  // right after items per v3 spec
+        ["firstname", firstName],
+        ["lastname", lastName],
+        ["email", email],
+        ["phone", phone],
+        ["type", "purchase"],
+        ["payment_option", "aba"],
+        ["return_url", returnUrl],
+        ["cancel_url", cancelUrl],
+        ["continue_success_url", continueSuccessUrl],
+      ] as Array<[string, string]>
+    ).filter(([key, value]) => REQUIRED_FIELDS.has(key) || (value !== "" && value != null));
+
+    const signString = paramPairs.map(([, value]) => value).join("");
 
     // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret and is
     // encoded as BASE64, the format required by ABA PayWay's sandbox and demo
@@ -319,22 +342,12 @@ export async function POST(request: Request) {
     console.log("[checkout] ABA sign string:", signString);
     console.log("[checkout] ABA hash:", hash);
 
+    // The form body is generated from the SAME filtered `paramPairs` list
+    // used for the signature, so field presence is identical on both sides.
+    // ABA-hash-excluded extras (`return_params`, `currency`) plus `hash`
+    // itself are appended after the ordered pairs.
     const payload = new URLSearchParams({
-      req_time: reqTime,
-      merchant_id: MERCHANT_ID,
-      tran_id: publicRef,
-      amount,
-      items: itemsB64,     // v3: form body carries the BASE64-encoded items JSON
-      shipping,            // "0.00" — must match the value hashed in signString
-      firstname: firstName,
-      lastname: lastName,
-      email,
-      phone,
-      type: "purchase",
-      payment_option: "aba",
-      return_url: returnUrl,
-      cancel_url: cancelUrl,
-      continue_success_url: continueSuccessUrl,
+      ...Object.fromEntries(paramPairs),
       return_params: returnParams,
       currency: "USD",
       hash,

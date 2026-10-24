@@ -230,12 +230,13 @@ export async function POST(request: Request) {
       ? (body.items as AbaItem[])
       : [{ name: productTitle, quantity, price: unitPrice }];
 
-    // ABA hashes the `items` value byte-for-byte, so the string placed in the
-    // sign string must be IDENTICAL to the one sent in the form body (both use
-    // this exact `itemsJson` variable). JSON.stringify emits minified JSON by
-    // default — compact separators, no spaces, no indentation, no newlines —
-    // so the hashed string is canonical and whitespace-free, exactly matching
-    // how ABA computes its signature. Do NOT pretty-print or reformat it.
+    // The form body's `items` field carries the plain JSON payload. ABA
+    // PayWay v3 requires the SIGN STRING to hash the BASE64 form of this JSON
+    // (see `itemsB64` below), while the outgoing `items` form field stays as
+    // plain JSON. JSON.stringify emits minified JSON by default — compact
+    // separators, no spaces, no indentation, no newlines — so the base64
+    // input is canonical and whitespace-free. Do NOT pretty-print or
+    // reformat it.
     const itemsJson = JSON.stringify(items);
 
     // ABA needs a buyer name/email/phone; we do not collect them on site, so
@@ -270,6 +271,10 @@ export async function POST(request: Request) {
       continue_success_url: continueSuccessUrl,
     });
 
+    // ABA PayWay v3 hashes the `items` value as BASE64-ENCODED JSON, while the
+    // outgoing form body still carries it as plain JSON (`itemsJson`).
+    const itemsB64 = Buffer.from(itemsJson, "utf8").toString("base64");
+
     // ABA concatenation string — MUST follow ABA's documented order exactly,
     // with NO separators:
     //   req_time + merchant_id + tran_id + amount + items + firstname +
@@ -283,7 +288,7 @@ export async function POST(request: Request) {
       MERCHANT_ID,         // merchant_id
       publicRef,           // tran_id
       amount,              // amount
-      itemsJson,           // items  (sits directly after amount, per ABA spec)
+      itemsB64,            // items  — base64-encoded JSON, sits after amount per v3 spec
       firstName,           // firstname
       lastName,            // lastname
       email,               // email

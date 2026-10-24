@@ -309,22 +309,27 @@ export async function POST(request: Request) {
 
     // --- 4. Call the gateway ----------------------------------------------------
     try {
-      const abaRes = await fetch(ABA_API_URL, {
+      const res = await fetch(ABA_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: payload.toString(),
         cache: "no-store",
       });
 
-      const abaText = await abaRes.text();
+      // Capture the raw gateway payload BEFORE parsing, so whatever ABA sends
+      // back — success JSON or an error message/HTML page — shows up verbatim
+      // in the Vercel logs for debugging.
+      const responseText = await res.text();
+      console.log("ABA_RAW_RESPONSE:", responseText);
+
       let abaJson: unknown;
       try {
-        abaJson = JSON.parse(abaText);
+        abaJson = JSON.parse(responseText);
       } catch {
         // gateway returned HTML (e.g. an auto-submitting form) — pass it through
         console.error("[checkout] ABA returned non-JSON payload");
-        return new Response(abaText, {
-          status: abaRes.ok ? 200 : 502,
+        return new Response(responseText, {
+          status: res.ok ? 200 : 502,
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
@@ -339,7 +344,7 @@ export async function POST(request: Request) {
           public_ref: publicRef,
           order_id: ctx.orderId,
         },
-        { status: abaRes.ok ? 200 : 502 },
+        { status: res.ok ? 200 : 502 },
       );
     } catch (err) {
       console.error("[checkout] ABA request failed:", err);

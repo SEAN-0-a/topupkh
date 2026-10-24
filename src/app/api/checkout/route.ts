@@ -230,13 +230,11 @@ export async function POST(request: Request) {
       ? (body.items as AbaItem[])
       : [{ name: productTitle, quantity, price: unitPrice }];
 
-    // The form body's `items` field carries the plain JSON payload. ABA
-    // PayWay v3 requires the SIGN STRING to hash the BASE64 form of this JSON
-    // (see `itemsB64` below), while the outgoing `items` form field stays as
-    // plain JSON. JSON.stringify emits minified JSON by default — compact
-    // separators, no spaces, no indentation, no newlines — so the base64
-    // input is canonical and whitespace-free. Do NOT pretty-print or
-    // reformat it.
+    // JSON.stringify emits minified JSON by default — compact separators, no
+    // spaces, no indentation, no newlines — and that minified string is then
+    // base64-encoded (`itemsB64`) for BOTH the sign string and the outgoing
+    // form body's `items` field, per ABA PayWay v3. Do NOT pretty-print or
+    // reformat: any byte change would break the signature.
     const itemsJson = JSON.stringify(items);
 
     // ABA needs a buyer name/email/phone; we do not collect them on site, so
@@ -271,24 +269,29 @@ export async function POST(request: Request) {
       continue_success_url: continueSuccessUrl,
     });
 
-    // ABA PayWay v3 hashes the `items` value as BASE64-ENCODED JSON, while the
-    // outgoing form body still carries it as plain JSON (`itemsJson`).
+    // ABA PayWay v3 requires the items JSON BASE64-ENCODED (`itemsB64`) in
+    // both the SIGN STRING and the outgoing form body's `items` field.
     const itemsB64 = Buffer.from(itemsJson, "utf8").toString("base64");
+
+    // Shipping fee — ABA expects "0.00" (string) for digital-goods top-ups
+    // with no physical delivery. It participates in the signature right
+    // after `items`, and is echoed in the form body as the `shipping` field.
+    const shipping = "0.00";
 
     // ABA concatenation string — MUST follow ABA's documented order exactly,
     // with NO separators:
-    //   req_time + merchant_id + tran_id + amount + items + firstname +
-    //   lastname + email + phone + type + payment_option + return_url +
-    //   continue_success_url + quit_url + shipping_fee
-    // Fields that are empty or not part of this request's payload
-    // (`quit_url`, `shipping_fee` here) are OMITTED entirely, not replaced by
-    // an empty slot.
+    //   req_time + merchant_id + tran_id + amount + items + shipping +
+    //   firstname + lastname + email + phone + type + payment_option +
+    //   return_url + cancel_url + continue_success_url
+    // Fields that are empty are omitted entirely, not replaced by an empty
+    // slot (e.g. an undefined `phone`).
     const signParts: string[] = [
       reqTime,             // req_time
       MERCHANT_ID,         // merchant_id
       publicRef,           // tran_id
       amount,              // amount
-      itemsB64,            // items  — base64-encoded JSON, sits after amount per v3 spec
+      itemsB64,            // items       — BASE64-encoded JSON (v3 spec)
+      shipping,            // shipping    — "0.00", right after items per v3 spec
       firstName,           // firstname
       lastName,            // lastname
       email,               // email
@@ -296,9 +299,8 @@ export async function POST(request: Request) {
       "purchase",          // type            — 1: purchase / 2: pre-auth
       "aba",               // payment_option  — ABA card / KHQR gateway option
       returnUrl,           // return_url
+      cancelUrl,           // cancel_url
       continueSuccessUrl,  // continue_success_url
-      // quit_url      — not sent in this request → omitted
-      // shipping_fee  — not sent in this request → omitted
     ];
     const signString = signParts.filter((part) => part !== "").join("");
 
@@ -322,13 +324,14 @@ export async function POST(request: Request) {
       merchant_id: MERCHANT_ID,
       tran_id: publicRef,
       amount,
+      items: itemsB64,     // v3: form body carries the BASE64-encoded items JSON
+      shipping,            // "0.00" — must match the value hashed in signString
       firstname: firstName,
       lastname: lastName,
       email,
       phone,
       type: "purchase",
       payment_option: "aba",
-      items: itemsJson,
       return_url: returnUrl,
       cancel_url: cancelUrl,
       continue_success_url: continueSuccessUrl,

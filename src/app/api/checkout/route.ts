@@ -263,29 +263,47 @@ export async function POST(request: Request) {
       continue_success_url: continueSuccessUrl,
     });
 
-    // ABA concatenation string, in the exact documented order:
-    const signString = [
-      reqTime,
-      MERCHANT_ID,
-      publicRef,
-      amount,
-      firstName,
-      lastName,
-      email,
-      phone,
+    // ABA concatenation string — MUST follow ABA's documented order exactly,
+    // with NO separators:
+    //   req_time + merchant_id + tran_id + amount + items + firstname +
+    //   lastname + email + phone + type + payment_option + return_url +
+    //   continue_success_url + quit_url + shipping_fee
+    // Fields that are empty or not part of this request's payload
+    // (`quit_url`, `shipping_fee` here) are OMITTED entirely, not replaced by
+    // an empty slot.
+    const signParts: string[] = [
+      reqTime,             // req_time
+      MERCHANT_ID,         // merchant_id
+      publicRef,           // tran_id
+      amount,              // amount
+      itemsJson,           // items  (sits directly after amount, per ABA spec)
+      firstName,           // firstname
+      lastName,            // lastname
+      email,               // email
+      phone,               // phone
       "purchase",          // type            — 1: purchase / 2: pre-auth
       "aba",               // payment_option  — ABA card / KHQR gateway option
-      itemsJson,
-      returnUrl,
-      cancelUrl,
-      continueSuccessUrl,
-      returnParams,
-    ].join("");
+      returnUrl,           // return_url
+      continueSuccessUrl,  // continue_success_url
+      // quit_url      — not sent in this request → omitted
+      // shipping_fee  — not sent in this request → omitted
+    ];
+    const signString = signParts.filter((part) => part !== "").join("");
 
+    // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret. ABA's
+    // gateway expects a base64-encoded HMAC SHA-512; if the gateway keeps
+    // replying "invalid hash" while everything above matches the payload,
+    // switch "base64" to "hex" (ABA documents a plain lowercase-hex variant
+    // for some merchant setups).
     const hash = crypto
       .createHmac("sha512", API_KEY)
       .update(signString)
-      .digest("base64"); // ABA's sandbox demo signs with base64-encoded HMAC SHA-512
+      .digest("base64");
+
+    // Signature debugging aid: shows the exact string that was hashed so the
+    // Vercel logs can be diffed field-by-field against the ABA_RAW_RESPONSE.
+    console.log("[checkout] ABA sign string:", signString);
+    console.log("[checkout] ABA hash:", hash);
 
     const payload = new URLSearchParams({
       req_time: reqTime,

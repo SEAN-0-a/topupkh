@@ -229,6 +229,13 @@ export async function POST(request: Request) {
     const items: AbaItem[] = Array.isArray(body?.items)
       ? (body.items as AbaItem[])
       : [{ name: productTitle, quantity, price: unitPrice }];
+
+    // ABA hashes the `items` value byte-for-byte, so the string placed in the
+    // sign string must be IDENTICAL to the one sent in the form body (both use
+    // this exact `itemsJson` variable). JSON.stringify emits minified JSON by
+    // default — compact separators, no spaces, no indentation, no newlines —
+    // so the hashed string is canonical and whitespace-free, exactly matching
+    // how ABA computes its signature. Do NOT pretty-print or reformat it.
     const itemsJson = JSON.stringify(items);
 
     // ABA needs a buyer name/email/phone; we do not collect them on site, so
@@ -290,15 +297,15 @@ export async function POST(request: Request) {
     ];
     const signString = signParts.filter((part) => part !== "").join("");
 
-    // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret. ABA's
-    // gateway expects a base64-encoded HMAC SHA-512; if the gateway keeps
-    // replying "invalid hash" while everything above matches the payload,
-    // switch "base64" to "hex" (ABA documents a plain lowercase-hex variant
-    // for some merchant setups).
+    // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret and is
+    // encoded as plain LOWERCASE HEX, which ABA PayWay's signature check
+    // accepts on many merchant configurations. If the gateway keeps replying
+    // "invalid hash" while everything above matches the payload, switch "hex"
+    // back to "base64" (ABA's original sandbox demo encodes it base64).
     const hash = crypto
       .createHmac("sha512", API_KEY)
       .update(signString)
-      .digest("base64");
+      .digest("hex");
 
     // Signature debugging aid: shows the exact string that was hashed so the
     // Vercel logs can be diffed field-by-field against the ABA_RAW_RESPONSE.

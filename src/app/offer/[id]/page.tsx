@@ -68,7 +68,7 @@ export default async function OffersPage({ params, searchParams }: Props) {
 
       {/* escrow trust strip */}
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-200">
-        🔒 All offers below go through TopUpKH escrow-ready checkout: your KHQR payment is verified
+        🔒 All offers below go through RomdoulKHShop escrow-ready checkout: your KHQR payment is verified
         by an admin, the seller delivers, <b>and</b> you confirm — only then are funds released to
         the seller. Never pay a seller directly.
       </div>

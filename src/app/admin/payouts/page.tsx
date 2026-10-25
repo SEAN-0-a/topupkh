@@ -36,7 +36,7 @@ const CHIP: Record<string, string> = {
 export default async function AdminPayoutsPage() {
   // Loop-proof guard: unauthenticated → /login?next=…, authenticated but
   // not admin → "/" (never back to /login, which would bounce forever).
-  const ctx = await requirePageRole("/admin/payouts", "admin");
+  await requirePageRole("/admin/payouts", "admin");
 
   const supabase = await createSupabaseServerClient();
 

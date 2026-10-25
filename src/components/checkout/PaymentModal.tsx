@@ -256,25 +256,25 @@ export default function PaymentModal({
       aria-modal="true"
       aria-label="ABA PayWay payment"
     >
-      <div className="max-w-sm w-full space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center shadow-2xl">
-        <h2 className="text-xl font-bold text-white">
+      <div className="max-w-sm w-full space-y-4 rounded-2xl border border-hairline bg-surface p-6 text-center shadow-2xl">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
           {phase === "paid" ? "Payment Successful! 🎉" : "Pay with KHQR"}
         </h2>
 
         {/* ---- creating: waiting for the gateway ---- */}
         {phase === "creating" && (
-          <p className="text-xs text-gray-400">Contacting ABA PayWay… preparing your QR code</p>
+          <p className="text-xs text-muted">Contacting ABA PayWay… preparing your QR code</p>
         )}
 
         {/* ---- error ---- */}
         {phase === "error" && (
           <>
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-300">
               {error ?? "Something went wrong."}
             </div>
             <button
               onClick={onClose}
-              className="rounded-xl bg-gray-800 py-2.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700"
+              className="rounded-xl bg-elev-strong py-2.5 text-xs font-medium text-muted transition-colors hover:bg-gold hover:text-navy"
             >
               Close
             </button>
@@ -284,13 +284,13 @@ export default function PaymentModal({
         {/* ---- expired ---- */}
         {phase === "expired" && (
           <>
-            <p className="text-xs text-amber-300">
+            <p className="text-xs text-amber-600 dark:text-amber-300">
               ⏰ The payment window expired (10 minutes). Cancelled or un-verified attempts are not
               charged — please start again.
             </p>
             <button
               onClick={onClose}
-              className="rounded-xl bg-gray-800 py-2.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700"
+              className="rounded-xl bg-elev-strong py-2.5 text-xs font-medium text-muted transition-colors hover:bg-gold hover:text-navy"
             >
               Close
             </button>
@@ -303,7 +303,7 @@ export default function PaymentModal({
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
               ✅ KHQR payment confirmed — redirecting you to your order…
             </div>
-            <p className="text-[11px] text-gray-500">Order #{orderId} · {publicRef}</p>
+            <p className="text-[11px] text-muted">Order #{orderId} · {publicRef}</p>
           </>
         )}
 
@@ -312,14 +312,14 @@ export default function PaymentModal({
           <>
             {/* amount USD / KHR */}
             <div className="space-y-0.5">
-              <p className="text-2xl font-extrabold text-emerald-400">${amountUsd.toFixed(2)} USD</p>
-              <p className="font-mono text-xs text-gray-400">≈ {khrAmount.toLocaleString()} KHR</p>
+              <p className="text-2xl font-extrabold text-gold">${amountUsd.toFixed(2)} USD</p>
+              <p className="font-mono text-xs text-muted">≈ {khrAmount.toLocaleString()} KHR</p>
             </div>
 
             {/* countdown */}
-            <p className="font-mono text-xs text-gray-400">
+            <p className="font-mono text-xs text-muted">
               Expires in{" "}
-              <span className={remaining < 60_000 ? "text-red-400" : "text-white"}>
+              <span className={remaining < 60_000 ? "text-red-400" : "text-slate-900 dark:text-white"}>
                 {formatCountdown(remaining)}
               </span>
             </p>
@@ -359,7 +359,7 @@ export default function PaymentModal({
                   <a
                     href={aba.deeplink}
                     // mobile only, matches the "deeplink button on mobile screens" flow
-                    className="block w-full rounded-xl bg-emerald-500 py-3 text-sm font-bold text-black transition-colors hover:bg-emerald-400 sm:hidden"
+                    className="block w-full rounded-xl bg-gold py-3 text-sm font-bold text-navy transition-colors hover:bg-gold-dark sm:hidden"
                   >
                     📱 Open ABA Mobile App
                   </a>
@@ -369,7 +369,7 @@ export default function PaymentModal({
                     href={aba.hostedUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full rounded-xl border border-gray-700 py-2.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-800"
+                    className="block w-full rounded-xl border border-hairline py-2.5 text-xs font-medium text-muted transition-colors hover:bg-elev-strong"
                   >
                     Open hosted checkout page ↗
                   </a>
@@ -377,18 +377,18 @@ export default function PaymentModal({
               </div>
             )}
 
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-muted">
               Keep this window open — payment is confirmed automatically. Order {publicRef}
             </p>
 
-            <p className="text-[11px] text-gray-600">
+            <p className="text-[11px] text-muted">
               Payers must use KHQR-issuing apps (ABA Mobile, Bakong, ACLEDA, Wing…). Amounts are in USD;
               KHR shown approximately for reference.
             </p>
 
             <button
               onClick={onClose}
-              className="w-full rounded-xl bg-gray-800 py-2.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700"
+              className="w-full rounded-xl bg-elev-strong py-2.5 text-xs font-medium text-muted transition-colors hover:bg-gold hover:text-navy"
             >
               Cancel payment
             </button>

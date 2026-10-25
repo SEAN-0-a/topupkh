@@ -43,9 +43,6 @@ export default async function MarketplacePage({
     sort: first(params, "sort") as CatalogQuery["sort"],
     page: Math.max(1, Number(first(params, "page") ?? "1") || 1),
     perPage: 12,
-    // __TEMPORARY DEBUG__ — /marketplace?debug=raw bypasses all .eq()/filters
-    // and dumps raw listings to the server console. Remove with debugRaw.
-    debugRaw: first(params, "debug") === "raw",
   };
 
   // Fetch filters defensively: an unreachable Supabase, a missing env var, or a
@@ -109,10 +106,10 @@ export default async function MarketplacePage({
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-white">
       {/* header */}
-      <div className="flex flex-col justify-between gap-3 rounded-3xl border border-gray-800 bg-gray-900 p-6 md:flex-row md:items-center">
+      <div className="flex flex-col justify-between gap-3 rounded-3xl border border-hairline bg-surface p-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-400">🎮 <T k="market.header" /></h1>
-          <p className="mt-1 text-xs text-gray-400">
+          <h1 className="text-2xl font-bold text-navy dark:text-gold">🎮 <T k="market.header" /></h1>
+          <p className="mt-1 text-xs text-muted">
             {gameName ? (
               <>
                 {gameName}
@@ -139,10 +136,10 @@ export default async function MarketplacePage({
             <T k="prohibited.reason" />
           </p>
           <div className="mt-4 flex gap-3">
-            <Link href="/marketplace" className="rounded-xl bg-gray-800 px-4 py-2 text-xs font-semibold hover:bg-gray-700">
+            <Link href="/marketplace" className="rounded-xl bg-elev-strong px-4 py-2 text-xs font-semibold text-muted transition-colors hover:text-slate-900 dark:hover:text-slate-200">
               <T k="market.browse_categories" />
             </Link>
-            <Link href="/support" className="rounded-xl border border-gray-700 px-4 py-2 text-xs font-semibold text-gray-300 hover:border-emerald-500">
+            <Link href="/support" className="rounded-xl border border-hairline px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-royal hover:text-royal">
               <T k="market.contact_support" />
             </Link>
           </div>
@@ -156,9 +153,9 @@ export default async function MarketplacePage({
       )}
 
       {result.items.length === 0 && !error && (
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center text-sm text-gray-400">
+        <div className="rounded-2xl border border-hairline bg-surface p-8 text-center text-sm text-muted">
           <T k="market.no_results" />
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-muted">
             <T k="market.no_results_hint" />
           </div>
         </div>
@@ -177,18 +174,18 @@ export default async function MarketplacePage({
           {result.page > 1 && (
             <Link
               href={pageHref(result.page - 1)}
-              className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
+              className="rounded-lg border border-hairline bg-surface px-4 py-2 text-xs transition-colors hover:border-royal hover:text-royal"
             >
               <T k="market.prev" />
             </Link>
           )}
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted">
             <T k="market.page_of" vars={{ n: result.page, total: result.totalPages }} />
           </span>
           {result.page < result.totalPages && (
             <Link
               href={pageHref(result.page + 1)}
-              className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-xs hover:border-emerald-500"
+              className="rounded-lg border border-hairline bg-surface px-4 py-2 text-xs transition-colors hover:border-royal hover:text-royal"
             >
               <T k="market.next" />
             </Link>

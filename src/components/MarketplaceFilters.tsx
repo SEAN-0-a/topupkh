@@ -56,7 +56,7 @@ export default function MarketplaceFilters({ games, categories }: Props) {
   return (
     <details
       open
-      className="rounded-2xl border border-gray-800 bg-gray-900 p-4 [&>summary]:cursor-pointer [&>summary]:mb-3"
+      className="rounded-2xl border border-hairline bg-surface p-4 [&>summary]:cursor-pointer [&>summary]:mb-3"
     >
       <summary className="text-sm font-bold">
         🔎 {t("market.filters")} {isPending && t("market.loading_filters")}
@@ -94,9 +94,9 @@ export default function MarketplaceFilters({ games, categories }: Props) {
               placeholder={t("market.min")}
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
-              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs text-white"
+              className="w-full rounded-lg border border-hairline bg-page px-2 py-2 text-xs text-slate-900 focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30 dark:text-white"
             />
-            <span className="text-gray-500">–</span>
+            <span className="text-muted">–</span>
             <input
               type="number"
               min="0"
@@ -104,12 +104,12 @@ export default function MarketplaceFilters({ games, categories }: Props) {
               placeholder={t("market.max")}
               value={maxPrice}
               onChange={(e) =>setMaxPrice(e.target.value)}
-              className="w-full rounded-lg border border-gray-800 bg-black px-2 py-2 text-xs text-white"
+              className="w-full rounded-lg border border-hairline bg-page px-2 py-2 text-xs text-slate-900 focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30 dark:text-white"
             />
             <button
               type="button"
               onClick={() => update({ min: minPrice || undefined, max: maxPrice || undefined })}
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-black"
+              className="rounded-lg bg-royal px-3 py-2 text-xs font-bold text-slate-50 transition-colors hover:bg-royal-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal"
             >
               {t("market.go_btn")}
             </button>
@@ -143,7 +143,7 @@ export default function MarketplaceFilters({ games, categories }: Props) {
           <button
             type="button"
             onClick={() => startTransition(() => router.push("/marketplace", { scroll: false }))}
-            className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:border-red-500 hover:text-red-400"
+            className="rounded-lg border border-hairline px-3 py-2 text-xs text-muted transition-colors hover:border-red-500 hover:text-red-600"
           >
             {t("market.clear_filters")}
           </button>
@@ -156,7 +156,7 @@ export default function MarketplaceFilters({ games, categories }: Props) {
 function FilterBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
         {label}
       </label>
       {children}
@@ -177,7 +177,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-gray-800 bg-black px-3 py-2 text-xs text-white"
+      className="w-full rounded-lg border border-hairline bg-page px-3 py-2 text-xs text-slate-900 transition-colors focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30 dark:text-white"
     >
       {children}
     </select>

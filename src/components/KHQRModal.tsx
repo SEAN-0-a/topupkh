@@ -46,7 +46,7 @@ export default function KHQRModal({
 
         <p className="text-xs text-gray-400">
           Scan to pay{" "}
-          <span className="text-emerald-400 font-bold">${amount} USD</span>
+          <span className="text-gold font-bold">${amount} USD</span>
         </p>
 
         {/* Static ABA QR Display */}
@@ -77,7 +77,7 @@ export default function KHQRModal({
           <button
             onClick={handleConfirmPayment}
             disabled={loading}
-            className="w-1/2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+            className="w-1/2 bg-gold hover:bg-gold-dark disabled:opacity-50 text-navy font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer"
           >
             {loading ? "Verifying..." : "I Have Paid"}
           </button>

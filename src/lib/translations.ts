@@ -16,7 +16,7 @@ export type Language = "en" | "km";
 
 const en = {
   // ---- navigation ----
-  "nav.brand": "TopUpKH",
+  "nav.brand": "RomdoulKHShop",
   "nav.marketplace": "Marketplace",
   "nav.my_orders": "My Orders",
   "nav.sell": "Sell",
@@ -73,7 +73,7 @@ const en = {
   "market.prev": "← Prev",
   "market.next": "Next →",
   "market.page_of": "Page {n} of {total}",
-  "prohibited.title": "🚫 “{name}” is not available for trading on TopUpKH",
+  "prohibited.title": "🚫 “{name}” is not available for trading on RomdoulKHShop",
   "prohibited.reason":
     "This is a platform policy enforced in the database — listings in this category cannot be published or purchased. If you believe an exception applies (e.g. you hold written authorization), contact support to have an admin review the eligibility rule.",
   "market.browse_categories": "Browse available categories",
@@ -150,7 +150,7 @@ const en = {
 
 const km: Partial<typeof en> = {
   // ---- navigation ----
-  "nav.brand": "TopUpKH",
+  "nav.brand": "RomdoulKHShop",
   "nav.marketplace": "ផ្សារទំនិញ",
   "nav.my_orders": "ការបញ្ជាទិញរបស់ខ្ញុំ",
   "nav.sell": "លក់",
@@ -208,7 +208,7 @@ const km: Partial<typeof en> = {
   "market.prev": "← មុន",
   "market.next": "បន្ទាប់ →",
   "market.page_of": "ទំព័រ {n} / {total}",
-  "prohibited.title": "🚫 “{name}” មិនអាចជួញដូរនៅលើ TopUpKH ទេ",
+  "prohibited.title": "🚫 “{name}” មិនអាចជួញដូរនៅលើ RomdoulKHShop ទេ",
   "prohibited.reason":
     "នេះជាគោលនយោបាយវេទិកាដែលអនុវត្តក្នុងមូលដ្ឋានទិន្នន័យ — បញ្ជីក្នុងប្រភេទនេះមិនអាចផ្សាយ ឬទិញបានទេ។ បើអ្នកជឿថាមានលើកលែង (ឧ. មានឯកសារអនុញ្ញាតជាលាយលក្ខណ៍អក្សរ) សូមទាក់ទងជំនួយដើម្បីឱ្យអ្នកគ្រប់គ្រងពិនិត្យលក្ខខណ្ឌសិទ្ធិ។",
   "market.browse_categories": "មើលប្រភេទដែលអាចលក់បាន",

@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminSellersPage() {
   // Loop-proof guard: unauthenticated → /login?next=…, authenticated but
   // not admin → "/" (never back to /login, which would bounce forever).
-  const ctx = await requirePageRole("/admin/sellers", "admin");
+  await requirePageRole("/admin/sellers", "admin");
 
   const supabase = await createSupabaseServerClient();
 

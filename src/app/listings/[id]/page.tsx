@@ -96,7 +96,7 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 text-white">
-      <Link href="/marketplace" className="mb-4 inline-block text-xs text-gray-400 hover:text-white">
+      <Link href="/marketplace" className="mb-4 inline-block text-xs text-muted transition-colors hover:text-royal">
         ← Back to marketplace
       </Link>
 
@@ -109,7 +109,7 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* ---- gallery (auto-selected photos, no manual URL handling) ---- */}
-        <div className="space-y-3 rounded-2xl border border-gray-800 bg-gray-900 p-3">
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={cover} alt={listing.title} className="h-72 w-full rounded-xl object-cover" />
           {images.length > 1 && (
@@ -125,52 +125,52 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
         <div className="space-y-4">
           <div>
             <h1 className="text-2xl font-bold">{listing.title}</h1>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted">
               {listing.game_name ?? "Game not labeled"}
               {created && <> · listed {created}</>}
-              {sellerName && <span className="ml-2 text-gray-300">By {sellerName}</span>}
-              {rating && <span className="ml-2 text-yellow-400">★ {rating}</span>}
+              {sellerName && <span className="ml-2 text-slate-600 dark:text-slate-300">By {sellerName}</span>}
+              {rating && <span className="ml-2 text-gold-dark">★ {rating}</span>}
             </p>
           </div>
 
           <div className="flex items-baseline gap-3">
-            <span className="font-mono text-3xl font-bold text-emerald-400">
+            <span className="font-mono text-3xl font-bold text-gold">
               ${price.toFixed(2)}
             </span>
           </div>
 
-          <ul className="space-y-1 rounded-2xl border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300">
+          <ul className="space-y-1 rounded-2xl border border-hairline bg-surface p-4 text-xs text-slate-600 dark:text-slate-300">
             <li>
-              <span className="text-gray-500">Seller:</span>{" "}
+              <span className="text-muted">Seller:</span>{" "}
               {sellerName ?? "Unknown seller"}
               {seller && (
-                <span className="text-gray-500">
+                <span className="text-muted">
                   {" "}· {seller.completed_sales} completed sales
                 </span>
               )}
             </li>
             <li>
-              <span className="text-gray-500">Delivery:</span>{" "}
+              <span className="text-muted">Delivery:</span>{" "}
               {listing.delivery_time ?? "As arranged with the seller"}
             </li>
             <li>
-              <span className="text-gray-500">Availability:</span> As listed (prototype stock)
+              <span className="text-muted">Availability:</span> As listed (prototype stock)
             </li>
             {typeof listing.warranty_days === "number" && (
               <li>
-                <span className="text-gray-500">Warranty:</span> {listing.warranty_days} days
+                <span className="text-muted">Warranty:</span> {listing.warranty_days} days
               </li>
             )}
             {(listing.original_email || listing.open_email_access) && (
               <li>
-                <span className="text-gray-500">Email guarantees:</span>
+                <span className="text-muted">Email guarantees:</span>
                 {listing.original_email ? " original email included" : ""}
                 {listing.open_email_access ? " · open email access" : ""}
               </li>
             )}
             {listing.inventory_value && (
               <li>
-                <span className="text-gray-500">Inventory:</span> {listing.inventory_value}
+                <span className="text-muted">Inventory:</span> {listing.inventory_value}
               </li>
             )}
           </ul>
@@ -183,9 +183,9 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-gray-800 bg-gray-900 p-5">
+      <div className="mt-8 rounded-2xl border border-hairline bg-surface p-5">
         <h2 className="mb-2 text-sm font-bold">📝 Description &amp; delivery details</h2>
-        <p className="whitespace-pre-line text-xs leading-relaxed text-gray-300">
+        <p className="whitespace-pre-line text-xs leading-relaxed text-slate-600 dark:text-slate-300">
           {listing.description || "No description provided."}
         </p>
       </div>

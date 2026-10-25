@@ -38,6 +38,11 @@ interface CheckoutBody {
   product?: unknown;
   product_id?: unknown;
   quantity?: unknown;
+  /**
+   * OPTIONAL and advisory only — when a fresh order is created the sellable
+   * price is always read back from the `products` table; this field is never
+   * trusted for pricing.
+   */
   unit_price?: unknown;
   items?: unknown;
   /**
@@ -161,15 +166,46 @@ export async function POST(request: Request) {
       // CREATE: fresh direct-checkout order (public_ref format TOPUP-<ts>)
       const productId = Number(body?.product ?? body?.product_id);
       const quantity = Number(body?.quantity);
-      const unitPrice = Number(body?.unit_price);
       if (!Number.isInteger(productId) || productId < 1) {
         return Response.json({ ok: false, message: "product must be a valid product id." }, { status: 400 });
       }
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
         return Response.json({ ok: false, message: "quantity must be between 1 and 99." }, { status: 400 });
       }
-      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        return Response.json({ ok: false, message: "unit_price must be a number ≥ 0." }, { status: 400 });
+
+      // SECURITY: the browser's unit_price is never trusted — the sellable
+      // price, stock and publication state are read back from the products
+      // table. (A crafted request could otherwise create a $25 order priced
+      // at $0.01 and settle it via the gateway.)
+      const { data: productRow, error: productError } = await supabase
+        .from("products")
+        .select("price_usd, stock, stock_is_unlimited, status, is_deleted")
+        .eq("id", productId)
+        .maybeSingle<{
+          price_usd: number;
+          stock: number;
+          stock_is_unlimited: boolean;
+          status: string;
+          is_deleted: boolean;
+        }>();
+      if (productError || !productRow || productRow.is_deleted || productRow.status !== "approved") {
+        return Response.json(
+          { ok: false, message: "Product not found or not available for purchase." },
+          { status: 404 },
+        );
+      }
+      if (!productRow.stock_is_unlimited && quantity > productRow.stock) {
+        return Response.json(
+          { ok: false, message: `Only ${productRow.stock} unit(s) left in stock.` },
+          { status: 409 },
+        );
+      }
+      const unitPrice = Number(productRow.price_usd);
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        return Response.json(
+          { ok: false, message: "Product price is not configured." },
+          { status: 409 },
+        );
       }
 
       // money snapshots are computed server-side, exactly like createOrder()

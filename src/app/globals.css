@@ -6,7 +6,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #0a0a0a;
+  --background: #0b1234;
   --foreground: #ededed;
 }
 
@@ -16,6 +16,39 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/* ============================================== RomdoulKHShop brand palette ==
+   Literal tokens (NOT remapped by the light-mode inversion below), so they
+   render identically in both themes. Generated utilities:
+     navy / gold / gold-dark / royal / royal-dark / page / surface /
+     muted / hairline  →  bg-navy, text-gold, border-hairline, …        */
+@theme {
+  --color-navy: #101b46;        /* Deep Navy   — nav, footer, hero, dark surfaces */
+  --color-navy-700: #1a2560;    /* raised navy surface (hover / active rows)   */
+  --color-navy-600: #26326e;    /* borders + highlights on navy                */
+  --color-navy-deep: #0b1234;   /* deepest navy (hero gradients, inputs)       */
+  --color-gold: #f8c85a;        /* Golden Yellow — primary CTAs, highlights    */
+  --color-gold-dark: #e4a635;   /* Dark Gold — premium badges, subtle borders  */
+  --color-royal: #1749e8;       /* Royal Blue — links, secondary buttons       */
+  --color-royal-dark: #1138c4;  /* Royal hover state                           */
+  /* semantic neutrals — LIGHT values by default; the `.dark` block below
+     flips them so converted components read correctly in both themes */
+  --color-page: #f8fafc;        /* clean marketplace background                */
+  --color-surface: #ffffff;     /* card surface                                */
+  --color-elev: #e2e8f0;        /* inset fills: inputs, quiet buttons          */
+  --color-elev-strong: #e2e8f0; /* chips / hover state on elev fills           */
+  --color-muted: #64748b;       /* Text Muted                                  */
+  --color-hairline: #e2e8f0;    /* Border                                      */}
+
+/* Dark-mode values for the semantic tokens: navy-tinted surfaces per the
+   RomdoulKHShop brand (Deep Navy #101B46 family) instead of neutral gray. */
+.dark {
+  --color-page: #0b1234;        /* navy-deep page background                   */
+  --color-surface: #131c4a;     /* raised navy card surface                    */
+  --color-elev: #0e173d;        /* inset fills, darker than the card           */
+  --color-elev-strong: #26326e; /* chips + hover on elev (navy-600)            */
+  --color-hairline: #26326e;    /* navy-600 borders                            */
+  --color-muted: #94a3b8;       /* lighter muted text for dark backgrounds     */}
 
 /* The whole app was authored dark-first (bg-gray-950 pages, bg-gray-900
    cards, text-white headings, bg-black inputs…). Instead of touching every
@@ -56,7 +89,8 @@ html:not(.dark) {
    Shadows stay out of dark mode where borders already do the work.
    (bg-black = page-level is untouched — only elevated panels). */
 html:not(.dark) .bg-gray-900,
-html:not(.dark) .bg-white {
+html:not(.dark) .bg-white,
+html:not(.dark) .bg-surface {
   box-shadow:
     0 1px 2px rgb(15 23 42 / 0.06),
     0 4px 14px -4px rgb(15 23 42 / 0.10);
@@ -95,4 +129,37 @@ html:not(.dark) .text-cyan-300 {
 }
 html:not(.dark) .text-purple-300 {
   color: #7e22ce;
+}
+
+/* ============================================== brand tokens, light mode polish ==
+   Golden-Yellow text is barely legible on white cards, so on ROMDOULKHSHOP's
+   light surfaces it darkens to a readable amber. Navy surfaces (nav, footer,
+   hero) are exempt — gold must stay bright there, and these overrides win on
+   specificity (two class selectors). */
+html:not(.dark) .text-gold,
+html:not(.dark) .text-gold-dark {
+  color: #b45309;
+}
+html:not(.dark) .bg-navy .text-gold,
+html:not(.dark) .bg-navy .text-gold-dark,
+html:not(.dark) .bg-navy-deep .text-gold,
+html:not(.dark) .bg-navy-deep .text-gold-dark {
+  color: #f8c85a;
+}
+html:not(.dark) .hover\:text-gold:hover {
+  color: #b45309;
+}
+html:not(.dark) .bg-navy .hover\:text-gold:hover,
+html:not(.dark) .bg-navy-deep .hover\:text-gold:hover {
+  color: #f8c85a;
+}
+html:not(.dark) .group-hover\:bg-gold:hover {
+  background-color: #e4a635;
+}
+html:not(.dark) .group-hover\:text-gold:hover {
+  color: #b45309;
+}
+/* Royal Blue links need a touch more weight on white for WCAG AA */
+html:not(.dark) .text-royal {
+  color: #1749e8;
 }

@@ -116,11 +116,14 @@ export async function getUserContext(): Promise<UserContext | null> {
 
   // VERBOSE DEBUG: see exactly who /admin (and other guarded routes) see.
   // profile-source = profiles row read OK; metadata-source = fallback shell.
-  console.log(
-    `[auth] user=${user.id} role=${resolved.role}` +
-      ` source=${profile ? "profiles" : "app_metadata"}` +
-      ` verification=${resolved.verification_status ?? "n/a"}`,
-  );
+  // Dev-only: never log user ids/roles in production logs.
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[auth] user=${user.id} role=${resolved.role}` +
+        ` source=${profile ? "profiles" : "app_metadata"}` +
+        ` verification=${resolved.verification_status ?? "n/a"}`,
+    );
+  }
 
   // fill the verification default if the column read returns null
   return {

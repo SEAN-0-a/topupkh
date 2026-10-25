@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BuyButton from "@/components/BuyButton";
+import SafeProductImage from "@/components/SafeProductImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const DELIVERY_LABELS: Record<string, string> = {
@@ -232,11 +233,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={product.image_url ?? "/aba-qr.jpg"}
+          {/* SafeProductImage — same visual as ProductCard; a broken/null
+              image_url gets the clean placeholder, never a dead <img>. */}
+          <SafeProductImage
+            src={product.image_url}
             alt={product.title}
-            className="h-72 w-full object-cover"
+            loading="eager"
+            className="h-72 w-full bg-gray-950 object-cover"
           />
         </div>
 
@@ -250,7 +253,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="flex items-baseline gap-3">
-            <span className="font-mono text-3xl font-bold text-emerald-400">
+            <span className="font-mono text-3xl font-bold text-gold">
               ${product.price_usd.toFixed(2)}
             </span>
             {product.original_price_usd && (

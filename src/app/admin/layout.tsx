@@ -28,7 +28,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     return <AccessDenied role={ctx.profile.role} />;
   }
 
-  console.log(`[admin] access granted: user=${ctx.userId} role=${ctx.profile.role}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[admin] access granted: user=${ctx.userId} role=${ctx.profile.role}`);
+  }
 
   return (
     <div className="min-h-screen bg-gray-950">

@@ -1,16 +1,11 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
+import SafeProductImage from "@/components/SafeProductImage";
 
 function fmtRating(ratingSum: number, ratingCount: number) {
   if (ratingCount === 0) return null;
   return (ratingSum / ratingCount).toFixed(1);
 }
-
-const PLACEHOLDER =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='640' height='400' fill='%23111827'/><text x='320' y='215' font-size='64' text-anchor='middle'>🎮</text></svg>`,
-  );
 
 /**
  * Eldorado-style product card:
@@ -38,25 +33,25 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={product.isLegacyListing ? `/listings/${product.id}` : `/product/${product.id}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 text-left shadow-lg transition-all hover:-translate-y-0.5 hover:border-emerald-500/60 hover:shadow-emerald-500/10"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-hairline bg-surface text-left shadow-lg transition-all hover:-translate-y-0.5 hover:border-gold/70 hover:shadow-gold/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal"
     >
       {/* ---- large visual ---- */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-950">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.image_url || PLACEHOLDER}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-navy-deep">
+        {/* SafeProductImage: null/empty/broken image_url → clean placeholder
+            instead of the browser's silent broken-image icon. */}
+        <SafeProductImage
+          src={product.image_url}
           alt={product.title}
           width={640}
           height={400}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          loading="lazy"
         />
 
         {/* game tag over the image */}
         {gameName && (
           <Link
             href={gameSlug ? `/marketplace?game=${gameSlug}` : "/marketplace"}
-            className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-black/90"
+            className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-navy/80 px-2.5 py-1 text-[10px] font-bold text-slate-100 backdrop-blur-sm transition-colors hover:bg-navy"
           >
             🎮 {gameName}
           </Link>
@@ -64,7 +59,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
         {/* discount badge */}
         {discount && (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-extrabold text-black">
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-gold px-2 py-0.5 text-[10px] font-extrabold text-navy">
             -{discount}%
           </span>
         )}
@@ -73,14 +68,14 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* ---- body ---- */}
       <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-1.5 flex items-center gap-2 text-[10px]">
-          <span className="rounded-full bg-purple-500/10 px-2 py-0.5 font-semibold text-purple-300">
+          <span className="rounded-full bg-royal/10 px-2 py-0.5 font-semibold text-royal dark:text-blue-300">
             {categoryName}
           </span>
           <span className={`rounded-full px-2 py-0.5 font-semibold ${
             product.stock_is_unlimited
-              ? "bg-emerald-500/10 text-emerald-400"
+              ? "bg-gold/10 text-gold-dark"
               : product.stock > 0
-                ? "bg-gray-800 text-gray-300"
+                ? "bg-elev-strong text-muted"
                 : "bg-red-500/10 text-red-400"
           }`}>
             {product.stock_is_unlimited ? "Always available" : product.stock > 0 ? `${product.stock} left` : "Sold out"}
@@ -88,27 +83,27 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
 
         {/* bold title, max 2 lines */}
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white group-hover:text-emerald-300">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 transition-colors group-hover:text-gold dark:text-slate-100">
           {product.title}
         </h3>
 
-        <p className="mt-1.5 text-[11px] text-gray-400">
+        <p className="mt-1.5 text-[11px] text-muted">
           ដោយ By{" "}
-          <span className="font-semibold text-gray-300">{sellerName}</span>
-          {rating && <span className="ml-1.5 text-yellow-400">★ {rating}</span>}
+          <span className="font-semibold text-slate-600 dark:text-slate-300">{sellerName}</span>
+          {rating && <span className="ml-1.5 text-gold-dark">★ {rating}</span>}
         </p>
 
         {/* prominent pricing */}
-        <div className="mt-3 flex items-baseline gap-2 border-t border-gray-800 pt-3">
-          <span className="font-mono text-lg font-extrabold text-emerald-400">
+        <div className="mt-3 flex items-baseline gap-2 border-t border-hairline pt-3">
+          <span className="font-mono text-lg font-extrabold text-gold">
             ${product.price_usd.toFixed(2)}
           </span>
           {product.original_price_usd && (
-            <span className="text-[11px] text-gray-500 line-through">
+            <span className="text-[11px] text-muted line-through">
               ${product.original_price_usd.toFixed(2)}
             </span>
           )}
-          <span className="ml-auto rounded-lg bg-gray-800 px-2 py-1 text-[10px] font-semibold text-gray-300 transition-colors group-hover:bg-emerald-500 group-hover:text-black">
+          <span className="ml-auto rounded-lg bg-elev-strong px-2 py-1 text-[10px] font-semibold text-muted transition-colors group-hover:bg-gold group-hover:text-navy">
             View →
           </span>
         </div>

@@ -55,12 +55,18 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur shadow-sm">
+    <nav className="sticky top-0 z-50 border-b border-navy-600 bg-navy/95 backdrop-blur shadow-sm">
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-2 text-lg font-bold text-emerald-400">
-            <span>🎮</span> TopUpKH
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-lg font-extrabold tracking-tight transition-opacity hover:opacity-90"
+          >
+            <span aria-hidden="true">🎮</span>
+            <span className="bg-gradient-to-r from-gold to-gold-dark bg-clip-text text-transparent">
+              RomdoulKHShop
+            </span>
           </Link>
 
           {/* Main links */}
@@ -69,42 +75,42 @@ export default function Navbar() {
               href="/marketplace"
               className={`transition-all ${
                 pathname === "/marketplace" && !pathname.includes("category")
-                  ? "text-emerald-400 font-bold"
-                  : "text-gray-300 hover:text-emerald-400"
+                  ? "font-bold text-gold"
+                  : "text-slate-300 hover:text-gold"
               }`}
             >
               {t("nav.marketplace")}
             </Link>
             <Link
               href="/orders"
-              className={pathname === "/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
+              className={pathname === "/orders" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
             >
               {t("nav.my_orders")}
             </Link>
             <Link
               href="/seller/orders"
-              className={pathname === "/seller/orders" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
+              className={pathname === "/seller/orders" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
             >
               {t("nav.sell")}
             </Link>
             {verified ? (
               <Link
                 href="/sell/new"
-                className={pathname === "/sell/new" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
+                className={pathname === "/sell/new" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
               >
                 {t("nav.new_offer")}
               </Link>
             ) : (
               <Link
                 href={user ? "/seller/verify" : "/login?next=/seller/verify"}
-                className="text-gray-400 hover:text-emerald-400"
+                className="text-slate-400 hover:text-gold"
               >
                 {t("nav.verify_to_sell")}
               </Link>
             )}
             <Link
               href="/seller/dashboard"
-              className={pathname === "/seller/dashboard" ? "text-emerald-400 font-bold" : "text-gray-300 hover:text-emerald-400"}
+              className={pathname === "/seller/dashboard" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
             >
               💼 {t("nav.wallet")}
             </Link>
@@ -120,7 +126,7 @@ export default function Navbar() {
             ) : (
               <button
                 onClick={() => router.push("/login")}
-                className="rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-black transition-all hover:bg-emerald-400"
+                className="rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-navy transition-all hover:bg-gold-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal"
               >
                 {t("nav.login")}
               </button>
@@ -163,8 +169,8 @@ function CategoryTabs({ pathname }: { pathname: string }) {
             href={`/marketplace?category=${tab.slug}`}
             className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-all ${
               active
-                ? "bg-emerald-500 text-black"
-                : "bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white"
+                ? "bg-gold text-navy"
+                : "bg-white/10 text-slate-300 hover:bg-white/20 hover:text-slate-100"
             }`}
           >
             {t(tab.key)}

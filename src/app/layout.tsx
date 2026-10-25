@@ -1,21 +1,26 @@
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import ThemeProvider from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata = {
-  title: "TopUpKH - Local P2P Roblox Escrow Marketplace",
-  description: "Buy and sell Roblox items and Robux safely in Cambodia.",
+  title: "RomdoulKHShop — Cambodia's Gaming Top-Up Marketplace",
+  description:
+    "Buy Mobile Legends, PUBG, Free Fire and Roblox top-ups safely in Cambodia. USD payments via KHQR (ABA PayWay) with escrow-protected delivery.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-white text-slate-900 dark:bg-slate-950 dark:text-white antialiased transition-colors duration-200">
+      <body className="bg-page text-slate-900 dark:text-white antialiased transition-colors duration-200">
         <ThemeProvider>
           <LanguageProvider>
-            <Navbar />
-            <main>{children}</main>
+            <div className="flex min-h-screen flex-col">
+              <Navbar />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
           </LanguageProvider>
         </ThemeProvider>
       </body>

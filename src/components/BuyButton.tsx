@@ -31,7 +31,7 @@ export default function BuyButton({ productId, disabled }: { productId: number; 
       <button
         onClick={handleBuy}
         disabled={loading || Boolean(disabled)}
-        className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-bold text-black transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-gold py-3 text-sm font-bold text-navy transition-colors hover:bg-gold-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? "Creating order…" : disabled ?? "Buy now — pay with KHQR"}
       </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SafeProductImage from "@/components/SafeProductImage";
 
 type Props = {
   /** Gallery URLs (already de-duplicated by the caller). */
@@ -22,8 +23,14 @@ export default function OfferGallery({ images, title, fallback }: Props) {
   return (
     <div className="overflow-hidden rounded-3xl border border-gray-800 bg-gray-900">
       <div className="aspect-[16/10] w-full overflow-hidden bg-gray-950">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={title} className="h-full w-full object-cover" />
+        {/* SafeProductImage on every slot — one dead gallery URL swaps itself
+            for the placeholder instead of showing a broken-image icon. */}
+        <SafeProductImage
+          src={src}
+          alt={title}
+          loading="eager"
+          className="h-full w-full object-cover"
+        />
       </div>
       {hasThumbs && (
         <div className="flex gap-2 overflow-x-auto p-3">
@@ -39,8 +46,7 @@ export default function OfferGallery({ images, title, fallback }: Props) {
                   : "border-gray-800 opacity-70 hover:opacity-100"
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={u} alt="" className="h-full w-full object-cover" />
+              <SafeProductImage src={u} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

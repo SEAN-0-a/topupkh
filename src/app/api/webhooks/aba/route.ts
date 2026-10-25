@@ -270,6 +270,16 @@ export async function POST(request: Request) {
 
   // --- 5. the actual state change ----------------------------------------------
   if (paid) {
+    // Amount sanity: a verified callback for LESS than the order's recorded
+    // subtotal must never settle the order (e.g. a tampered/partial charge).
+    const paidAmount = Number(amount);
+    if (Number.isFinite(paidAmount) && paidAmount + 0.005 < Number(order.subtotal)) {
+      console.error(
+        `[aba-webhook] AMOUNT MISMATCH for ${publicRef}: callback USD ${amount} < order USD ${order.subtotal} — NOT marking paid.`,
+      );
+      return Response.json({ status: "success", processed: false, reason: "amount mismatch" });
+    }
+
     // updated_at is maintained by the orders_touch trigger; set it explicitly
     // anyway so the intent is visible in the row diff.
     const { error: updateError } = await supabase

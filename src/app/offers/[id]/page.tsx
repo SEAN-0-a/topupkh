@@ -4,14 +4,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Markdown from "@/components/Markdown";
 import OfferGallery from "@/components/OfferGallery";
 import BuyButton from "@/components/BuyButton";
+import SafeProductImage, {
+  PRODUCT_IMAGE_FALLBACK,
+} from "@/components/SafeProductImage";
 
 export const dynamic = "force-dynamic";
-
-const FALLBACK_IMAGE =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='640' height='400' fill='%23111827'/><text x='320' y='220' font-size='72' text-anchor='middle'>📦</text></svg>`,
-  );
 
 type ProductRow = {
   id: number;
@@ -160,7 +157,11 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           {/* ================= LEFT COLUMN ================= */}
           <div className="space-y-6">
             {/* main gallery */}
-            <OfferGallery images={gallery} title={product.title} fallback={FALLBACK_IMAGE} />
+            <OfferGallery
+              images={gallery}
+              title={product.title}
+              fallback={PRODUCT_IMAGE_FALLBACK}
+            />
 
             {/* title + tag badges */}
             <div className="space-y-3">
@@ -222,9 +223,8 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
                       className="group w-40 shrink-0 snap-start space-y-2 rounded-2xl border border-gray-800 bg-gray-900 p-2 transition-colors hover:border-gray-600"
                     >
                       <div className="aspect-square w-full overflow-hidden rounded-xl bg-gray-950">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={s.image_url || FALLBACK_IMAGE}
+                        <SafeProductImage
+                          src={s.image_url}
                           alt={s.title}
                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         />

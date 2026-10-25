@@ -104,7 +104,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-gray-900 border border-gray-800 p-6 rounded-2xl space-y-6 shadow-xl">
         <div className="text-center space-y-1">
-          <h1 className="text-3xl font-extrabold text-emerald-400">🎮 TopUpKH</h1>
+          <h1 className="text-3xl font-extrabold text-gold">🎮 RomdoulKHShop</h1>
           <p className="text-xs text-gray-400">ទិញ Robux ដោយសុវត្ថិភាព និងលឿនរហ័ស</p>
         </div>
 

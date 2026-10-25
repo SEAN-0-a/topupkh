@@ -11,12 +11,6 @@ export type CatalogQuery = {
   sort?: "popular" | "newest" | "price_asc" | "price_desc" | "rating";
   page?: number;
   perPage?: number;
-  /**
-   * __TEMPORARY DEBUG__ — ?debug=raw. Bypasses EVERY .eq()/filter and dumps
-   * the raw table rows to the server console, so we can confirm raw data
-   * loads before blaming status filters. Remove once visibility is confirmed.
-   */
-  debugRaw?: boolean;
 };
 
 export type CatalogPage = {
@@ -146,9 +140,6 @@ type RawProductRow = Product & {
  * or hidden. Only the core visibility gates are never relaxed.
  */
 export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPage> {
-  // __TEMPORARY DEBUG__ — ?debug=raw bypass. Remove with debugRaw type above.
-  if (query.debugRaw) return debugRawListings();
-
   let strict: CatalogPage | null = null;
   let strictError: unknown = null;
   try {
@@ -207,16 +198,13 @@ export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPag
 }
 
 // -----------------------------------------------------------------------------
-// __TEMPORARY DEBUG__ — raw-table fetch with every filter bypassed.
-// The marketplace container used to be blamed for .eq() filters hiding rows,
-// but the app never actually reads the legacy `listings` table: it queries
-// `products` (renamed in migration 0001a; `listings` still exists as a
-// security-invoker view over legacy_listings). This helper loads BOTH sources
-// unfiltered, logs the raw payload + error like a client would see it, and
-// returns rows so the page visibly renders whatever the tables contain.
-// DELETE this block (and debugRaw in CatalogQuery/page.tsx) after debugging.
+// Legacy-listings bridge. Migration 0001a moved listings -> products, but very
+// early test rows were inserted into the LEGACY `listings` table, which the
+// app never reads. This loader surfaces those approved legacy rows (mapped to
+// Product) ONLY when the products table yields nothing AND the view is
+// unfiltered, so search and category tabs never show unrelated rows.
+// REMOVE by migrating the data into products (see supabase/seed_topup_storefront.sql).
 // -----------------------------------------------------------------------------
-
 /** Legacy prototype row shape stored in legacy_listings (via `listings` view). */
 type LegacyListingRow = {
   id: string;
@@ -276,11 +264,6 @@ async function fetchLegacyListings(): Promise<Product[]> {
     .from("listings")
     .select("*");
 
-  // Debug marker (exact shape requested) + the previous-task source dump.
-  console.log("FETCHED LISTINGS:", listingsRaw, listingsError);
-  console.log("MARKETPLACE LISTINGS RAW DATA:", listingsRaw);
-  console.log("MARKETPLACE LISTINGS ERROR:", listingsError);
-
   if (listingsError) {
     throw new Error(`Failed to load listings: ${listingsError.message}`);
   }
@@ -292,40 +275,6 @@ async function fetchLegacyListings(): Promise<Product[]> {
     // only approved rows may ever surface — even in this bridge
     .filter((l) => (l.status ?? "approved") === "approved")
     .map(legacyListingToProduct);
-}
-
-/**
- * UNSUPPRESSED source dump: no .eq(), no status/is_approved filters, no joins.
- * Debatable RLS note: the anon key cannot bypass Row Level Security, so rows
- * that RLS hides are invisible to ANY query, filtered or not.
- */
-async function debugRawListings(): Promise<CatalogPage> {
-  const supabase = await createSupabaseServerClient();
-
-  // source 1: the table the marketplace actually queries
-  const { data: productsRaw, error: productsError } = await supabase
-    .from("products")
-    .select("*");
-  console.log("MARKETPLACE PRODUCTS RAW DATA:", productsRaw);
-  console.log("MARKETPLACE PRODUCTS ERROR:", productsError);
-
-  // source 2: the legacy prototype table (fetched + logged by fetchLegacyListings)
-  console.log("MARKETPLACE LISTINGS handled by fetchLegacyListings() — see prior log lines.");
-
-  const productItems = (productsRaw ?? []) as unknown as Product[];
-  const legacyItems = await fetchLegacyListings().catch(() => [] as Product[]);
-
-  // surface whichever source actually holds rows, so ?debug=raw VISIBLY shows
-  // raw table data on the page and not just in the console
-  const items = productItems.length > 0 ? productItems : legacyItems;
-
-  return {
-    items,
-    total: items.length,
-    page: 1,
-    perPage: Math.max(items.length, 1),
-    totalPages: 1,
-  };
 }
 
 /** Games that have at least one approved product (for hompepage + filters). */

@@ -147,7 +147,7 @@ export default function LoginForm() {
           <div className="w-8 h-8 bg-amber-400 rounded-lg flex items-center justify-center text-black font-bold text-lg">
             ⚡
           </div>
-          <span>TopUpKH</span>
+          <span>RomdoulKHShop</span>
         </div>
 
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white text-center">

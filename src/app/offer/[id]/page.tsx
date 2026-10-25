@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import EscrowCheckoutModal from "@/components/EscrowCheckoutModal";
+import SafeProductImage from "@/components/SafeProductImage";
 import { getOfferGroup } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
@@ -45,11 +46,9 @@ export default async function OffersPage({ params, searchParams }: Props) {
 
       {/* product header */}
       <div className="overflow-hidden rounded-3xl border border-gray-800 bg-gray-900">
-        <div className="relative aspect-[16/6] w-full overflow-hidden bg-gray-950">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={group.image_url || "data:image/svg+xml;utf8," + encodeURIComponent(
-              `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='240'><rect width='640' height='240' fill='%23111827'/><text x='320' y='140' font-size='56' text-anchor='middle'>📦</text></svg>`)}
+        <div className="relative aspect-[16/6] w-full overflow-hidden bg-navy-deep">
+          <SafeProductImage
+            src={group.image_url}
             alt={group.title}
             className="h-full w-full object-cover"
           />

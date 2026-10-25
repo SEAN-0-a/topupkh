@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePageRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import ProductRowActions from "@/components/admin/ProductRowActions";
+import SafeProductImage from "@/components/SafeProductImage";
 
 export const dynamic = "force-dynamic";
 
@@ -162,9 +163,8 @@ export default async function AdminProductsPage() {
                     <tr key={r.id} className="bg-gray-900 text-gray-200">
                       <td className="max-w-[260px] rounded-l-2xl px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={r.image_url || "/aba-qr.jpg"}
+                          <SafeProductImage
+                            src={r.image_url}
                             alt=""
                             className="h-9 w-9 shrink-0 rounded-lg border border-gray-800 object-cover"
                           />

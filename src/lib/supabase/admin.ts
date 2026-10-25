@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 
 /**
  * Service-role Supabase client. ⚠️ BYPASSES ALL RLS — server-only!
@@ -14,7 +16,7 @@ import { createClient } from "@supabase/supabase-js";
  * API -> service_role secret). If it is missing this throws — webhooks must
  * fail closed rather than silently run with an RLS-restricted client.
  */
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(): SupabaseClient<Database> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -24,7 +26,7 @@ export function createSupabaseAdminClient() {
     );
   }
 
-  return createClient(url, serviceRoleKey, {
+  return createClient<Database>(url, serviceRoleKey, {
     auth: {
       // a machine client has no session storage and no cookies
       persistSession: false,

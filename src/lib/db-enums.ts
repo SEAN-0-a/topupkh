@@ -1,12 +1,20 @@
 export type user_role = "buyer" | "seller" | "support" | "admin";
 export type product_status = "draft" | "pending_review" | "approved" | "rejected" | "paused";
 export type delivery_method = "in_game" | "instructions" | "digital_file" | "creator_services";
+/**
+ * Mirrors Postgres enum `order_status` (migrations 0001/0002/0008/0022).
+ * Keep in sync with the DB — every value listed here exists in the DB.
+ */
 export type order_status =
   | "pending_payment"
+  | "pending_verification"
+  | "in_escrow"
   | "paid"
   | "processing"
   | "delivering"
+  | "delivered"
   | "completed"
+  | "needs_manual_review"
   | "cancelled"
   | "refunded"
   | "disputed";

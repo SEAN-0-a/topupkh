@@ -158,17 +158,28 @@ end if;
 
 -- -----------------------------------------------------------------------------
 -- 6. The 8 storefront listings — approved, in stock, real art, standard prices
+--
+-- COLUMN COMPATIBILITY NOTE (schema drift, see error 42703 on delivery_time):
+-- `delivery_time` and `game_name` exist on products ONLY via migration 0013
+-- (not in the 0001 core schema). They are nullable metadata that the app never
+-- requires from seed rows — `delivery_details` prose already carries the timing
+-- estimate, and the game label is redundant with the `games` join below. The
+-- seed therefore writes ONLY columns guaranteed by 0001 (+ `images`), so it
+-- runs cleanly on any project state. The VALUES rows and their `v(...)`
+-- aliases below still carry `delivery_time`/`game_name` fields (positional —
+-- do NOT shift them); they are simply unconsumed here. To restore them,
+-- `select` them back into the column list after running 0013.
 -- -----------------------------------------------------------------------------
 insert into public.products (
   seller_id, game_id, category_id, title, description, image_url, images,
   price_usd, original_price_usd, delivery_method, delivery_details,
-  delivery_time, game_name, stock, stock_is_unlimited, estimated_minutes,
+  stock, stock_is_unlimited, estimated_minutes,
   ownership_note, status, sold_count, rating_sum, rating_count
 )
 select
   sv.seller_id, g.id, c.id, v.title, v.description, v.image_url, v.images,
   v.price_usd, v.original_price_usd, v.delivery_method::delivery_method, v.delivery_details,
-  v.delivery_time, v.game_name, v.stock, v.stock_is_unlimited, v.estimated_minutes,
+  v.stock, v.stock_is_unlimited, v.estimated_minutes,
   v.ownership_note,
   'approved'::product_status, v.sold_count, v.rating_sum, v.rating_count
 from (values
@@ -282,6 +293,9 @@ from (values
 
 ) as v(game_slug, cat_slug, title, description, image_url, images,
        price_usd, original_price_usd, delivery_method, delivery_details,
+       -- positional aliases: delivery_time + game_name stay here ONLY to keep
+       -- the row literals below untouched — the products INSERT above no longer
+       -- consumes them (see schema-compatibility note above the insert)
        delivery_time, game_name, stock, stock_is_unlimited, estimated_minutes,
        ownership_note, sold_count, rating_sum, rating_count)
 join public.games g              on g.slug = v.game_slug

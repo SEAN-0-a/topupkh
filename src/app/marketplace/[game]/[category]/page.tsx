@@ -4,6 +4,7 @@ import { getUserContext } from "@/lib/auth";
 import { listGames, listTemplates, listActiveCategories } from "@/lib/catalog";
 import type { TemplateSummary } from "@/lib/catalog";
 import type { Game } from "@/lib/types";
+import SafeProductImage from "@/components/SafeProductImage";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +99,9 @@ export default async function OfferGroupsPage({ params }: Props) {
             href={`/offer/${t.id}`}
             className="group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-lg transition-all hover:-translate-y-0.5 hover:border-emerald-500/60"
           >
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-950">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={t.image_url || "data:image/svg+xml;utf8," + encodeURIComponent(
-                  `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='640' height='400' fill='%23111827'/><text x='320' y='215' font-size='64' text-anchor='middle'>📦</text></svg>`)}
+            <div className="relative aspect-[16/10] w-full overflow-hidden bg-navy-deep">
+              <SafeProductImage
+                src={t.image_url}
                 alt={t.title}
                 width={640}
                 height={400}

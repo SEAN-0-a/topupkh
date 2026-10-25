@@ -21,7 +21,6 @@ export default function ProductCard({ product }: { product: Product }) {
   const category = product.joined?.product_categories ?? product.product_categories;
   const seller = product.joined?.sellers ?? product.sellers;
   const gameName = game?.name ?? "";
-  const gameSlug = game?.slug;
   const categoryName = category?.name ?? "";
   const sellerName = seller?.display_name ?? "Seller";
   const rating = fmtRating(product.rating_sum, product.rating_count);
@@ -47,14 +46,14 @@ export default function ProductCard({ product }: { product: Product }) {
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
-        {/* game tag over the image */}
+        {/* game tag over the image — a PLAIN SPAN, not a <Link>: this whole
+            card is already one anchor, and a nested <a> is invalid HTML
+            (hydration mismatch: React rendered extra/inline <a> on client).
+            Game filtering is one click away via the marketplace nav/hero. */}
         {gameName && (
-          <Link
-            href={gameSlug ? `/marketplace?game=${gameSlug}` : "/marketplace"}
-            className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-navy/80 px-2.5 py-1 text-[10px] font-bold text-slate-100 backdrop-blur-sm transition-colors hover:bg-navy"
-          >
+          <span className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-navy/80 px-2.5 py-1 text-[10px] font-bold text-slate-100 backdrop-blur-sm">
             🎮 {gameName}
-          </Link>
+          </span>
         )}
 
         {/* discount badge */}

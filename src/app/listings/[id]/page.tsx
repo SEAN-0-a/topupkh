@@ -2,15 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BuyButton from "@/components/BuyButton";
+import SafeProductImage from "@/components/SafeProductImage";
 import T from "@/components/T";
 
 export const dynamic = "force-dynamic";
-
-const FALLBACK_IMAGE =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='640' height='400' fill='%23111827'/><text x='320' y='220' font-size='72' text-anchor='middle'>📦</text></svg>`,
-  );
 
 /**
  * /listings/[id] — detail page for LEGACY prototype listings (uuid ids).
@@ -58,6 +53,9 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
     .from("listings")
     .select("*")
     .eq("id", id)
+    // mirror the bridge/0023 visibility rule: only approved (or legacy NULL
+    // status) rows render — soft-hidden messy rows must not 200 at direct URLs
+    .or("status.eq.approved,status.is.null")
     .maybeSingle<LegacyRow>();
   if (!listing) notFound();
 
@@ -86,7 +84,7 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
   }
 
   const images = (listing.images ?? []).filter(Boolean);
-  const cover = images[0] ?? FALLBACK_IMAGE;
+  const cover = images[0] ?? null;
   const rating =
     seller && seller.rating_count > 0
       ? (seller.rating_sum / seller.rating_count).toFixed(1)
@@ -110,13 +108,15 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
       <div className="grid gap-6 md:grid-cols-2">
         {/* ---- gallery (auto-selected photos, no manual URL handling) ---- */}
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cover} alt={listing.title} className="h-72 w-full rounded-xl object-cover" />
+          <SafeProductImage
+            src={cover}
+            alt={listing.title}
+            className="h-72 w-full rounded-xl object-cover"
+          />
           {images.length > 1 && (
             <div className="flex gap-2">
               {images.slice(0, 7).map((u) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={u} src={u} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                <SafeProductImage key={u} src={u} alt="" className="h-14 w-14 rounded-lg object-cover" />
               ))}
             </div>
           )}

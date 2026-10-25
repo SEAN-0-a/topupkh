@@ -41,6 +41,28 @@ function sanitizeIlike(term: string) {
 }
 
 /**
+ * Junk-guard: dev-phase test rows ("test", "asdf", placeholder strings) and
+ * keyboard-mash titles ("mengnnn", "xxxtentaction"-style runs of identical
+ * letters) must never reach the storefront grid.
+ *
+ * ONE PostgREST `!match` regex applied to `title`:
+ *   - a junk token as a standalone word anywhere in the title (case-insens.),
+ *   - OR a run of 3+ identical lowercase letters (real product names never
+ *     contain these; the 3-run deliberately catches meng/nnn, xxx…),
+ *   - OR a title that IS a short lowercase token repeated twice (anchored,
+ *     so it only hits pure-gibberish titles like 'cdvcdv' / 'sdvsdv').
+ *
+ * Filters belong in the SQL (not post-filtering in JS) so `count: "exact"`
+ * pagination stays consistent — a JS-side filter would silently shrink or
+ * mis-page result pages. DELIBERATELY title-only: description/body text is too
+ * easy to false-positive (e.g. "Test Server boost" explainers). The DB keeps
+ * its status='approved' gate as the real quality control — this guard hides
+ * obvious hold-over junk even when it was approved during development.
+ */
+const JUNK_TITLE_PATTERN =
+  "(?i)(^|[^a-z])(test|tests|testing|tested|demo|asdf|asdfgh|qwerty|dummy|mock|lorem|ipsum|placeholder)([^a-z]|$)|([a-z])\\1{2,}|^([a-z0-9]{2,8})\\1$";
+
+/**
  * One page-fetch pass. `strict = true` = production filters (!inner joins +
  * the approved-seller guard, which SILENTLY DROPS any listing whose joined
  * row is missing/hidden). `strict = false` = left joins — the listing row
@@ -81,6 +103,10 @@ async function fetchProductsPage(
   if (query.maxPrice !== undefined) qb = qb.lte("price_usd", query.maxPrice);
   if (query.delivery) qb = qb.eq("delivery_method", query.delivery);
 
+  // junk-guard: hide dev/test rows from the grid on BOTH passes (strict and
+  // relaxed) — see JUNK_TITLE_PATTERN for the reasoning and extension list.
+  qb = qb.not("title", "match", JUNK_TITLE_PATTERN);
+
   const sortDef = SORTS[query.sort ?? "popular"];
   qb = qb.order(sortDef.column, {
     ascending: sortDef.ascending,
@@ -94,12 +120,18 @@ async function fetchProductsPage(
   if (sortDef.column !== "created_at") {
     qb = qb.order("created_at", { ascending: false });
   }
+  // "rating": rating_sum is a raw SUM — among equal sums, the product with
+  // FEWER ratings has the higher average. Break ties toward it, then recency.
+  if (sortDef.column === "rating_sum") {
+    qb = qb.order("rating_count", { ascending: true, nullsFirst: false });
+  }
 
   const from = (page - 1) * perPage;
   const { data, error, count } = await qb.range(from, from + perPage - 1);
 
-  // Debug marker: the raw result + error right after the query resolves.
-  console.log("FETCHED LISTINGS:", data, error);
+  // NOTE: deliberately NOT logging the fetched rows here — full product dumps
+  // on every request both flooded server logs and leaked row data. Callers
+  // surface failures through their own try/catch + UI error states.
 
   if (error) throw new Error(`Failed to load products: ${error.message}`);
 
@@ -159,122 +191,12 @@ export async function listProducts(query: CatalogQuery = {}): Promise<CatalogPag
     // Ignore — the strict error/result is reported below.
   }
 
-  // __TEMPORARY LEGACY BRIDGE__ — migration 0001a moved listings -> products,
-  // but the test rows created today were inserted into the LEGACY `listings`
-  // table, which the app doesn't read: /marketplace therefore returns an
-  // empty array for a genuinely-populated listing table. This bridge surfaces
-  // those approved legacy rows (mapped to Product) ONLY when the products
-  // table yields nothing AND the view is unfiltered (no q/game/category),
-  // so search and category tabs never show unrelated rows.
-  // REMOVE by migrating the data into products (see supabase/seed_demo_products.sql).
-  const unfilteredView = !query.q && !query.game && !query.category;
-  if (unfilteredView) {
-    try {
-      const legacy = await fetchLegacyListings();
-      if (legacy.length > 0) {
-        console.log("FETCHED LISTINGS: rendering", legacy.length, "legacy bridge rows — products table was empty.");
-        return {
-          items: legacy,
-          total: legacy.length,
-          page: 1,
-          perPage: Math.max(legacy.length, 1),
-          totalPages: 1,
-        };
-      }
-    } catch (e) {
-      console.log(
-        "FETCHED LISTINGS legacy bridge failed:",
-        e instanceof Error ? e.message : e,
-      );
-    }
-  }
-
   if (strictError) {
     throw strictError instanceof Error
       ? strictError
       : new Error("Failed to load products.");
   }
   return strict as CatalogPage; // honest empty result from the strict pass
-}
-
-// -----------------------------------------------------------------------------
-// Legacy-listings bridge. Migration 0001a moved listings -> products, but very
-// early test rows were inserted into the LEGACY `listings` table, which the
-// app never reads. This loader surfaces those approved legacy rows (mapped to
-// Product) ONLY when the products table yields nothing AND the view is
-// unfiltered, so search and category tabs never show unrelated rows.
-// REMOVE by migrating the data into products (see supabase/seed_topup_storefront.sql).
-// -----------------------------------------------------------------------------
-/** Legacy prototype row shape stored in legacy_listings (via `listings` view). */
-type LegacyListingRow = {
-  id: string;
-  title: string;
-  game_name?: string | null;
-  price?: number | null;
-  description?: string | null;
-  images?: string[] | null;
-  status?: string | null;
-  delivery_time?: string | null;
-  created_at?: string | null;
-};
-
-/** Map a legacy listing onto the Product shape so ProductCard can render it. */
-function legacyListingToProduct(row: LegacyListingRow): Product {
-  const createdAt = row.created_at ?? new Date().toISOString();
-  return {
-    id: row.id,
-    seller_id: 0,
-    game_id: 0,
-    category_id: 0,
-    title: row.title ?? "(untitled legacy listing)",
-    description: row.description ?? "",
-    image_url: row.images?.[0] ?? null,
-    price_usd: row.price ?? 0,
-    original_price_usd: null,
-    delivery_method: "instructions",
-    delivery_details: row.delivery_time ?? "",
-    stock: 0,
-    stock_is_unlimited: false,
-    estimated_minutes: null,
-    refund_policy: "",
-    ownership_note: "",
-    status: (row.status as Product["status"]) ?? "approved",
-    moderation_note: null,
-    moderated_by: null,
-    view_count: 0,
-    sold_count: 0,
-    rating_sum: 0,
-    rating_count: 0,
-    is_deleted: false,
-    created_at: createdAt,
-    updated_at: createdAt,
-    // legacy-bridge marker: routes the card to /listings/[id] (uuid detail)
-    isLegacyListing: true,
-  } as unknown as Product;
-}
-
-/**
- * Legacy-listings loader (no .eq()/filters beyond keeping the marketplace
- * approval rule). Shared by the ?debug=raw dump AND the empty-products bridge
- * below, so the test rows created in the legacy table render immediately.
- */
-async function fetchLegacyListings(): Promise<Product[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data: listingsRaw, error: listingsError } = await supabase
-    .from("listings")
-    .select("*");
-
-  if (listingsError) {
-    throw new Error(`Failed to load listings: ${listingsError.message}`);
-  }
-
-  return (Array.isArray(listingsRaw)
-    ? (listingsRaw as unknown as LegacyListingRow[])
-    : []
-  )
-    // only approved rows may ever surface — even in this bridge
-    .filter((l) => (l.status ?? "approved") === "approved")
-    .map(legacyListingToProduct);
 }
 
 /** Games that have at least one approved product (for hompepage + filters). */
@@ -386,6 +308,8 @@ export async function listTemplates(gameSlug: string, categorySlug: string): Pro
   if (rows.length === 0) return [];
 
   // fetch approved offers for all these templates in ONE query, then aggregate
+  // is_deleted=false keeps soft-deleted rows out of the offer counts/prices —
+  // admin deletions set is_deleted WITHOUT flipping status.
   const { data: offers } = await supabase
     .from("products")
     .select("template_id, price_usd, status, sellers ( status )")
@@ -393,6 +317,7 @@ export async function listTemplates(gameSlug: string, categorySlug: string): Pro
       "template_id",
       rows.map((r) => r.id),
     )
+    .eq("is_deleted", false)
     .eq("status", "approved")
     .eq("sellers.status", "approved");
 
@@ -497,6 +422,7 @@ export async function getOfferGroup(
       `,
     )
     .eq("template_id", templateId)
+    .eq("is_deleted", false) // soft-deleted offers must not render (see 0023)
     .eq("status", "approved")
     .eq("sellers.status", "approved")
     .order(sortDef.column, { ascending: sortDef.ascending, nullsFirst: false });

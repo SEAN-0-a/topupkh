@@ -159,11 +159,11 @@ export type Product = {
    * is present: relaxed queries may return null joins for legacy/mock rows.
    */
   joined?: {
-    games?: Pick<Game, "name" | "slug"> | null;
+    games?: Pick<Game, "name" | "slug" | "icon_url"> | null;
     product_categories?: Pick<ProductCategory, "name" | "slug"> | null;
     sellers?: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
   };
-  games?: Pick<Game, "name" | "slug"> | null;
+  games?: Pick<Game, "name" | "slug" | "icon_url"> | null;
   product_categories?: Pick<ProductCategory, "name" | "slug"> | null;
   sellers?: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
   /**

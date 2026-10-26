@@ -52,7 +52,20 @@ export default function ProductCard({ product }: { product: Product }) {
             Game filtering is one click away via the marketplace nav/hero. */}
         {gameName && (
           <span className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-navy/80 px-2.5 py-1 text-[10px] font-bold text-slate-100 backdrop-blur-sm">
-            🎮 {gameName}
+            {/* Game logo straight from games.icon_url (live catalog join —
+                see fetchProductsPage in lib/catalog.ts). No 🎮 emoji: when
+                icon_url is null the plain game name renders instead. */}
+            {game?.icon_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={game.icon_url}
+                alt=""
+                width={16}
+                height={16}
+                className="h-4 w-4 shrink-0 rounded-full object-cover"
+              />
+            )}
+            {gameName}
           </span>
         )}
 

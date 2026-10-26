@@ -79,9 +79,12 @@ async function fetchProductsPage(
 
   // strict: keyed !inner joins — a missing joined row DROPS the listing.
   // relaxed: left joins — the listing survives with null join data.
+  // games join includes icon_url so cards can render the real game logo in
+  // the over-image badge (the old 🎮 emoji was a symptom of this field being
+  // missing from the select, not missing from the database).
   const joinShape = strict
-    ? `games!inner ( name, slug ), product_categories!inner ( name, slug ), sellers!inner ( display_name, rating_sum, rating_count, completed_sales )`
-    : `games ( name, slug ), product_categories ( name, slug ), sellers ( display_name, rating_sum, rating_count, completed_sales )`;
+    ? `games!inner ( name, slug, icon_url ), product_categories!inner ( name, slug ), sellers!inner ( display_name, rating_sum, rating_count, completed_sales )`
+    : `games ( name, slug, icon_url ), product_categories ( name, slug ), sellers ( display_name, rating_sum, rating_count, completed_sales )`;
 
   let qb = supabase
     .from("products")

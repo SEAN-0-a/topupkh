@@ -42,26 +42,27 @@ if to_regclass('public.products') is null
 end if;
 
 -- -----------------------------------------------------------------------------
--- 1. Games: the 4 storefront games with real official artwork
---    (banner images are Google Play "og:key art" URLs, each verified 200)
+-- 1. Games: the 4 storefront games with icons served LOCALLY from public/image/
+--    (each PNG was fetched from the official Google Play listing and committed —
+--     remote URLs are a single point of failure, local files never 404)
 -- -----------------------------------------------------------------------------
 insert into public.games (slug, name, description, icon_url, sort_order)
 values
   ('mobile-legends', 'Mobile Legends: Bang Bang',
    'Mobile MOBA by Moonton — diamonds and passes delivered to the buyer''s game ID.',
-   'https://play-lh.googleusercontent.com/MztmLpB1-_eFbHnqNzzvzl5zjiOH2BEb0D71uBxZYf_4BEmW3QEPWODhRtyqY7Qz4wRLwQ--Rg1RAjOFqtHSs-o=s256',
+   '/image/mobile-legends.png',
    10),
   ('pubg-mobile', 'PUBG MOBILE',
    'Battle royale by Tencent/KRAFTON — UC credited to the buyer''s account.',
-   'https://play-lh.googleusercontent.com/Se7jR6A5R0Mk9ClaIguf46yi2K3k32JsqKb3gAtrktIh3JwnFfxrQRmG9GLvdMpbxbMrReUOxzDkStxGxNo-5Q=s256',
+   '/image/pubg-mobile.png',
    20),
   ('free-fire', 'Free Fire',
    'Battle royale by Garena — diamonds and memberships delivered quickly.',
-   'https://play-lh.googleusercontent.com/cK-U0_B9GrnSy26SNISDuvU_hL4VggyqJ1J5V2oiuyVEfiGo7fzegdBjk0ejXPg3PKK5sPwumdLBbWv8KkBKLQ=s256',
+   '/image/free-fire.png',
    30),
   ('roblox', 'Roblox',
    'The core supported game platform.',
-   'https://play-lh.googleusercontent.com/QqZj22aXblAyYDxLQw-Gg0ycW0QkKhrDnwqgERZU9BMRXZnMlgXfq-94sikG5mEpt_I0lzZxcUzfLblmQgwYzUE=s256',
+   '/image/roblox.png',
    40)
 on conflict (slug) do update
   set name        = excluded.name,

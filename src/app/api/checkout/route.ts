@@ -4,7 +4,7 @@
  * Kicks off an ABA PayWay purchase:
  *   1. Authenticate the buyer via their Supabase session cookie.
  *   2. Insert a pending row into `public.orders` under a fresh public_ref.
- *   3. Build the ABA pay-load + HMAC SHA-512 signature.
+ *   3. Build the ABA pay-load + HMAC SHA-512 signature (see lib/aba-payway.ts).
  *   4. POST it to the PayWay gateway and relay the checkout URL / QR string
  *      back to the client.
  *
@@ -16,23 +16,21 @@
  *          500 { ok: false, message }      - server not configured / unexpected error
  *          502 { ok: false, message }      - ABA gateway unreachable
  *
- * Required env (see .env.example):
- *   ABA_PAYWAY_API_URL       - e.g. https://checkout-sandbox.payway.com.kh/api/payment-gateway/v1/payments/purchase
- *   ABA_PAYWAY_MERCHANT_ID   - merchant code from ABA
- *   ABA_PAYWAY_API_KEY       - secret used to sign the request
- *   NEXT_PUBLIC_SITE_URL     - origin used for the success URL
+ * Order resolution lives in lib/checkout-orders.ts; the signature/payload in
+ * lib/aba-payway.ts.
  */
 
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildAbaPurchasePayload, abaIdentityFromUser } from "@/lib/aba-payway";
+import { createFreshOrder, reuseExistingOrder } from "@/lib/checkout-orders";
 
 // crypto is only available in the Node.js runtime — pin it explicitly so the
 // handler never accidentally runs on an Edge bundle.
 export const runtime = "nodejs";
 
-interface CheckoutBody {
+export interface CheckoutBody {
   buyer_id?: unknown;
   /** named `product` or `product_id` — both accepted */
   product?: unknown;
@@ -53,23 +51,6 @@ interface CheckoutBody {
    * from the browser.
    */
   public_ref?: unknown;
-}
-
-/** One line item sent to ABA (and stringified into the `items` field). */
-interface AbaItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-/** Order details resolved server-side and used to build the ABA request. */
-interface OrderContext {
-  orderId: number;
-  publicRef: string;
-  productId: number;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
 }
 
 const ABA_API_URL = process.env.ABA_PAYWAY_API_URL;
@@ -120,354 +101,46 @@ export async function POST(request: Request) {
         ? body.public_ref.trim()
         : null;
 
-    let ctx: OrderContext;
-
-    if (suppliedRef) {
-      // REUSE: the order was already created (createOrder() server action) and
-      // the user is on /checkout/[ref] with a real "Pay with KHQR" button. The
-      // browser is NOT trusted here — quantity/price/subtotal are read back.
-      const { data: existing, error: readErr } = await supabase
-        .from("orders")
-        .select("id, public_ref, buyer_id, status, product_id, quantity, unit_price, subtotal")
-        .eq("public_ref", suppliedRef)
-        .single<{
-          id: number;
-          public_ref: string;
-          buyer_id: string;
-          status: string;
-          product_id: number;
-          quantity: number;
-          unit_price: number;
-          subtotal: number;
-        }>();
-
-      if (readErr || !existing) {
-        return Response.json({ ok: false, message: "Order not found." }, { status: 404 });
-      }
-      if (existing.buyer_id !== buyerId) {
-        return Response.json({ ok: false, message: "This order belongs to another account." }, { status: 403 });
-      }
-      if (existing.status !== "pending_payment") {
-        return Response.json(
-          { ok: false, message: `This order is not awaiting payment (current status: ${existing.status}).` },
-          { status: 409 },
-        );
-      }
-
-      ctx = {
-        orderId: existing.id,
-        publicRef: existing.public_ref,
-        productId: existing.product_id,
-        quantity: existing.quantity,
-        unitPrice: Number(existing.unit_price),
-        subtotal: Number(existing.subtotal),
-      };
-    } else {
-      // CREATE: fresh direct-checkout order (public_ref format TOPUP-<ts>)
-      const productId = Number(body?.product ?? body?.product_id);
-      const quantity = Number(body?.quantity);
-      if (!Number.isInteger(productId) || productId < 1) {
-        return Response.json({ ok: false, message: "product must be a valid product id." }, { status: 400 });
-      }
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
-        return Response.json({ ok: false, message: "quantity must be between 1 and 99." }, { status: 400 });
-      }
-
-      // SECURITY: the browser's unit_price is never trusted — the sellable
-      // price, stock and publication state are read back from the products
-      // table. (A crafted request could otherwise create a $25 order priced
-      // at $0.01 and settle it via the gateway.)
-      const { data: productRow, error: productError } = await supabase
-        .from("products")
-        .select("price_usd, stock, stock_is_unlimited, status, is_deleted")
-        .eq("id", productId)
-        .maybeSingle<{
-          price_usd: number;
-          stock: number;
-          stock_is_unlimited: boolean;
-          status: string;
-          is_deleted: boolean;
-        }>();
-      if (productError || !productRow || productRow.is_deleted || productRow.status !== "approved") {
-        return Response.json(
-          { ok: false, message: "Product not found or not available for purchase." },
-          { status: 404 },
-        );
-      }
-      if (!productRow.stock_is_unlimited && quantity > productRow.stock) {
-        return Response.json(
-          { ok: false, message: `Only ${productRow.stock} unit(s) left in stock.` },
-          { status: 409 },
-        );
-      }
-      const unitPrice = Number(productRow.price_usd);
-      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-        return Response.json(
-          { ok: false, message: "Product price is not configured." },
-          { status: 409 },
-        );
-      }
-
-      // money snapshots are computed server-side, exactly like createOrder()
-      const { data: rate } = await supabase.rpc("get_platform_commission_rate");
-      const commissionRate = Number(rate ?? 0.12);
-      const subtotal = round2(unitPrice * quantity);
-      const platformFee = round2(subtotal * commissionRate);
-      const sellerProceeds = round2(subtotal - platformFee);
-
-      const { data: order, error: insertError } = await supabase
-        .from("orders")
-        .insert({
-          public_ref: `TOPUP-${Date.now()}`,
-          buyer_id: buyerId,
-          product_id: productId,
-          quantity,
-          unit_price: unitPrice,
-          subtotal,
-          // NOT NULL without defaults in the schema, so every order carries them
-          commission_rate: commissionRate,
-          platform_fee: platformFee,
-          seller_proceeds: sellerProceeds,
-          currency: "USD",
-          status: "pending_payment",
-        })
-        .select("id, public_ref")
-        .single<{ id: number; public_ref: string }>();
-
-      if (insertError || !order) {
-        console.error("[checkout] order insert failed:", insertError?.message);
-        return Response.json({ ok: false, message: "Could not create the order." }, { status: 502 });
-      }
-
-      ctx = {
-        orderId: order.id,
-        publicRef: order.public_ref,
-        productId,
-        quantity,
-        unitPrice,
-        subtotal,
-      };
-    }
-
-    const { publicRef, productId, quantity, unitPrice, subtotal } = ctx;
+    const resolved = suppliedRef
+      ? await reuseExistingOrder(supabase, buyerId, suppliedRef)
+      : await createFreshOrder(supabase, body, buyerId);
+    if (resolved instanceof Response) return resolved;
+    const ctx = resolved;
 
     // product title for the ABA `items` description (RLS-safe read)
     const { data: productRow } = await supabase
       .from("products")
       .select("title")
-      .eq("id", productId)
+      .eq("id", ctx.productId)
       .maybeSingle<{ title: string }>();
-    const productTitle = productRow?.title ?? `Product #${productId}`;
+    const productTitle = productRow?.title ?? `Product #${ctx.productId}`;
 
     // --- 3. Assemble the ABA payment request -----------------------------------
-    const amount = subtotal.toFixed(2);
-
-    const items: AbaItem[] = Array.isArray(body?.items)
-      ? (body.items as AbaItem[])
-      : [{ name: productTitle, quantity, price: unitPrice }];
-
-    // JSON.stringify emits minified JSON by default — compact separators, no
-    // spaces, no indentation, no newlines — and that minified string is then
-    // base64-encoded (`itemsB64`) for BOTH the sign string and the outgoing
-    // form body's `items` field, per ABA PayWay v3. Do NOT pretty-print or
-    // reformat: any byte change would break the signature.
-    const itemsJson = JSON.stringify(items);
+    const items = Array.isArray(body?.items)
+      ? (body.items as { name: string; quantity: number; price: number }[])
+      : [{ name: productTitle, quantity: ctx.quantity, price: ctx.unitPrice }];
 
     // ABA needs a buyer name/email/phone; we do not collect them on site, so
     // derive neutral placeholders from the signed-in identity.
     const { data: { user } } = await supabase.auth.getUser();
-    const email = user?.email ?? "guest@topupkh.com";
-    const fullName = user?.user_metadata?.display_name ?? "TopUpKH Player";
-    const [firstName, ...rest] = String(fullName).split(" ");
-    const lastName = rest.join(" ") || "Player";
-    const phone = String(user?.phone ?? "");
+    const identity = abaIdentityFromUser(user);
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
     // return_url / cancel_url must be PATHS; continue_success_url must be a full URL.
-    const returnUrl = `/checkout/${publicRef}`;
-    const cancelUrl = `/checkout/${publicRef}`;
-    const continueSuccessUrl = `${siteUrl}/checkout/${publicRef}`;
-    const returnParams = `public_ref=${publicRef}`;
-
-    const reqTime = formatReqTime();
-
-    // Log key parameters before calling ABA PayWay so we can verify the
-    // gateway environment variables are actually present in this runtime.
-    console.log("[checkout] ABA env check:", {
-      ABA_PAYWAY_API_URL: ABA_API_URL,
-      ABA_PAYWAY_MERCHANT_ID: MERCHANT_ID ? "set" : "MISSING",
-      ABA_PAYWAY_API_KEY: API_KEY ? "set" : "MISSING",
-      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ? "set" : "MISSING (falling back to http://localhost:3000)",
-      req_time: reqTime,
-      tran_id: publicRef,
-      amount,
-      return_url: returnUrl,
-      continue_success_url: continueSuccessUrl,
-    });
-
-    // ABA PayWay v3 requires the items JSON BASE64-ENCODED (`itemsB64`) in
-    // both the SIGN STRING and the outgoing form body's `items` field.
-    const itemsB64 = Buffer.from(itemsJson, "utf8").toString("base64");
-
-    // Shipping fee — ABA expects "0.00" (string) for digital-goods top-ups
-    // with no physical delivery. It participates in the signature right
-    // after `items`, and is echoed in the form body as the `shipping` field.
-    const shipping = "0.00";
-
-    // Form-body source: the first 15 fields sent to the gateway, in the same
-    // order as the signature's front slots. Optional fields that resolve to
-    // ""/undefined are omitted from the BODY (ABA recomputes their hash slot
-    // as "" for missing values — consistent with the 24-slot hash below),
-    // while required fields are protected by an allowlist so they can never
-    // be filtered out accidentally.
-    const REQUIRED_FIELDS = new Set([
-      "req_time",
-      "merchant_id",
-      "tran_id",
-      "amount",
-      "items",
-      "shipping",
-      "return_url",
-      "cancel_url",
-      "continue_success_url",
-      "type",
-      "payment_option",
-    ]);
-
-    const paramPairs: Array<[string, string]> = (
-      [
-        ["req_time", reqTime],
-        ["merchant_id", MERCHANT_ID],
-        ["tran_id", publicRef],
-        ["amount", amount],
-        ["items", itemsB64],     // BASE64-encoded JSON (v3 spec)
-        ["shipping", shipping],  // right after items per v3 spec
-        ["firstname", firstName],
-        ["lastname", lastName],
-        ["email", email],
-        ["phone", phone],
-        ["type", "purchase"],
-        ["payment_option", "aba"],
-        ["return_url", returnUrl],
-        ["cancel_url", cancelUrl],
-        ["continue_success_url", continueSuccessUrl],
-      ] as Array<[string, string]>
-    ).filter(([key, value]) => REQUIRED_FIELDS.has(key) || (value !== "" && value != null));
-
-    // ABA concatenation string — MUST follow ABA PayWay v3's /purchase spec
-    // exactly: all 24 fields concatenated positionally with NO separators,
-    // and unused optional fields placed as EMPTY STRINGS ("") so the slot
-    // order never shifts:
-    //   req_time + merchant_id + tran_id + amount + items + shipping +
-    //   firstname + lastname + email + phone + type + payment_option +
-    //   return_url + cancel_url + continue_success_url + return_deeplink +
-    //   currency + custom_fields + return_params + payout + lifetime +
-    //   additional_params + google_pay_token + skip_success_page
-    //
-    // Slots left "" here are fields this checkout flow never sends. Do NOT
-    // filter them out — doing so would shift every later slot and break
-    // ABA's server-side recomputation.
-    const signParts: string[] = [
-      reqTime,            //  1 req_time
-      MERCHANT_ID,        //  2 merchant_id
-      publicRef,          //  3 tran_id
-      amount,             //  4 amount
-      itemsB64,           //  5 items           — BASE64-encoded JSON (v3)
-      shipping,           //  6 shipping        — "0.00"
-      firstName,          //  7 firstname
-      lastName,           //  8 lastname
-      email,              //  9 email
-      phone,              // 10 phone           — "" when user has none
-      "purchase",         // 11 type
-      "aba",              // 12 payment_option
-      returnUrl,          // 13 return_url
-      cancelUrl,          // 14 cancel_url
-      continueSuccessUrl, // 15 continue_success_url
-      "",                 // 16 return_deeplink
-      "USD",              // 17 currency        — matches the form body
-      "",                 // 18 custom_fields
-      returnParams,       // 19 return_params   — REAL value (sent; webhook verifies callback HMAC over it)
-      "",                 // 20 payout
-      "",                 // 21 lifetime
-      "",                 // 22 additional_params
-      "",                 // 23 google_pay_token
-      "",                 // 24 skip_success_page
-    ];
-    const signString = signParts.join("");
-
-    // The digest uses ABA_PAYWAY_API_KEY verbatim as the HMAC secret and is
-    // encoded as BASE64, the format required by ABA PayWay's sandbox and demo
-    // implementations. If the gateway keeps replying "invalid hash" while
-    // everything above matches the payload, switch "base64" to "hex" (ABA
-    // documents a plain lowercase-hex variant for some merchant setups).
-    const hash = crypto
-      .createHmac("sha512", API_KEY)
-      .update(signString)
-      .digest("base64");
-
-    // Signature debugging aid: shows the exact string that was hashed so the
-    // Vercel logs can be diffed field-by-field against the ABA_RAW_RESPONSE.
-    console.log("[checkout] ABA sign string:", signString);
-    console.log("[checkout] ABA hash:", hash);
-
-    // The form body is generated from the filtered `paramPairs` list defined
-    // used for the form body. `return_params` and `currency` are NOT in the
-    // 15 ordered pairs, but their values ARE hashed in their fixed v3
-    // positions in `signParts` above (slots 17 and 19) — keep all three in
-    // sync. `hash` itself is appended last.
-    const payload = new URLSearchParams({
-      ...Object.fromEntries(paramPairs),
-      return_params: returnParams,
-      currency: "USD",
-      hash,
+    const payload = buildAbaPurchasePayload({
+      ctx,
+      identity,
+      items,
+      apiUrl: ABA_API_URL,
+      merchantId: MERCHANT_ID,
+      apiKey: API_KEY,
+      returnUrl: `/checkout/${ctx.publicRef}`,
+      cancelUrl: `/checkout/${ctx.publicRef}`,
+      continueSuccessUrl: `${siteUrl}/checkout/${ctx.publicRef}`,
     });
 
     // --- 4. Call the gateway ----------------------------------------------------
-    try {
-      const res = await fetch(ABA_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: payload.toString(),
-        cache: "no-store",
-      });
-
-      // Capture the raw gateway payload BEFORE parsing, so whatever ABA sends
-      // back — success JSON or an error message/HTML page — shows up verbatim
-      // in the Vercel logs for debugging.
-      const responseText = await res.text();
-      console.log("ABA_RAW_RESPONSE:", responseText);
-
-      let abaJson: unknown;
-      try {
-        abaJson = JSON.parse(responseText);
-      } catch {
-        // gateway returned HTML (e.g. an auto-submitting form) — pass it through
-        console.error("[checkout] ABA returned non-JSON payload");
-        return new Response(responseText, {
-          status: res.ok ? 200 : 502,
-          headers: { "Content-Type": "text/html; charset=utf-8" },
-        });
-      }
-
-      // Return the ABA checkout JSON (checkout URL / QR string / deeplink),
-      // merged with our own order identifiers so the client can start polling
-      // /api/checkout/status immediately.
-      const aba = (abaJson ?? {}) as Record<string, unknown>;
-      return Response.json(
-        {
-          ...aba,
-          public_ref: publicRef,
-          order_id: ctx.orderId,
-        },
-        { status: res.ok ? 200 : 502 },
-      );
-    } catch (err) {
-      console.error("[checkout] ABA request failed:", err);
-      return Response.json(
-        { ok: false, message: "Could not reach the payment gateway. Please try again." },
-        { status: 502 },
-      );
-    }
+    return await callPaywayGateway(ABA_API_URL, payload, ctx);
   } catch (error) {
     // Catch-all: any thrown error or unhandled rejection in the handler above
     // lands here, so the route always answers with a JSON 500 instead of
@@ -480,14 +153,55 @@ export async function POST(request: Request) {
 
 /* ------------------------------------------------------------------ helpers */
 
-/** `YYYYMMDDHHmmss` in UTC (Phnom Penh is a fixed UTC+7, no DST drift). */
-function formatReqTime(): string {
-  return new Date()
-    .toISOString()
-    .replace(/[-:TZ.]/g, "")
-    .slice(0, 14);
-}
+/** POST the signed form body to PayWay and relay the result to the client. */
+async function callPaywayGateway(
+  abaApiUrl: string,
+  payload: URLSearchParams,
+  ctx: { publicRef: string; orderId: number },
+): Promise<Response> {
+  try {
+    const res = await fetch(abaApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: payload.toString(),
+      cache: "no-store",
+    });
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+    // Capture the raw gateway payload BEFORE parsing, so whatever ABA sends
+    // back — success JSON or an error message/HTML page — shows up verbatim
+    // in the Vercel logs for debugging.
+    const responseText = await res.text();
+    console.log("ABA_RAW_RESPONSE:", responseText);
+
+    let abaJson: unknown;
+    try {
+      abaJson = JSON.parse(responseText);
+    } catch {
+      // gateway returned HTML (e.g. an auto-submitting form) — pass it through
+      console.error("[checkout] ABA returned non-JSON payload");
+      return new Response(responseText, {
+        status: res.ok ? 200 : 502,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    // Return the ABA checkout JSON (checkout URL / QR string / deeplink),
+    // merged with our own order identifiers so the client can start polling
+    // /api/checkout/status immediately.
+    const aba = (abaJson ?? {}) as Record<string, unknown>;
+    return Response.json(
+      {
+        ...aba,
+        public_ref: ctx.publicRef,
+        order_id: ctx.orderId,
+      },
+      { status: res.ok ? 200 : 502 },
+    );
+  } catch (err) {
+    console.error("[checkout] ABA request failed:", err);
+    return Response.json(
+      { ok: false, message: "Could not reach the payment gateway. Please try again." },
+      { status: 502 },
+    );
+  }
 }

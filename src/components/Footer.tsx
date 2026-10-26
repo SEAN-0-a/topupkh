@@ -54,7 +54,16 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-navy-600 pt-6 text-[11px] text-slate-500 sm:flex-row">
-          <p>© {new Date().getFullYear()} RomdoulKHShop · All rights reserved</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <p>© {new Date().getFullYear()} RomdoulKHShop · All rights reserved</p>
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-2 text-slate-500">
+              <Link href="/terms" className="transition-colors hover:text-gold">Terms</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/seller-terms" className="transition-colors hover:text-gold">Seller Terms</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/privacy" className="transition-colors hover:text-gold">Privacy</Link>
+            </nav>
+          </div>
           <p className="flex items-center gap-2">
             <span className="rounded bg-gold/10 px-2 py-0.5 font-bold text-gold">KHQR</span>
             Payments secured by ABA PayWay

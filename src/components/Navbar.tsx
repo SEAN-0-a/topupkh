@@ -10,6 +10,20 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import UserMenu from "@/components/UserMenu";
 
+/**
+ * One top-nav entry. `labelKey` is resolved through the ACTIVE language
+ * dictionary at render time — each link renders exactly one `t()` result,
+ * so the active-language label is the only text that can ever appear.
+ */
+interface NavLinkItem {
+  href: string;
+  labelKey: string;
+  /** Optional leading emoji. */
+  icon?: string;
+  /** Dimmed prompt styling (e.g. "Verify to sell") — never bold-active. */
+  muted?: boolean;
+}
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,28 +45,35 @@ export default function Navbar() {
           .eq("id", user.id)
           .maybeSingle<{ verification_status: string }>();
         setVerified(profile?.verification_status === "approved");
-      } else {
-        setVerified(false);
-      }
+      } else setVerified(false);
     }
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user && !session.user.is_anonymous) {
-        supabase
-          .from("profiles")
-          .select("verification_status")
-          .eq("id", session.user.id)
-          .maybeSingle<{ verification_status: string }>()
-          .then(({ data: profile }) => setVerified(profile?.verification_status === "approved"));
-      } else {
-        setVerified(false);
-      }
+      const u = session?.user && !session.user.is_anonymous ? session.user : null;
+      if (!u) { setVerified(false); return; }
+      supabase
+        .from("profiles")
+        .select("verification_status")
+        .eq("id", u.id)
+        .maybeSingle<{ verification_status: string }>()
+        .then(({ data: profile }) => setVerified(profile?.verification_status === "approved"));
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Built inline (not module scope): entries below depend on auth/verification state.
+  const mainLinks: NavLinkItem[] = [
+    { href: "/marketplace", labelKey: "nav.marketplace" },
+    { href: "/orders", labelKey: "nav.my_orders" },
+    { href: "/seller/orders", labelKey: "nav.sell" },
+    ...(verified
+      ? [{ href: "/sell/new", labelKey: "nav.new_offer" } as NavLinkItem]
+      : [{ href: user ? "/seller/verify" : "/login?next=/seller/verify", labelKey: "nav.verify_to_sell", muted: true }]),
+    { href: "/seller/dashboard", labelKey: "nav.wallet", icon: "💼" },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-navy-600 bg-navy/95 backdrop-blur shadow-sm">
@@ -69,51 +90,21 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Main links */}
+          {/* Main links — one data-driven row, each label a single t() lookup */}
           <div className="hidden items-center gap-4 text-xs font-semibold md:flex">
-            <Link
-              href="/marketplace"
-              className={`transition-all ${
-                pathname === "/marketplace" && !pathname.includes("category")
-                  ? "font-bold text-gold"
-                  : "text-slate-300 hover:text-gold"
-              }`}
-            >
-              {t("nav.marketplace")}
-            </Link>
-            <Link
-              href="/orders"
-              className={pathname === "/orders" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
-            >
-              {t("nav.my_orders")}
-            </Link>
-            <Link
-              href="/seller/orders"
-              className={pathname === "/seller/orders" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
-            >
-              {t("nav.sell")}
-            </Link>
-            {verified ? (
-              <Link
-                href="/sell/new"
-                className={pathname === "/sell/new" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
-              >
-                {t("nav.new_offer")}
-              </Link>
-            ) : (
-              <Link
-                href={user ? "/seller/verify" : "/login?next=/seller/verify"}
-                className="text-slate-400 hover:text-gold"
-              >
-                {t("nav.verify_to_sell")}
-              </Link>
-            )}
-            <Link
-              href="/seller/dashboard"
-              className={pathname === "/seller/dashboard" ? "font-bold text-gold" : "text-slate-300 hover:text-gold"}
-            >
-              💼 {t("nav.wallet")}
-            </Link>
+            {mainLinks.map((item) => {
+              const active = item.href === "/marketplace"
+                ? pathname === "/marketplace" && !pathname.includes("category")
+                : pathname === item.href;
+              return (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  active={active}
+                  label={t(item.labelKey)}
+                />
+              );
+            })}
           </div>
 
           {/* Right controls: theme, language, then auth */}
@@ -142,6 +133,32 @@ export default function Navbar() {
         </Suspense>
       </div>
     </nav>
+  );
+}
+
+/** Single-link renderer: displays ONE translated string (+ optional icon). */
+function NavLink({
+  href,
+  label,
+  active,
+  muted,
+  icon,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  muted?: boolean;
+  icon?: string;
+}) {
+  const cls = muted
+    ? "text-slate-400 hover:text-gold"
+    : active
+      ? "font-bold text-gold"
+      : "text-slate-300 hover:text-gold";
+  return (
+    <Link href={href} className={`transition-all ${cls}`}>
+      {icon ? `${icon} ${label}` : label}
+    </Link>
   );
 }
 

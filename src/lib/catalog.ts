@@ -59,7 +59,7 @@ function sanitizeIlike(term: string) {
  * its status='approved' gate as the real quality control — this guard hides
  * obvious hold-over junk even when it was approved during development.
  */
-const JUNK_TITLE_PATTERN =
+export const JUNK_TITLE_PATTERN =
   "(?i)(^|[^a-z])(test|tests|testing|tested|demo|asdf|asdfgh|qwerty|dummy|mock|lorem|ipsum|placeholder)([^a-z]|$)|([a-z])\\1{2,}|^([a-z0-9]{2,8})\\1$";
 
 /**

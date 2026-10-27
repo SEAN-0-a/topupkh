@@ -147,6 +147,33 @@ export async function listGames(): Promise<Game[]> {
   return data ?? [];
 }
 
+export async function listActiveCategories(): Promise<ProductCategory[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
+
+  if (error) throw new Error(`Failed to load categories: ${error.message}`);
+  return data ?? [];
+}
+
+export async function listTemplates() {
+  return [];
+}
+
+export async function getOfferGroup(id: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, games(name, slug), categories(name, slug), sellers(display_name)")
+    .eq("id", id)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
 type RawProductRow = Product & {
   games: Pick<Game, "name" | "slug"> | null;
   categories: Pick<ProductCategory, "name" | "slug"> | null;

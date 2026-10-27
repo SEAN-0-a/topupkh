@@ -25,12 +25,12 @@ export type TemplateSummary = {
   id: string;
   name: string;
   slug: string;
-  image_url?: string | null;
-  title?: string | null;
-  game?: string | null;
-  category?: string | null;
-  offerCount?: number;
-  minPrice?: number;
+  image_url: string;
+  title: string;
+  game: string;
+  category: string;
+  offerCount: number;
+  minPrice: number;
 };
 
 const SORTS: Record<
@@ -167,7 +167,10 @@ export async function listActiveCategories(): Promise<ProductCategory[]> {
     .order("name");
 
   if (error) throw new Error(`Failed to load categories: ${error.message}`);
-  return data ?? [];
+  return (data ?? []).map((c) => ({
+    ...c,
+    status: c.status ?? "active",
+  })) as ProductCategory[];
 }
 
 export async function listTopSellers(): Promise<Seller[]> {
@@ -194,7 +197,10 @@ export async function listTemplates(): Promise<TemplateSummary[]> {
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
+    image_url: "",
     title: cat.name,
+    game: "",
+    category: cat.slug,
     offerCount: 0,
     minPrice: 0,
   }));

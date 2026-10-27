@@ -19,7 +19,7 @@ export default function ProductBuyPanel({
   product: {
     id: number;
     title: string;
-    price_usd: number;
+    price_usd: number | null;
     original_price_usd: number | null;
     delivery_method: string;
     stock: number;
@@ -96,9 +96,9 @@ export default function ProductBuyPanel({
       />
 
       {/* Pre-purchase chat with THIS vendor for THIS listing — right next to
-          "Buy now". Hidden from the owner (can't message yourself), and only
-          offered when the seller row is readable (needs their profiles id). */}
-      {seller && !isOwner && (
+          "Buy now". Hidden from the owner (can't message yourself) and when
+          the seller's profiles id is unreadable (missing left-join data). */}
+      {seller?.userId && !isOwner && (
         <ContactSellerButton sellerUserId={seller.userId} productId={product.id} />
       )}
 

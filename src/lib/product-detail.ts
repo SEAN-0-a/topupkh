@@ -1,7 +1,13 @@
 // Server-side product detail loading with degraded-read fallbacks.
 // Extracted from /product/[id] so the page stays presentational.
+//
+// Every read result is parsed through lib/db-parse.ts before use: Supabase
+// generics (`maybeSingle<ProductDetail>()`) are compile-time claims only —
+// this pipeline guarantees the type at RUNTIME too, so null rows / missing
+// relations degrade to clean 404s or conservative defaults instead of crashes.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseProductDetail, asRecord } from "@/lib/db-parse";
 
 type ServerSupabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -11,7 +17,8 @@ export type ProductDetail = {
   title: string;
   description: string;
   image_url: string | null;
-  price_usd: number;
+  /** null (missing column) renders as "Price unavailable" — never fake $0.00. */
+  price_usd: number | null;
   original_price_usd: number | null;
   delivery_method: string;
   delivery_details: string;
@@ -86,7 +93,7 @@ export async function loadProductDetail(
       .select(PRODUCT_COLUMNS)
       .eq("id", productId)
       .eq("is_deleted", false)
-      .maybeSingle<ProductDetail>(),
+      .maybeSingle<unknown>(),
   ]);
 
   let authUserId: string | null = null;
@@ -102,8 +109,9 @@ export async function loadProductDetail(
     console.error("[/product] full read threw:", fullRead.reason);
   }
 
+  // parse instead of blind-cast: an error/empty/shape-broken row → null
   let product: ProductDetail | null =
-    fullRead.status === "fulfilled" ? (fullRead.value.data ?? null) : null;
+    fullRead.status === "fulfilled" ? parseProductDetail(fullRead.value.data) : null;
   let degraded = false;
 
   if (fullRead.status === "fulfilled" && fullRead.value.error) {
@@ -119,7 +127,7 @@ export async function loadProductDetail(
       .from("sellers")
       .select("id")
       .eq("user_id", authUserId)
-      .maybeSingle<{ id: number }>();
+      .maybeSingle<{ id: number } | null>();
     mySellerId = mySeller?.id ?? null;
 
     // ---------------------------------------------------------------------------
@@ -136,17 +144,13 @@ export async function loadProductDetail(
         .select(PRODUCT_STUB_COLUMNS)
         .eq("id", productId)
         .eq("is_deleted", false)
-        .maybeSingle<Omit<ProductDetail, "delivery_method" | "status">>();
+        .maybeSingle<unknown>();
       if (stubError) console.error("[/product] stub read failed:", stubError.message);
 
-      if (stub) {
+      const parsedStub = parseProductDetail(stub); // status default → pending_review
+      if (parsedStub) {
         degraded = true;
-        product = {
-          ...stub,
-          delivery_method: "in_game",
-          // unknown enum value — treat conservatively as un-published (owner-only)
-          status: "pending_review",
-        } as ProductDetail;
+        product = parsedStub;
       }
     }
   }
@@ -164,46 +168,13 @@ export async function loadProductDetail(
       .from("products")
       .select(PRODUCT_MINIMAL_COLUMNS)
       .eq("id", productId)
-      .maybeSingle<
-        Pick<
-          ProductDetail,
-          | "id"
-          | "seller_id"
-          | "title"
-          | "description"
-          | "image_url"
-          | "price_usd"
-          | "stock"
-          | "stock_is_unlimited"
-          | "created_at"
-        > & { is_deleted: boolean | null }
-      >();
+      .maybeSingle<unknown>();
     if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
 
-    if (minimal && minimal.is_deleted !== true) {
+    const row = asRecord(minimal);
+    if (row && row.is_deleted !== true) {
       degraded = true;
-      product = {
-        id: minimal.id,
-        seller_id: minimal.seller_id,
-        title: minimal.title,
-        description: minimal.description,
-        image_url: minimal.image_url,
-        price_usd: minimal.price_usd,
-        original_price_usd: null,
-        delivery_method: "in_game",
-        delivery_details: "",
-        stock: minimal.stock,
-        stock_is_unlimited: minimal.stock_is_unlimited,
-        estimated_minutes: null,
-        refund_policy: "",
-        ownership_note: "",
-        // unknown status — conservative: visible to the owner only
-        status: "pending_review",
-        sold_count: 0,
-        rating_sum: 0,
-        rating_count: 0,
-        created_at: minimal.created_at,
-      } as ProductDetail;
+      product = parseProductDetail(row); // unknown status → owner-gated default
     }
   }
 

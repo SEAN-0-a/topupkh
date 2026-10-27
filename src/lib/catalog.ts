@@ -158,6 +158,19 @@ export async function listActiveCategories(): Promise<ProductCategory[]> {
   return data ?? [];
 }
 
+export async function listTopSellers(): Promise<Seller[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("sellers")
+    .select("*")
+    .eq("status", "approved")
+    .order("completed_sales", { ascending: false })
+    .limit(10);
+
+  if (error) return [];
+  return data ?? [];
+}
+
 export async function listTemplates() {
   return [];
 }

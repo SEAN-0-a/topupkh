@@ -20,8 +20,6 @@ interface NavLinkItem {
   labelKey: string;
   /** Optional leading emoji. */
   icon?: string;
-  /** Dimmed prompt styling (e.g. "Verify to sell") — never bold-active. */
-  muted?: boolean;
 }
 
 export default function Navbar() {
@@ -29,50 +27,29 @@ export default function Navbar() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
-  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-
-      // Only KYC-verified sellers see the "+ New Offer" listing trigger
-      // (strict marketplace guardrail — unverified users go to /seller/verify).
-      if (user && !user.is_anonymous) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("verification_status")
-          .eq("id", user.id)
-          .maybeSingle<{ verification_status: string }>();
-        setVerified(profile?.verification_status === "approved");
-      } else setVerified(false);
     }
     getUser();
 
+    // SIGNED_OUT clears `user` here, which unmounts UserMenu's dropdown
+    // (UserMenu intentionally relies on this Navbar-level listener).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      const u = session?.user && !session.user.is_anonymous ? session.user : null;
-      if (!u) { setVerified(false); return; }
-      supabase
-        .from("profiles")
-        .select("verification_status")
-        .eq("id", u.id)
-        .maybeSingle<{ verification_status: string }>()
-        .then(({ data: profile }) => setVerified(profile?.verification_status === "approved"));
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Built inline (not module scope): entries below depend on auth/verification state.
+  // Built inline (not module scope): entries below depend on auth state.
+  // Per-account destinations (orders, wallet/seller dashboard, verification,
+  // offer creation) live in the UserMenu dropdown — the navbar stays minimal.
   const mainLinks: NavLinkItem[] = [
     { href: "/marketplace", labelKey: "nav.marketplace" },
-    { href: "/orders", labelKey: "nav.my_orders" },
     { href: "/seller/orders", labelKey: "nav.sell" },
-    ...(verified
-      ? [{ href: "/sell/new", labelKey: "nav.new_offer" } as NavLinkItem]
-      : [{ href: user ? "/seller/verify" : "/login?next=/seller/verify", labelKey: "nav.verify_to_sell", muted: true }]),
-    { href: "/seller/dashboard", labelKey: "nav.wallet", icon: "💼" },
   ];
 
   return (
@@ -141,20 +118,16 @@ function NavLink({
   href,
   label,
   active,
-  muted,
   icon,
 }: {
   href: string;
   label: string;
   active: boolean;
-  muted?: boolean;
   icon?: string;
 }) {
-  const cls = muted
-    ? "text-slate-400 hover:text-gold"
-    : active
-      ? "font-bold text-gold"
-      : "text-slate-300 hover:text-gold";
+  const cls = active
+    ? "font-bold text-gold"
+    : "text-slate-300 hover:text-gold";
   return (
     <Link href={href} className={`transition-all ${cls}`}>
       {icon ? `${icon} ${label}` : label}

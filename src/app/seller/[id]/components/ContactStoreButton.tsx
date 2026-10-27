@@ -1,13 +1,14 @@
 "use client";
 
-// "Chat with seller" on the public store page — opens (or creates) a
-// vendor-level pre-purchase thread via the shared helper
-// (lib/contact-seller.ts), then deep-links into the unified chat at
-// /message?conv=<id>. No completed purchase needed.
+// "Chat with seller" on the public store page — asks the SERVER ACTION
+// (app/actions/contact.ts openSellerThread) to find or create a vendor-level
+// pre-purchase thread, then deep-links into the unified chat at
+// /message?conversationId=<id>. No completed purchase needed.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { chatUrlFor, findOrCreateSellerThread } from "@/lib/contact-seller";
+import { openSellerThread } from "@/app/actions/contact";
+import { chatUrlFor } from "@/lib/contact-seller";
 
 export default function ContactStoreButton({
   sellerUserId,
@@ -29,9 +30,9 @@ export default function ContactStoreButton({
     setError(null);
     setBusy(true);
 
-    // No product_id here — the helper reuses ANY open thread with this vendor
+    // No productId here — the action reuses ANY open thread with this vendor
     // so the store page never duplicates an existing listing chat.
-    const result = await findOrCreateSellerThread({ sellerUserId });
+    const result = await openSellerThread({ sellerUserId });
 
     if (result.ok) {
       router.push(chatUrlFor(result.conversationId));

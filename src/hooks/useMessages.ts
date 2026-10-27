@@ -109,18 +109,21 @@ export function useMessages() {
   }, [userId, refreshAll]);
 
   // -------------------------------------------------------------------------
-  // Deep link: /dashboard/messages?conv=<id> — pre-open one thread once the
-  // inbox has loaded (e.g. the "Contact seller" button on a product page
-  // created/jumped to a pre-purchase conversation).
+  // Deep link: /message?conversationId=<id> (legacy alias: ?conv=<id>) —
+  // pre-open one thread once the inbox has loaded (e.g. the "Contact seller"
+  // buttons created/jumped to a pre-purchase conversation via the
+  // openSellerThread server action).
   // -------------------------------------------------------------------------
 
   useEffect(() => {
     if (!userId || loading) return;
     if (activeRef.current) return; // user already picked something — don't yank
 
-    const convId = Number(
-      new URLSearchParams(window.location.search).get("conv") ?? "",
-    );
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("conversationId") // canonical param
+      ?? params.get("conv") // legacy param — old links keep working
+      ?? "";
+    const convId = Number(raw);
     if (!Number.isFinite(convId) || convId <= 0) return;
 
     const exists = conversations.some((c) => c.id === convId);

@@ -29,7 +29,7 @@ export default function ProductBuyPanel({
     sold_count: number;
   };
   rating: string | null;
-  created: string;
+  created: string | null;
   inStock: boolean;
   isPending: boolean;
   /** Seller profile for the inline card; null → card degrades to nothing. */
@@ -123,9 +123,8 @@ export default function ProductBuyPanel({
   );
 }
 
-/** number → finite number, or null when the column came back null/blank/junk. */
+/** number → finite number, or null when the column came back null/junk. */
 function fromNaN(v: number | null | undefined): number | null {
-  if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }

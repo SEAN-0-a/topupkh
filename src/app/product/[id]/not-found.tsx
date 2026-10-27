@@ -4,10 +4,7 @@ import SafeProductImage from "@/components/SafeProductImage";
 /**
  * Branded 404 for /product/[id] — unknown id, RLS-hidden listing, unapproved
  * listing, or a route fault: always a clean card, never a stack trace.
- * noindex hint: a missing product page must not linger in search.
  */
-export const metadata = { title: "Product not found — TopUpKH" };
-
 export default function ProductNotFound() {
   return (
     <div className="min-h-[70vh] w-full flex items-center justify-center bg-gray-950 px-4 text-white">

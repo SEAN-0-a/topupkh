@@ -159,11 +159,12 @@ export async function listGames(): Promise<Game[]> {
   return data ?? [];
 }
 
-export async function listActiveCategories(gameSlug?: string): Promise<ProductCategory[]> {
+export async function listActiveCategories(): Promise<ProductCategory[]> {
   const supabase = await createSupabaseServerClient();
-  let qb = supabase.from("categories").select("*").order("name");
-  
-  const { data, error } = await qb;
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
 
   if (error) throw new Error(`Failed to load categories: ${error.message}`);
   return (data ?? []).map((c) => ({
@@ -185,24 +186,27 @@ export async function listTopSellers(): Promise<Seller[]> {
   return data ?? [];
 }
 
-export async function listTemplates(gameSlug?: string, categorySlug?: string): Promise<TemplateSummary[]> {
+export async function listTemplates(): Promise<TemplateSummary[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("categories")
     .select("id, name, slug");
 
   if (error) return [];
-  return (data ?? []).map((cat) => ({
-    id: cat.id,
-    name: typeof cat.name === 'string' ? cat.name : String(cat.name ?? ''),
-    slug: cat.slug,
-    image_url: "",
-    title: typeof cat.name === 'string' ? cat.name : String(cat.name ?? ''),
-    game: gameSlug ?? "",
-    category: cat.slug,
-    offerCount: 0,
-    minPrice: 0,
-  }));
+  return (data ?? []).map((cat) => {
+    const nameStr = typeof cat.name === "string" ? cat.name : String(cat.name ?? "");
+    return {
+      id: cat.id,
+      name: nameStr,
+      slug: cat.slug,
+      image_url: "",
+      title: nameStr,
+      game: "",
+      category: cat.slug,
+      offerCount: 0,
+      minPrice: 0,
+    };
+  });
 }
 
 export async function getOfferGroup(id: string) {

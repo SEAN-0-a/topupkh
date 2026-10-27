@@ -3,7 +3,7 @@
 // (server component); data comes from lib/seller-card.ts.
 
 import Link from "next/link";
-import Avatar from "@/components/Avatar";
+import Avatar, { initialsFromName } from "@/components/Avatar";
 import type { SellerCard } from "@/lib/seller-card";
 
 export default function SellerCard({ seller }: { seller: SellerCard }) {
@@ -19,7 +19,12 @@ export default function SellerCard({ seller }: { seller: SellerCard }) {
     >
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
-          <Avatar src={seller.avatarUrl} name={seller.displayName} sizePx={48} />
+          <Avatar
+            src={seller.avatarUrl}
+            name={seller.displayName}
+            initials={initialsFromName(seller.displayName, 2)}
+            sizePx={48}
+          />
           {/* presence dot — same semantics as the store page header */}
           <span
             aria-hidden="true"

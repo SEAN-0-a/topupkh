@@ -167,7 +167,9 @@ export async function loadStoreData(
 
   if (!sellerRaw) return null; // unknown id OR hidden by RLS → 404
 
-  const seller: StoreSeller = { ...sellerRaw, profile: sellerRaw.profiles };
+  // Profiles embed may come back as null (1:1 embeds can vanish when the row
+  // is hidden by RLS) — coerce to null so consumers never see `undefined`.
+  const seller: StoreSeller = { ...sellerRaw, profile: sellerRaw.profiles ?? null };
 
   // --- 2. storefront listings. Same gates as the marketplace grid plus the
   // shared junk-title guard (mirrors lib/catalog.ts) so dev test rows that

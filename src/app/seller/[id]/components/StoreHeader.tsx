@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Avatar from "@/components/Avatar";
+import Avatar, { initialsFromName } from "@/components/Avatar";
 import ContactStoreButton from "./ContactStoreButton";
 import type { StoreData } from "@/app/seller/[id]/store";
 
@@ -9,6 +9,15 @@ import type { StoreData } from "@/app/seller/[id]/store";
 // as a dark storefront in BOTH themes. Verified = sellers.status === approved.
 // isOwner comes from the page (supabase session) so the viewer's OWN store
 // hides the "Chat with seller" button.
+//
+// Overlap contract: the banner is a fixed-height decoration layer; the profile
+// box pulls itself up INTO the banner only as far as it needs (-mt-14 mobile /
+// -mt-16 desktop ≈ the banner's lower third) and stays above it via
+// `relative z-10`, so none of the banner's gradient washes can ever paint
+// over the card text — the banner clips its own decorations, the card floats.
+// The 76px avatar pokes ~25px above the card into the banner (Eldorado look)
+// and keeps its spot because the tile has a fixed size in BOTH states
+// (image or initials fallback).
 // =============================================================================
 export default function StoreHeader({
   store,
@@ -19,6 +28,11 @@ export default function StoreHeader({
 }) {
   const { seller, isOnline } = store;
   const verified = seller.status === "approved";
+
+  // Null/blank-safe: a missing, whitespace-only or broken profile avatar just
+  // yields the initials tile (handled inside <Avatar>, including load errors).
+  const avatarSrc = seller.profile?.avatar_url?.trim() || null;
+  const storeInitials = initialsFromName(seller.display_name, 2);
 
   const stats = [
     {
@@ -36,8 +50,9 @@ export default function StoreHeader({
 
   return (
     <header>
-      {/* ---- banner: pure decoration, gradient + two dim radial washes ---- */}
-      <div className="relative h-36 overflow-hidden bg-navy-deep sm:h-48">
+      {/* ---- banner: pure decoration, gradient + two dim radial washes.
+           Non-interactive and self-clipping; never captures pointer events. ---- */}
+      <div className="pointer-events-none relative h-36 overflow-hidden bg-navy-deep sm:h-48">
         <div className="absolute inset-0 bg-gradient-to-r from-royal-dark/70 via-navy to-navy-deep" />
         <div className="absolute -left-16 -top-24 h-64 w-64 rounded-full bg-royal/30 blur-3xl" />
         <div className="absolute -right-10 top-4 h-48 w-48 rounded-full bg-gold/15 blur-3xl" />
@@ -45,21 +60,26 @@ export default function StoreHeader({
 
       {/* ---- store profile box overlapping the banner ---- */}
       <div className="mx-auto max-w-6xl px-4">
-        <div className="-mt-14 rounded-2xl border border-navy-600 bg-navy-deep p-4 shadow-xl sm:p-6">
+        <div className="relative z-10 -mt-14 rounded-2xl border border-navy-600 bg-navy-deep p-4 shadow-xl sm:-mt-16 sm:p-6">
           <div className="flex flex-wrap items-center gap-4">
-            {/* El-Dorado avatar. prefer the owner profile picture (Supabase Storage URL) */}
+            {/* Store avatar: fixed 76px box in BOTH the image and the initials
+                fallback (never collapses, never renders a broken <img>), with
+                the navy ring that keeps it legible over the banner gradient. */}
             <div className="shrink-0">
               <Avatar
-                src={seller.profile?.avatar_url ?? null}
+                src={avatarSrc}
                 name={seller.display_name}
+                initials={storeInitials}
                 sizePx={76}
-                className="border-navy-600 shadow-[0_0_0_4px] shadow-navy-600/40"
+                className="bg-navy-700 border-navy-600 shadow-[0_0_0_4px] shadow-navy-600/40"
               />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-lg font-extrabold text-white sm:text-xl">
+                {/* min-w-0 so the name truncates instead of pushing the
+                    presence chip onto an awkward second line on phones. */}
+                <h1 className="min-w-0 flex-1 truncate text-lg font-extrabold text-white sm:text-xl sm:flex-none">
                   {seller.display_name}
                 </h1>
 

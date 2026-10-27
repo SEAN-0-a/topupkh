@@ -21,6 +21,12 @@ export type CatalogPage = {
   totalPages: number;
 };
 
+export type TemplateSummary = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 const SORTS: Record<
   NonNullable<CatalogQuery["sort"]>,
   { column: string; ascending: boolean }
@@ -171,8 +177,14 @@ export async function listTopSellers(): Promise<Seller[]> {
   return data ?? [];
 }
 
-export async function listTemplates() {
-  return [];
+export async function listTemplates(): Promise<TemplateSummary[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, slug");
+
+  if (error) return [];
+  return data ?? [];
 }
 
 export async function getOfferGroup(id: string) {

@@ -25,6 +25,12 @@ export type TemplateSummary = {
   id: string;
   name: string;
   slug: string;
+  image_url?: string | null;
+  title?: string | null;
+  game?: string | null;
+  category?: string | null;
+  offerCount?: number;
+  minPrice?: number;
 };
 
 const SORTS: Record<
@@ -184,7 +190,14 @@ export async function listTemplates(): Promise<TemplateSummary[]> {
     .select("id, name, slug");
 
   if (error) return [];
-  return data ?? [];
+  return (data ?? []).map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    slug: cat.slug,
+    title: cat.name,
+    offerCount: 0,
+    minPrice: 0,
+  }));
 }
 
 export async function getOfferGroup(id: string) {

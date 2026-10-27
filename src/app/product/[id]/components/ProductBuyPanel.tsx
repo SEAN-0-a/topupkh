@@ -2,6 +2,9 @@
 // pending-review banner for owner-gated views.
 
 import BuyButton from "@/components/BuyButton";
+import SellerCard from "./SellerCard";
+import ContactSellerButton from "./ContactSellerButton";
+import type { SellerCard as SellerCardData } from "@/lib/seller-card";
 import { DELIVERY_LABELS } from "./labels";
 
 export default function ProductBuyPanel({
@@ -10,6 +13,8 @@ export default function ProductBuyPanel({
   created,
   inStock,
   isPending,
+  seller,
+  isOwner,
 }: {
   product: {
     id: number;
@@ -27,6 +32,10 @@ export default function ProductBuyPanel({
   created: string;
   inStock: boolean;
   isPending: boolean;
+  /** Seller profile for the inline card; null → card degrades to nothing. */
+  seller: SellerCardData | null;
+  /** The viewer owns this listing — no "contact seller" (can't chat with self). */
+  isOwner: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -49,6 +58,9 @@ export default function ProductBuyPanel({
         )}
       </div>
 
+      {/* Inline seller profile card — whole card links to /seller/[id] */}
+      {seller && <SellerCard seller={seller} />}
+
       <ul className="space-y-1 rounded-2xl border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300">
         <li>
           <span className="text-gray-500">Delivery:</span>{" "}
@@ -69,6 +81,13 @@ export default function ProductBuyPanel({
         productId={product.id}
         disabled={isPending ? "Pending review" : inStock ? undefined : "Out of stock"}
       />
+
+      {/* Pre-purchase chat with THIS vendor for THIS listing — right next to
+          "Buy now". Hidden from the owner (can't message yourself), and only
+          offered when the seller row is readable (needs their profiles id). */}
+      {seller && !isOwner && (
+        <ContactSellerButton sellerUserId={seller.userId} productId={product.id} />
+      )}
 
       {isPending && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">

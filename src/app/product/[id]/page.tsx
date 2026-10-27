@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import SafeProductImage from "@/components/SafeProductImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadProductDetail, type ProductDetail } from "@/lib/product-detail";
+import { loadSellerCard } from "@/lib/seller-card";
 import ProductBuyPanel from "./components/ProductBuyPanel";
 import ProductDetailCards from "./components/ProductDetailCards";
 
@@ -25,6 +26,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const isOwner = mySellerId !== null && product.seller_id === mySellerId;
   if (!isLive && !isOwner) notFound();
   const isPending = !isLive && isOwner;
+
+  // Seller card for the buy panel — loaded AFTER the 404 gate so it only runs
+  // for visible listings. A failed read degrades to `null` (no card) and must
+  // never take the product/checkout flow down with it.
+  const seller = await loadSellerCard(supabase, product.seller_id);
 
   const created = new Date(product.created_at).toLocaleDateString();
   const rating =
@@ -62,6 +68,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           created={created}
           inStock={inStock}
           isPending={isPending}
+          seller={seller}
+          isOwner={isOwner}
         />
       </div>
 

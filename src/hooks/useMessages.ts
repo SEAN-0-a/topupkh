@@ -109,6 +109,28 @@ export function useMessages() {
   }, [userId, refreshAll]);
 
   // -------------------------------------------------------------------------
+  // Deep link: /dashboard/messages?conv=<id> — pre-open one thread once the
+  // inbox has loaded (e.g. the "Contact seller" button on a product page
+  // created/jumped to a pre-purchase conversation).
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!userId || loading) return;
+    if (activeRef.current) return; // user already picked something — don't yank
+
+    const convId = Number(
+      new URLSearchParams(window.location.search).get("conv") ?? "",
+    );
+    if (!Number.isFinite(convId) || convId <= 0) return;
+
+    const exists = conversations.some((c) => c.id === convId);
+    if (!exists) return; // not visible under RLS / unknown id — ignore silently
+
+    openChat({ kind: "conv", id: convId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, loading, conversations]);
+
+  // -------------------------------------------------------------------------
   // Open a thread (conversation or support ticket)
   // -------------------------------------------------------------------------
 

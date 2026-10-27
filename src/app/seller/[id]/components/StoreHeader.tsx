@@ -1,16 +1,21 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import ContactStoreButton from "./ContactStoreButton";
 import type { StoreData } from "@/app/seller/[id]/store";
 
 // =============================================================================
 // StoreHeader — Eldorado-style banner + overlapping store profile box.
 // Always-dark navy surfaces (like the navbar/footer) so the vendor page reads
 // as a dark storefront in BOTH themes. Verified = sellers.status === approved.
+// isOwner comes from the page (supabase session) so the viewer's OWN store
+// hides the "Chat with seller" button.
 // =============================================================================
 export default function StoreHeader({
   store,
+  isOwner,
 }: {
   store: StoreData;
+  isOwner: boolean;
 }) {
   const { seller, isOnline } = store;
   const verified = seller.status === "approved";
@@ -111,6 +116,14 @@ export default function StoreHeader({
               </div>
             ))}
           </dl>
+
+          {/* ---- vendor chat: pre-purchase thread, opened straight from the
+               store header (no purchase required). Hidden for the owner. ---- */}
+          <div className="mt-4">
+            <div className="w-full sm:w-64">
+              <ContactStoreButton sellerUserId={seller.user_id} isOwner={isOwner} />
+            </div>
+          </div>
         </div>
 
         <div className="py-2 text-right">

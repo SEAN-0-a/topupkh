@@ -7,6 +7,7 @@ import StoreProductCard from "./components/StoreProductCard";
 import StoreReviews from "./components/StoreReviews";
 import StoreAbout from "./components/StoreAbout";
 import { isOtherCategory, loadStoreData } from "./store";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Live store: stock/status changes, plus RLS-reader-dependent visibility
 // (owners see their own pending seller row) — no cache hop, like the marketplace.
@@ -38,6 +39,15 @@ export default async function SellerStorePage({
   const store = await loadStoreData(Number(id));
   if (!store) notFound(); // missing seller OR hidden from this viewer by RLS
 
+  // Viewer owns this store? Session identity is the raw auth id — visiting
+  // users without a profiles row still resolve correctly. Same anonymity
+  // guard as the product page: anonymous sessions never count as owners.
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isOwner = !!user && !user.is_anonymous && store.seller.user_id === user.id;
+
   // Category rail filter ("other" = any slug outside the fixed Eldorado set —
   // the same fallback semantics the pills use, via a shared helper).
   let products = store.products;
@@ -54,7 +64,7 @@ export default async function SellerStorePage({
     <div className="min-h-screen">
       {/* keep the vendor shell dark in both themes (nav/footer treatment) */}
       <div className="pb-16 [background:linear-gradient(180deg,var(--color-navy-deep)_0%,var(--color-page)_60%)]">
-        <StoreHeader store={store} />
+        <StoreHeader store={store} isOwner={isOwner} />
 
         <main className="mx-auto max-w-6xl px-4">
           <h2 className="sr-only">Store sections</h2>

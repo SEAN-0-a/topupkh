@@ -159,12 +159,11 @@ export async function listGames(): Promise<Game[]> {
   return data ?? [];
 }
 
-export async function listActiveCategories(): Promise<ProductCategory[]> {
+export async function listActiveCategories(gameSlug?: string): Promise<ProductCategory[]> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("name");
+  let qb = supabase.from("categories").select("*").order("name");
+  
+  const { data, error } = await qb;
 
   if (error) throw new Error(`Failed to load categories: ${error.message}`);
   return (data ?? []).map((c) => ({
@@ -186,7 +185,7 @@ export async function listTopSellers(): Promise<Seller[]> {
   return data ?? [];
 }
 
-export async function listTemplates(): Promise<TemplateSummary[]> {
+export async function listTemplates(gameSlug?: string, categorySlug?: string): Promise<TemplateSummary[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("categories")
@@ -195,11 +194,11 @@ export async function listTemplates(): Promise<TemplateSummary[]> {
   if (error) return [];
   return (data ?? []).map((cat) => ({
     id: cat.id,
-    name: cat.name,
+    name: typeof cat.name === 'string' ? cat.name : String(cat.name ?? ''),
     slug: cat.slug,
     image_url: "",
-    title: cat.name,
-    game: "",
+    title: typeof cat.name === 'string' ? cat.name : String(cat.name ?? ''),
+    game: gameSlug ?? "",
     category: cat.slug,
     offerCount: 0,
     minPrice: 0,

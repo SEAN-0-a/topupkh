@@ -37,23 +37,36 @@ export default function ProductBuyPanel({
   /** The viewer owns this listing — no "contact seller" (can't chat with self). */
   isOwner: boolean;
 }) {
+  // ---- null-safe price math: numeric DB columns can still arrive null /
+  // junk through degraded fallbacks — fromNaN() keeps the KHQR copy + buy
+  // button renderable (a blank price beats a crashed page).
+  const price = fromNaN(product.price_usd);
+  const originalPrice =
+    product.original_price_usd == null ? null : fromNaN(product.original_price_usd);
+  const stock = Number(product.stock) || 0;
+  const soldCount = Number(product.sold_count) || 0;
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">{product.title}</h1>
+        <h1 className="text-2xl font-bold">{product.title ?? "Untitled listing"}</h1>
         <p className="mt-1 text-xs text-gray-400">
-          Listed {created} · {product.sold_count} sold
+          Listed {created ?? "recently"} · {soldCount.toLocaleString()} sold
           {rating && <span className="ml-2 text-yellow-400">★ {rating}</span>}
         </p>
       </div>
 
       <div className="flex items-baseline gap-3">
-        <span className="font-mono text-3xl font-bold text-gold">
-          ${product.price_usd.toFixed(2)}
-        </span>
-        {product.original_price_usd && (
+        {price !== null ? (
+          <span className="font-mono text-3xl font-bold text-gold">
+            ${price.toFixed(2)}
+          </span>
+        ) : (
+          <span className="text-sm font-bold text-gray-400">Price unavailable</span>
+        )}
+        {originalPrice !== null && price !== null && originalPrice > price && (
           <span className="text-sm text-gray-500 line-through">
-            ${product.original_price_usd.toFixed(2)}
+            ${originalPrice.toFixed(2)}
           </span>
         )}
       </div>
@@ -68,7 +81,7 @@ export default function ProductBuyPanel({
         </li>
         <li>
           <span className="text-gray-500">Availability:</span>{" "}
-          {inStock ? (product.stock_is_unlimited ? "Service, always available" : `${product.stock} in stock`) : "Out of stock"}
+          {inStock ? (product.stock_is_unlimited ? "Service, always available" : `${stock.toLocaleString()} in stock`) : "Out of stock"}
         </li>
         {product.estimated_minutes && (
           <li>
@@ -108,4 +121,11 @@ export default function ProductBuyPanel({
       </p>
     </div>
   );
+}
+
+/** number → finite number, or null when the column came back null/blank/junk. */
+function fromNaN(v: number | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }

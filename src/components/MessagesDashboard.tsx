@@ -17,8 +17,9 @@
  * rows to the open thread and updates the left list previews.
  *
  * All state/fetch/realtime logic lives in the `useMessages` hook (including
- * the ?conv= deep-link that pre-opens the requested thread); the presentational
- * pieces are the child components under ./app/dashboard/messages/components.
+ * the ?conversationId= deep-link — legacy ?conv= alias kept — that pre-opens
+ * the requested thread); the presentational pieces are the child components
+ * under ./app/dashboard/messages/components.
  */
 
 import { useMessages } from "@/hooks/useMessages";

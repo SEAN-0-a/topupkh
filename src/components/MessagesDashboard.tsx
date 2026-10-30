@@ -30,9 +30,32 @@ import OrderReceiptCard from "@/app/dashboard/messages/components/OrderReceiptCa
 import OrderStatusBanner from "@/app/dashboard/messages/components/OrderStatusBanner";
 import MessageThread from "@/app/dashboard/messages/components/MessageThread";
 import Composer from "@/app/dashboard/messages/components/Composer";
+import { useEffect, useState } from "react";
 
 export default function MessagesDashboard() {
   const m = useMessages();
+
+  // ------------------------------------------------- IMAGE CLICK-TO-ZOOM
+  // Lightbox state: URL of the clicked chat image attachment (null = closed).
+  // MessageThread reports clicks via onOpenImage; the modal lives HERE so the
+  // chat header/tabs/composer stay interactive underneath is moot — the
+  // overlay is full-screen and body scroll is locked while it's open.
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // While the lightbox is open: Escape closes, page scroll stays locked.
+  useEffect(() => {
+    if (!selectedImage) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedImage(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedImage]);
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 text-white space-y-4">
@@ -90,12 +113,13 @@ export default function MessagesDashboard() {
                 </>
               )}
 
-              {/* Thread */}
+              {/* Thread — reports image clicks up via onOpenImage */}
               <MessageThread
                 thread={m.thread}
                 userId={m.userId}
                 loading={m.threadLoading}
                 boxRef={m.threadBoxRef}
+                onOpenImage={setSelectedImage}
               />
 
               {/* Composer */}
@@ -114,6 +138,41 @@ export default function MessagesDashboard() {
           )}
         </div>
       </div>
+
+      {/* ------------------------------------------------------- LIGHTBOX
+      Full-screen click-to-zoom modal for chat image attachments. Closes via
+      the ✕ button, clicking the backdrop, or pressing Escape (above). */}
+      {selectedImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged chat image"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={(e) => {
+            // Click outside the image (on the backdrop itself) → close.
+            if (e.target === e.currentTarget) setSelectedImage(null);
+          }}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setSelectedImage(null)}
+            aria-label="Close image"
+            className="absolute right-4 top-4 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+          >
+            ✕ Close
+          </button>
+
+          {/* Full-size image — clicks on it must NOT fall through and close */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={selectedImage}
+            alt="Attachment full size"
+            className="max-h-[90vh] max-w-full rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

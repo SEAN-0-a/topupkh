@@ -71,8 +71,11 @@ export default function ProductBuyPanel({
         )}
       </div>
 
-      {/* Inline seller profile card — whole card links to /seller/[id] */}
-      {seller && <SellerCard seller={seller} />}
+      {/* Inline seller profile card — whole card links to /seller/[id], with
+          the 💬 Contact button (listing-scoped thread) on top of it */}
+      {seller && (
+        <SellerCard seller={seller} productId={product.id} isOwner={isOwner} />
+      )}
 
       <ul className="space-y-1 rounded-2xl border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300">
         <li>

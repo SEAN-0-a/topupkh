@@ -54,7 +54,7 @@ export default function ContactStoreButton({
       <button
         onClick={handleContact}
         disabled={busy}
-        className="w-full rounded-xl border border-gold/50 bg-gold/10 py-2.5 text-sm font-bold text-gold transition-colors hover:bg-gold/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl border border-indigo-500/50 bg-indigo-500/10 py-2.5 text-sm font-bold text-indigo-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? "Opening chat…" : "💬 Chat with seller"}
       </button>

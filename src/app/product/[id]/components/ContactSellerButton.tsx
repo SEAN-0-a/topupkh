@@ -13,10 +13,14 @@ import { chatUrlFor } from "@/lib/contact-seller";
 export default function ContactSellerButton({
   sellerUserId,
   productId,
+  compact = false,
 }: {
   /** profiles.id of the seller (sellers.user_id) — the conversation partner. */
   sellerUserId: string;
-  productId: number;
+  /** listing scope: exact buyer+seller+product thread. Omitted → vendor-level. */
+  productId?: number;
+  /** Compact inline variant (seller store card row) vs full-width panel CTA. */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -46,13 +50,15 @@ export default function ContactSellerButton({
   }
 
   return (
-    <div>
+    <div className={compact ? "" : "w-full"}>
       <button
         onClick={handleContact}
         disabled={busy}
-        className="w-full rounded-xl border border-gray-700 bg-gray-900 py-2.5 text-sm font-bold text-white transition-colors hover:border-gold/60 hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal disabled:cursor-not-allowed disabled:opacity-50"
+        className={`rounded-xl border border-indigo-500/50 bg-indigo-500/10 font-bold text-indigo-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50 ${
+          compact ? "px-3 py-1.5 text-[11px]" : "w-full py-2.5 text-sm"
+        }`}
       >
-        {busy ? "Opening chat…" : "💬 Contact seller"}
+        {busy ? "Opening chat…" : compact ? "💬 Contact" : "💬 Contact seller"}
       </button>
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>

@@ -25,7 +25,7 @@ type ProductPageData = {
  * `notFound()` is intentionally NOT called inside the try (it works by
  * throwing); the component calls it once on the discriminated result.
  */
-async function loadProductPageData(productId: number): Promise<ProductPageData | { notFound: true }> {
+async function loadProductPageData(productId: string): Promise<ProductPageData | { notFound: true }> {
   try {
     const supabase = await createSupabaseServerClient();
     const detail = await loadProductDetail(supabase, productId);
@@ -57,9 +57,12 @@ async function loadProductPageData(productId: number): Promise<ProductPageData |
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; // Next.js 16: params is a Promise
-  if (!/^\d+$/.test(id)) notFound(); // /product/abc → clean 404, never NaN math
+  // Digits-only AND within PostgreSQL bigint (int8) range — 19 digits max.
+  // "/product/abc" and 1000-digit junk get a clean 404 BEFORE any DB round-trip;
+  // valid bigint ids travel as their original string (no Number() precision loss).
+  if (!/^\d+$/.test(id) || id.length > 19) notFound();
 
-  const data = await loadProductPageData(Number(id)); // id digits-only → safe Number()
+  const data = await loadProductPageData(id); // bigint-exact string id
   if (data.notFound) notFound(); // branded message: ./not-found.tsx
   const { product, degraded, seller, isOwner, isPending } = data;
 

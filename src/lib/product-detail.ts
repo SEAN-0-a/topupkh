@@ -77,8 +77,19 @@ export interface ProductLoadResult {
  */
 export async function loadProductDetail(
   supabase: ServerSupabase,
-  productId: number,
+  productId: string,
 ): Promise<ProductLoadResult> {
+  // ---------------------------------------------------------------------------
+  // bigint-exact lookup: products.id is bigserial (PostgreSQL int8). The id is
+  // carried as the ORIGINAL DIGITS STRING all the way into the queries —
+  // PostgREST casts the text to bigint in SQL — so ids above JS's
+  // Number.MAX_SAFE_INTEGER are never silently rounded to a different row the
+  // way `Number(id)` would do (no throw, just wrong data — the worst failure).
+  // A valid int8 fits 19 digits; anything longer/invalid is rejected upfront.
+  // ---------------------------------------------------------------------------
+  if (!/^\d+$/.test(productId) || productId.length > 19) {
+    return { product: null, degraded: false, authUserId: null, mySellerId: null };
+  }
   // ---------------------------------------------------------------------------
   // session identity — the raw auth id, so ownership does NOT depend on a
   // profiles row still existing (crash-era OAuth accounts may not have one;
@@ -144,8 +155,7 @@ export async function loadProductDetail(
         .select(PRODUCT_STUB_COLUMNS)
         .eq("id", productId)
         .eq("is_deleted", false)
-        .maybeSingle<unknown>();
-      if (stubError) console.error("[/product] stub read failed:", stubError.message);
+        .maybeSingle<unknown>();      if (stubError) console.error("[/product] stub read failed:", stubError.message);
 
       const parsedStub = parseProductDetail(stub); // status default → pending_review
       if (parsedStub) {
@@ -168,8 +178,7 @@ export async function loadProductDetail(
       .from("products")
       .select(PRODUCT_MINIMAL_COLUMNS)
       .eq("id", productId)
-      .maybeSingle<unknown>();
-    if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
+      .maybeSingle<unknown>();    if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
 
     const row = asRecord(minimal);
     if (row && row.is_deleted !== true) {

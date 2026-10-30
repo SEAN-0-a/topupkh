@@ -89,13 +89,21 @@ export function useMessages() {
     };
   }, [router]);
 
-  /** Initial inbox fetch — conversations + tickets (see lib/messaging-client). */
+  /** Initial inbox fetch — conversations + tickets (see lib/messaging-client).
+   *  MERGES with existing state instead of replacing it: the instant deep-link
+   *  fetch may inject a conversation while this bulk read is still in flight,
+   *  and a just-committed row can even be missing from the list query's
+   *  snapshot — prev keeps such rows so the sidebar can never lose them. */
   const refreshAll = useCallback(async (uid: string) => {
     const [convData, ticketData] = await Promise.all([
       loadConversations(uid),
       loadTickets(uid),
     ]);
-    setConversations(convData);
+    setConversations((prev) => {
+      const present = new Set(convData.map((c) => c.id));
+      const extras = prev.filter((c) => !present.has(c.id));
+      return [...extras, ...convData];
+    });
     setTickets(ticketData);
   }, []);
 
@@ -118,17 +126,17 @@ export function useMessages() {
 
   // -------------------------------------------------------------------------
   // Deep link: /message?conversationId=<id> (legacy alias: ?conv=<id>) —
-  // pre-open one thread once the inbox has loaded (e.g. the "Contact seller"
-  // buttons created/jumped to a pre-purchase conversation via the
-  // openSellerThread server action). Force-load fallback: if the bulk list
-  // fetch is empty (transient error, RLS hiccup, or a very fresh thread that
-  // raced the list read), that ONE conversation is fetched directly by id and
-  // prepended to the sidebar list, then opened — guaranteed auto-selection.
+  // opens the requested thread INSTANTLY, without waiting for the bulk inbox
+  // list to finish (e.g. the "Contact seller" buttons created/jumped to a
+  // pre-purchase conversation via the openSellerThread server action). The
+  // specific row is fetched straight from the DB by its numeric id
+  // (loadConversationById — RLS decides read rights, nothing else) and
+  // injected into the conversation state, so the sidebar shows the thread and
+  // it opens immediately: a deep link can never land on "No all chats found".
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!userId || loading) return;
-    if (activeRef.current) return; // user already picked something — don't yank
+    if (!userId) return;
 
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("conversationId") // canonical param
@@ -137,12 +145,15 @@ export function useMessages() {
     const convId = Number(raw);
     if (!Number.isFinite(convId) || convId <= 0) return;
     if (deepLinkRef.current === convId) return; // attempt each link once
+    if (activeRef.current) return; // user already picked something — don't yank
     deepLinkRef.current = convId;
 
     void (async () => {
-      // Normally the list fetch already surfaced the thread; only when it is
-      // missing do we pay for the single-row fallback (loadConversationById
-      // resolves to null for foreign/unknown ids — RLS-scoped, nothing leaks).
+      // Fast path: the bulk list read already surfaced the thread → just open
+      // it. Otherwise fetch THAT conversation directly by id and prepend it to
+      // the sidebar list, then open immediately. loadConversationById filters
+      // only on .eq("id", …) — conversations_read RLS scopes ownership, so a
+      // foreign/unknown id resolves to null and is silently ignored.
       if (!conversations.some((c) => c.id === convId)) {
         const fetched = await loadConversationById(userId, convId);
         if (!fetched) return;
@@ -153,7 +164,7 @@ export function useMessages() {
       openChat({ kind: "conv", id: convId });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, loading, conversations]);
+  }, [userId, conversations]);
 
   // -------------------------------------------------------------------------
   // Open a thread (conversation or support ticket)

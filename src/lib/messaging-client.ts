@@ -113,18 +113,23 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
 }
 
 /**
- * Fetch ONE conversation by id — deep-link fallback for useMessages: when
- * /message?conversationId=<id> lands and the bulk list fetch came back empty
- * (RLS hiccup, transient error, or a very fresh thread that raced the list
- * read), the hook calls this to load that specific row directly and prepend
- * it to the sidebar list. Authenticated PostgREST still scopes the read via
- * conversations_read (buyer_id/seller_user_id = auth.uid()), so a foreign or
- * unknown id simply resolves to null — no leak, and the caller ignores it.
+ * Fetch ONE conversation by id — instant deep-link loader for useMessages:
+ * when /message?conversationId=<id> lands, the hook calls this immediately
+ * (before/alongside the bulk list fetch) to load that specific row, prepend
+ * it to the sidebar list and open it — a deep link can never surface an
+ * empty "No all chats found" inbox.
  *
- * The member columns (buyer_id / seller_user_id) match the 0001 marketplace
- * schema exactly, so there is no embed/alias mismatch to trip on; the
- * counterparty profile + product title are resolved the same way as
- * loadConversations to keep the Conversation shape consistent.
+ * RLS compatibility, verified:
+ *  - The query filters ONLY on .eq("id", convId). There is intentionally NO
+ *    .eq("buyer_id", …) / .eq("seller_user_id", …) counterpart filter — the
+ *    conversations_read policy (buyer_id = auth.uid() OR seller_user_id =
+ *    auth.uid() OR is_staff()) in 0001_marketplace_schema.sql is the single
+ *    permission gate, so a foreign or unknown id resolves to null and the
+ *    caller silently ignores it. Strict mode never trips (maybeSingle).
+ *  - Every selected column is a real conversations field; the orders() FK
+ *    embed is null for pre-purchase threads without filtering anything.
+ *  - Counterparty profile + product title are resolved the same way as
+ *    loadConversations to keep the Conversation shape consistent.
  */
 export async function loadConversationById(
   uid: string,

@@ -101,15 +101,24 @@ export default function MessagesDashboard() {
               <ChatHeader conv={m.activeConv} ticket={m.activeTicket} />
 
               {/* Order RECEIPT card pinned at the very top (order reference,
-                  item name, captured in-game details), then the order status
-                  banner — both only when the thread is attached to an order */}
+                  item name, captured in-game details), then the sortable
+                  status banner WITH escrow action buttons (seller: 📦 Deliver,
+                  buyer: ✅ Confirm receipt) — only when the thread has an order */}
               {m.activeConv?.order && (
                 <>
                   <OrderReceiptCard
                     order={m.activeConv.order}
                     productTitle={m.activeConv.productTitle}
                   />
-                  <OrderStatusBanner order={m.activeConv.order} />
+                  <OrderStatusBanner
+                    order={m.activeConv.order}
+                    viewerRole={
+                      m.activeConv.otherRole === "Seller" ? "buyer" : "seller"
+                    }
+                    onStatusChanged={() => {
+                      if (m.userId) void m.refreshAll(m.userId);
+                    }}
+                  />
                 </>
               )}
 
@@ -122,12 +131,20 @@ export default function MessagesDashboard() {
                 onOpenImage={setSelectedImage}
               />
 
+              {/* Realtime typing indicator (feature 2) */}
+              {m.active?.kind === "conv" && m.peerTypingConvId === m.active.id && (
+                <p className="px-4 pb-1 text-[11px] text-gray-400" aria-live="polite">
+                  <span className="animate-pulse">💬 </span>
+                  {m.activeConv?.otherName ?? "User"} is typing…
+                </p>
+              )}
+
               {/* Composer */}
               <Composer
                 userId={m.userId}
                 threadLoading={m.threadLoading}
                 input={m.input}
-                setInput={m.setInput}
+                setInput={m.setInputTyping}
                 sending={m.sending}
                 uploading={m.uploading}
                 error={m.error}

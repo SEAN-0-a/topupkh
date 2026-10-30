@@ -8,7 +8,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import {
+  RealtimeChannel,
+  RealtimePostgresChangesPayload,
+} from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
   type ChatMessage,
@@ -58,6 +61,15 @@ export function useMessages() {
   // (fallback refetch + prepend) — the effect re-runs on every conversations
   // change, incl. our own prepend, and must not re-fire the link.
   const deepLinkRef = useRef<number | null>(null);
+
+  // Realtime channel handle (for broadcast sends) + typing indicator state.
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const lastTypingSentRef = useRef(0);
+  const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [peerTypingConvId, setPeerTypingConvId] = useState<number | null>(null);
+
+  // Debounce timer for order-status realtime refetches.
+  const ordersTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     userRef.current = userId;
     activeRef.current = active;
@@ -200,12 +212,48 @@ export function useMessages() {
     }
   }, []);
 
+  /**
+   * Persist read receipts for a conversation — flips read_by_buyer /
+   * read_by_seller for unread counterpart messages via the security-definer
+   * RPC from migration 0026 (messages have NO client UPDATE policy, so
+   * direct table writes from the browser are impossible). Also flips the
+   * local flags so the sidebar unread badge disappears instantly.
+   */
+  const markThreadRead = useCallback(async (convId: number) => {
+    const uid = userRef.current;
+    if (!uid) return;
+    const { error } = await supabase.rpc("mark_thread_read", {
+      p_conversation_id: convId,
+    });
+    if (error) {
+      // Silent-by-design: worst case the badge lingers until next load.
+      console.error("[dashboard/messages] mark_thread_read failed:", error.message);
+    }
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.sender_id !== uid
+                  ? { ...m, read_by_buyer: true, read_by_seller: true }
+                  : m,
+              ),
+            }
+          : c,
+      ),
+    );
+  }, []);
+
   function openChat(sel: NonNullable<Selection>) {
     setActive(sel);
     setThread([]);
     setError(null);
     setThreadLoading(true);
     void refreshThread(sel).finally(() => setThreadLoading(false));
+    // Viewing a conversation = reading it (feature 1): persist receipts + drop
+    // the sidebar badge immediately. Tickets have no read flags.
+    if (sel.kind === "conv") void markThreadRead(sel.id);
   }
 
   // -------------------------------------------------------------------------
@@ -227,8 +275,11 @@ export function useMessages() {
           if (!row?.conversation_id) return;
 
           // 1. Live-append into the open thread (dedupe via mergeMessages).
+          //    A live counterpart message is ALSO being read right now —
+          //    persist the receipts so the badge never shows for the open chat.
           if (activeRef.current?.kind === "conv" && activeRef.current.id === row.conversation_id) {
             setThread((prev) => mergeMessages(prev, [row]));
+            void markThreadRead(row.conversation_id);
           }
 
           // 2. Update the left-list preview; if the conversation is unknown to
@@ -249,9 +300,63 @@ export function useMessages() {
           });
         },
       )
+      // Typing indicator (feature 2): lightweight broadcast events on the SAME
+      // channel as the messages stream. Only the sender identity travels; the
+      // receiver decides which conversation it belongs to and how long the
+      // "… is typing" hint stays visible (3.5s, refreshed by newer pings).
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const p = payload as { conversation_id?: number; sender_id?: string };
+        if (typeof p?.conversation_id !== "number") return;
+        if (p.sender_id && p.sender_id === userRef.current) return; // our echo
+        if (activeRef.current?.kind !== "conv" || activeRef.current.id !== p.conversation_id) {
+          return; // typing ping for a chat that is not open — nothing to show
+        }
+        setPeerTypingConvId(p.conversation_id);
+        if (typingClearRef.current) clearTimeout(typingClearRef.current);
+        typingClearRef.current = setTimeout(() => setPeerTypingConvId(null), 3500);
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      channelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, refreshConversations, markThreadRead]);
+
+  // -------------------------------------------------------------------------
+  // Realtime: UPDATEs on public.orders keep the receipt/status card live
+  // (feature 3) — the publication includes orders since migration 0026, and
+  // Realtime applies the orders_read RLS policy per subscriber, so only YOUR
+  // orders (as buyer/seller/staff) stream here. Status flips made anywhere —
+  // escrow engine, delivery/confirm RPCs, admin panels — instantly refresh
+  // the card + sidebar without a reload.
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel("orders-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders" },
+        () => {
+          // One debounced refetch per burst of updates re-loads conv list
+          // previews (each carries its order row) — statuses update in place.
+          if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current);
+          ordersTimerRef.current = setTimeout(() => {
+            const uid = userRef.current;
+            if (uid) void refreshConversations(uid);
+          }, 600);
+        },
+      )
       .subscribe();
 
     return () => {
+      if (ordersTimerRef.current) clearTimeout(ordersTimerRef.current);
+      ordersTimerRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [userId, refreshConversations]);
@@ -329,6 +434,36 @@ export function useMessages() {
   // -------------------------------------------------------------------------
   // Send + attachments
   // -------------------------------------------------------------------------
+
+  /**
+   * Broadcast "typing" pings on the shared realtime channel while the user
+   * writes in the open conversation (feature 2). Throttled to one payload per
+   * ~2s; receivers keep a 3.5s liveness window — no DB rows, nothing to
+   * clean up, works for any two participants of a conversation.
+   */
+  const notifyTyping = useCallback(() => {
+    const sel = activeRef.current;
+    const uid = userRef.current;
+    const channel = channelRef.current;
+    if (!channel || !uid || !sel || sel.kind !== "conv") return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2000) return; // throttle
+    lastTypingSentRef.current = now;
+    void channel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { conversation_id: sel.id, sender_id: uid },
+    });
+  }, []);
+
+  /** Composer glue: every keystroke sets state AND pings the counterpart. */
+  const setInputTyping = useCallback(
+    (value: string) => {
+      setInput(value);
+      notifyTyping();
+    },
+    [notifyTyping],
+  );
 
   async function sendMessage(rawBody: string) {
     const body = rawBody.trim().slice(0, MAX_BODY);
@@ -408,10 +543,17 @@ export function useMessages() {
     // composer state
     input,
     setInput,
+    setInputTyping,
     sending,
     uploading,
     error,
     sendMessage,
     handleAttachment,
+    // typing indicator (feature 2)
+    peerTypingConvId,
+    notifyTyping,
+    // status refresh (feature 3) — fired after order actions in the banner
+    refreshAll,
+    markThreadRead,
   };
 }

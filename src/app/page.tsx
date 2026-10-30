@@ -80,13 +80,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {!dbReady && (
-        <Banner>
-          Database not reachable yet — run{" "}
-          <code className="rounded bg-black px-1">supabase/migrations/*.sql</code> in your Supabase
-          SQL editor (see docs/SETUP.md for the exact order).
-        </Banner>
-      )}
+      {/* Database reachability warning banner — disabled by request (conversation wFuuWinX).
+          Original block preserved below; restore by uncommenting:
+          {!dbReady && (
+            <Banner>
+              Database not reachable yet — run{" "}
+              <code className="rounded bg-black px-1">supabase/migrations/*.sql</code> in your Supabase
+              SQL editor (see docs/SETUP.md for the exact order).
+            </Banner>
+          )}
+      */}
 
       {/* ================= GAMES (icon tiles) ================= */}
       <section>

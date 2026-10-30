@@ -11,6 +11,11 @@ import {
 
 /** Conversations + all their accessible messages (preview + unread in one go). */
 export async function loadConversations(uid: string): Promise<Conversation[]> {
+  // Match the id against BOTH member columns (uuid columns from
+  // 0001_marketplace_schema.sql — conversations.buyer_id / seller_user_id).
+  // Every selected column is a real conversation field; the orders() FK embed
+  // comes back null for order-less (pre-purchase) threads without filtering
+  // any rows, so a fresh thread can never be dropped by this query.
   const { data: convRows, error: convError } = await supabase
     .from("conversations")
     .select("id, order_id, product_id, buyer_id, seller_user_id, last_message_at, orders(id, public_ref, status)")
@@ -105,6 +110,90 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
       messages: byConversation.get(c.id as number) ?? [],
     };
   });
+}
+
+/**
+ * Fetch ONE conversation by id — deep-link fallback for useMessages: when
+ * /message?conversationId=<id> lands and the bulk list fetch came back empty
+ * (RLS hiccup, transient error, or a very fresh thread that raced the list
+ * read), the hook calls this to load that specific row directly and prepend
+ * it to the sidebar list. Authenticated PostgREST still scopes the read via
+ * conversations_read (buyer_id/seller_user_id = auth.uid()), so a foreign or
+ * unknown id simply resolves to null — no leak, and the caller ignores it.
+ *
+ * The member columns (buyer_id / seller_user_id) match the 0001 marketplace
+ * schema exactly, so there is no embed/alias mismatch to trip on; the
+ * counterparty profile + product title are resolved the same way as
+ * loadConversations to keep the Conversation shape consistent.
+ */
+export async function loadConversationById(
+  uid: string,
+  convId: number,
+): Promise<Conversation | null> {
+  const { data: row } = await supabase
+    .from("conversations")
+    .select(
+      "id, order_id, product_id, buyer_id, seller_user_id, last_message_at, orders(id, public_ref, status)",
+    )
+    .eq("id", convId)
+    .maybeSingle<Record<string, unknown>>();
+  if (!row) return null;
+
+  // All thread messages for this conversation (RLS: read via membership).
+  const { data: msgRows } = await supabase
+    .from("messages")
+    .select("id, sender_id, body, created_at, read_by_seller, read_by_buyer")
+    .eq("conversation_id", convId)
+    .order("created_at", { ascending: true })
+    .limit(500);
+
+  const otherId =
+    (row.buyer_id as string) === uid
+      ? (row.seller_user_id as string)
+      : (row.buyer_id as string);
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id, display_name, avatar_url")
+    .eq("id", otherId)
+    .maybeSingle<Record<string, unknown>>();
+  const profile = profileRows as unknown as
+    | { display_name: string; avatar_url: string | null }
+    | null;
+
+  const productId = row.product_id as number | null;
+  let productTitle: string | null = null;
+  if (productId != null) {
+    const { data: productRow } = await supabase
+      .from("products")
+      .select("id, title")
+      .eq("id", productId)
+      .maybeSingle<Record<string, unknown>>();
+    productTitle = (productRow?.title as string | undefined) ?? null;
+  }
+
+  const orderId = row.order_id as number | null;
+  const orderRow = firstEmbed(row.orders);
+
+  return {
+    id: row.id as number,
+    otherId,
+    otherName: profile?.display_name ?? "TopUpKH Player",
+    otherAvatar: profile?.avatar_url ?? null,
+    // counterpart is Seller => I am the buyer (same convention as loadConversations).
+    otherRole: (row.buyer_id as string) === uid ? "Seller" : "Buyer",
+    order: orderId
+      ? {
+          id: orderId,
+          public_ref: (orderRow?.public_ref as string) ?? `#${orderId}`,
+          status: (orderRow?.status as string) ?? "unknown",
+        }
+      : null,
+    productTitle,
+    messages: ((msgRows ?? []) as unknown as ChatMessage[]).map((m) => ({
+      ...m,
+      conversation_id: convId,
+    })),
+  };
 }
 
 /** Support tickets of the signed-in user, newest first. */

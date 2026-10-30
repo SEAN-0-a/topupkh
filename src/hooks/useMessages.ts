@@ -22,7 +22,11 @@ import {
   MAX_BODY,
   mergeMessages,
 } from "@/lib/messaging";
-import { loadConversations, loadTickets } from "@/lib/messaging-client";
+import {
+  loadConversations,
+  loadConversationById,
+  loadTickets,
+} from "@/lib/messaging-client";
 
 export function useMessages() {
   const router = useRouter();
@@ -50,6 +54,10 @@ export function useMessages() {
   // Latest-value refs so the realtime handler never needs to resubscribe.
   const userRef = useRef<string | null>(null);
   const activeRef = useRef<Selection>(null);
+  // Deep-link attempt dedup: run the ?conversationId= opener once per id
+  // (fallback refetch + prepend) — the effect re-runs on every conversations
+  // change, incl. our own prepend, and must not re-fire the link.
+  const deepLinkRef = useRef<number | null>(null);
   useEffect(() => {
     userRef.current = userId;
     activeRef.current = active;
@@ -112,7 +120,10 @@ export function useMessages() {
   // Deep link: /message?conversationId=<id> (legacy alias: ?conv=<id>) —
   // pre-open one thread once the inbox has loaded (e.g. the "Contact seller"
   // buttons created/jumped to a pre-purchase conversation via the
-  // openSellerThread server action).
+  // openSellerThread server action). Force-load fallback: if the bulk list
+  // fetch is empty (transient error, RLS hiccup, or a very fresh thread that
+  // raced the list read), that ONE conversation is fetched directly by id and
+  // prepended to the sidebar list, then opened — guaranteed auto-selection.
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -125,11 +136,22 @@ export function useMessages() {
       ?? "";
     const convId = Number(raw);
     if (!Number.isFinite(convId) || convId <= 0) return;
+    if (deepLinkRef.current === convId) return; // attempt each link once
+    deepLinkRef.current = convId;
 
-    const exists = conversations.some((c) => c.id === convId);
-    if (!exists) return; // not visible under RLS / unknown id — ignore silently
-
-    openChat({ kind: "conv", id: convId });
+    void (async () => {
+      // Normally the list fetch already surfaced the thread; only when it is
+      // missing do we pay for the single-row fallback (loadConversationById
+      // resolves to null for foreign/unknown ids — RLS-scoped, nothing leaks).
+      if (!conversations.some((c) => c.id === convId)) {
+        const fetched = await loadConversationById(userId, convId);
+        if (!fetched) return;
+        setConversations((prev) =>
+          prev.some((c) => c.id === convId) ? prev : [fetched, ...prev],
+        );
+      }
+      openChat({ kind: "conv", id: convId });
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, loading, conversations]);
 

@@ -27,7 +27,7 @@ export default async function OffersPage({ params, searchParams }: Props) {
 
   let group;
   try {
-    group = await getOfferGroup(Number(id), sortKind);
+    group = await getOfferGroup(id, sortKind);
   } catch {
     group = null;
   }
@@ -39,9 +39,13 @@ export default async function OffersPage({ params, searchParams }: Props) {
       <nav className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
         <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
         <span>/</span>
-        <Link href={`/marketplace/${group.game.slug}/${group.category.slug}`} className="hover:text-white">
-          {group.game.name} · {group.category.name}
-        </Link>
+        {group.games && group.categories ? (
+          <Link href={`/marketplace/${group.games.slug}/${group.categories.slug}`} className="hover:text-white">
+            {group.games.name} · {group.categories.name}
+          </Link>
+        ) : (
+          <span className="text-gray-300">{group.games?.name ?? "Catalog"}</span>
+        )}
       </nav>
 
       {/* product header */}
@@ -55,8 +59,8 @@ export default async function OffersPage({ params, searchParams }: Props) {
         </div>
         <div className="space-y-2 p-6">
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-bold text-emerald-400">🎮 {group.game.name}</span>
-            <span className="rounded-full bg-purple-500/10 px-2.5 py-1 font-semibold text-purple-300">{group.category.name}</span>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-bold text-emerald-400">🎮 {group.games?.name ?? "Game"}</span>
+            <span className="rounded-full bg-purple-500/10 px-2.5 py-1 font-semibold text-purple-300">{group.categories?.name ?? "Category"}</span>
           </div>
           <h1 className="text-2xl font-bold">{group.title}</h1>
           {group.description && (
@@ -103,9 +107,11 @@ export default async function OffersPage({ params, searchParams }: Props) {
       ) : (
         <ul className="space-y-3">
           {group.offers.map((o, i) => {
+            const ratingCount = o.seller?.rating_count ?? 0;
+            const sellerName = o.seller?.display_name ?? "Seller";
             const rating =
-              o.seller.rating_count > 0
-                ? (o.seller.rating_sum / o.seller.rating_count).toFixed(1)
+              o.seller && ratingCount > 0
+                ? ((o.seller.rating_sum ?? 0) / ratingCount).toFixed(1)
                 : null;
             const best = sortKind === "price" && i === 0 && o.price_usd === group.minPrice;
             return (
@@ -123,10 +129,10 @@ export default async function OffersPage({ params, searchParams }: Props) {
                 <div className="flex flex-col gap-4 md:flex-row md:items-center">
                   {/* seller */}
                   <div className="min-w-[180px]">
-                    <div className="text-sm font-bold">{o.seller.display_name}</div>
+                    <div className="text-sm font-bold">{sellerName}</div>
                     <div className="text-[11px] text-gray-400">
                       {rating ? <span className="text-yellow-400">★ {rating} </span> : <span className="text-gray-500">No reviews </span>}
-                      · 🏆 {o.seller.completed_sales} sold
+                      · 🏆 {o.seller?.completed_sales ?? 0} sold
                     </div>
                   </div>
 
@@ -162,7 +168,7 @@ export default async function OffersPage({ params, searchParams }: Props) {
                       <EscrowCheckoutModal
                         offerId={o.id}
                         title={group.title}
-                        sellerName={o.seller.display_name}
+                        sellerName={sellerName}
                         priceUsd={o.price_usd}
                         stock={o.stock}
                         stockIsUnlimited={o.stock_is_unlimited}

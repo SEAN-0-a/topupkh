@@ -54,8 +54,7 @@ export default async function OfferGroupsPage({ params }: Props) {
         <span>/</span>
         <Link href={`/marketplace?game=${game.slug}`} className="hover:text-white">{game.name}</Link>
         <span>/</span>
-        <span className="text-gray-300">{category.name}</span>
-      </nav>
+        <span className="text-gray-300">{category.name}</span>      </nav>
 
       <div className="flex flex-col justify-between gap-3 rounded-3xl border border-gray-800 bg-gray-900 p-6 md:flex-row md:items-center">
         <div>
@@ -109,13 +108,13 @@ export default async function OfferGroupsPage({ params }: Props) {
                 loading="lazy"
               />
               <span className="absolute left-2.5 top-2.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
-                🎮 {t.game.name}
+                🎮 {t.game?.name ?? "—"}
               </span>
             </div>
 
             <div className="flex flex-1 flex-col p-3.5">
               <span className="mb-1.5 w-fit rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-300">
-                {t.category.name}
+                {t.category?.name ?? "—"}
               </span>
               <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white group-hover:text-emerald-300">
                 {t.title}

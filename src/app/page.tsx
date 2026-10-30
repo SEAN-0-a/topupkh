@@ -152,7 +152,7 @@ export default async function HomePage() {
       <section>
         <SectionHeader title="🧩 Categories" subtitle="Only categories that passed eligibility review" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {categoryList.map((cat: ProductCategory & { status: string }) => (
+          {categoryList.map((cat: ProductCategory) => (
             <Link
               key={cat.id}
               href={`/marketplace?category=${cat.slug}`}

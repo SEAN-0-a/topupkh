@@ -71,6 +71,15 @@ export async function openSellerThread(input: {
     }
 
     // --- 1. Reuse — newest pre-purchase thread for this buyer ↔ seller pair.
+    //    (a) Listing-scoped: same product id → the natural continuation when
+    //        the buyer re-opens contact from the same listing.
+    //    (b) VENDOR-LEVEL FALLBACK: any pre-purchase thread for the same
+    //        buyer ↔ seller pair, even with a different (or null) product —
+    //        DEDUP GUARANTEE: at most ONE contact thread per pair. Contacting
+    //        seller B for listing Y after already chatting about listing X
+    //        re-opens the existing thread instead of inserting a duplicate
+    //        conversation row (order-attached threads are separate domain
+    //        chats and intentionally excluded with .is("order_id", null)).
     //    RLS limits the read to the caller's own conversations, so nothing
     //    leaks across accounts.
     let lookup = supabase
@@ -87,6 +96,20 @@ export async function openSellerThread(input: {
       await lookup.maybeSingle<{ id: number }>();
     if (lookupError) throw new Error(lookupError.message);
     if (existing) return { ok: true, conversationId: existing.id };
+
+    if (input.productId != null) {
+      const { data: pairThread, error: pairError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("buyer_id", ctx.userId)
+        .eq("seller_user_id", input.sellerUserId)
+        .is("order_id", null)
+        .order("last_message_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ id: number }>();
+      if (pairError) throw new Error(pairError.message);
+      if (pairThread) return { ok: true, conversationId: pairThread.id };
+    }
 
     // --- 2. Create. buyer_id is the SESSION identity, never client input.
     const row: Record<string, unknown> = {

@@ -16,7 +16,15 @@ export type ChatMessage = {
   attachment_path?: string | null;
 };
 
-export type OrderSummary = { id: number; public_ref: string; status: string };
+export type OrderSummary = {
+  id: number;
+  public_ref: string;
+  status: string;
+  /** Captured in-game details (written at checkout via the 0025 RPC) — used
+   *  by the chat's Order Receipt card; null/undefined → shown as "—". */
+  player_game_id?: string | null;
+  server_id?: string | null;
+};
 
 export type Conversation = {
   id: number;

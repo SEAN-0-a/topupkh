@@ -26,6 +26,7 @@ import { useMessages } from "@/hooks/useMessages";
 import FilterTabs from "@/app/dashboard/messages/components/FilterTabs";
 import ChatList from "@/app/dashboard/messages/components/ChatList";
 import ChatHeader from "@/app/dashboard/messages/components/ChatHeader";
+import OrderReceiptCard from "@/app/dashboard/messages/components/OrderReceiptCard";
 import OrderStatusBanner from "@/app/dashboard/messages/components/OrderStatusBanner";
 import MessageThread from "@/app/dashboard/messages/components/MessageThread";
 import Composer from "@/app/dashboard/messages/components/Composer";
@@ -76,8 +77,18 @@ export default function MessagesDashboard() {
               {/* Recipient header + order link */}
               <ChatHeader conv={m.activeConv} ticket={m.activeTicket} />
 
-              {/* Order status banner pinned on top of the thread */}
-              {m.activeConv?.order && <OrderStatusBanner order={m.activeConv.order} />}
+              {/* Order RECEIPT card pinned at the very top (order reference,
+                  item name, captured in-game details), then the order status
+                  banner — both only when the thread is attached to an order */}
+              {m.activeConv?.order && (
+                <>
+                  <OrderReceiptCard
+                    order={m.activeConv.order}
+                    productTitle={m.activeConv.productTitle}
+                  />
+                  <OrderStatusBanner order={m.activeConv.order} />
+                </>
+              )}
 
               {/* Thread */}
               <MessageThread

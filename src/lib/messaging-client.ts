@@ -85,23 +85,34 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
     }
   }
 
-  // Order refs/status in one batch read (the FK embed was moved here so the
-  // conversation query never depends on a cached PostgREST relationship).
+  // Order refs/status + captured in-game details in one batch read (the FK
+  // embed was moved here so the conversation query never depends on a cached
+  // PostgREST relationship).
   const orderIds = Array.from(
     new Set(convs.map((c) => c.order_id as number).filter((id) => typeof id === "number")),
   );
-  const orderById = new Map<number, { public_ref: string; status: string }>();
+  const orderById = new Map<
+    number,
+    { public_ref: string; status: string; player_game_id: string | null; server_id: string | null }
+  >();
   if (orderIds.length > 0) {
     const { data: orderRows } = await supabase
       .from("orders")
-      .select("id, public_ref, status")
+      .select("id, public_ref, status, player_game_id, server_id")
       .in("id", orderIds);
     for (const o of (orderRows ?? []) as unknown as Array<{
       id: number;
       public_ref: string;
       status: string;
+      player_game_id: string | null;
+      server_id: string | null;
     }>) {
-      orderById.set(o.id, { public_ref: o.public_ref, status: o.status });
+      orderById.set(o.id, {
+        public_ref: o.public_ref,
+        status: o.status,
+        player_game_id: o.player_game_id,
+        server_id: o.server_id,
+      });
     }
   }
 
@@ -118,6 +129,8 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
           id: orderId,
           public_ref: (orderRow?.public_ref as string) ?? `#${orderId}`,
           status: (orderRow?.status as string) ?? "unknown",
+          player_game_id: (orderRow?.player_game_id as string | null) ?? null,
+          server_id: (orderRow?.server_id as string | null) ?? null,
         }
       : null;
     const productId = c.product_id as number | null;
@@ -199,13 +212,19 @@ export async function loadConversationById(
   }
 
   const orderId = row.order_id as number | null;
-  // Order ref/status from a direct orders read (no FK embed in the
-  // conversations query — see loadConversations for the cache-400 rationale).
-  let orderRow: { public_ref: string; status: string } | null = null;
+  // Order ref/status + captured in-game details from a direct orders read
+  // (no FK embed in the conversations query — see loadConversations for the
+  // cache-400 rationale).
+  let orderRow: {
+    public_ref: string;
+    status: string;
+    player_game_id: string | null;
+    server_id: string | null;
+  } | null = null;
   if (orderId != null) {
     const { data: orderRowData } = await supabase
       .from("orders")
-      .select("id, public_ref, status")
+      .select("id, public_ref, status, player_game_id, server_id")
       .eq("id", orderId)
       .maybeSingle<Record<string, unknown>>();
     orderRow =
@@ -214,6 +233,8 @@ export async function loadConversationById(
         : {
             public_ref: orderRowData.public_ref as string,
             status: orderRowData.status as string,
+            player_game_id: (orderRowData.player_game_id as string | null) ?? null,
+            server_id: (orderRowData.server_id as string | null) ?? null,
           };
   }
 
@@ -229,6 +250,8 @@ export async function loadConversationById(
           id: orderId,
           public_ref: (orderRow?.public_ref as string) ?? `#${orderId}`,
           status: (orderRow?.status as string) ?? "unknown",
+          player_game_id: (orderRow?.player_game_id as string | null) ?? null,
+          server_id: (orderRow?.server_id as string | null) ?? null,
         }
       : null,
     productTitle,
@@ -256,25 +279,36 @@ export async function loadTickets(uid: string): Promise<SupportTicket[]> {
   const ticketRows = ((rows ?? []) as unknown as Array<Record<string, unknown>>);
   if (ticketRows.length === 0) return [];
 
-  // Order refs/status in one batch read (the FK embed was moved here so the
-  // ticket query never depends on a cached PostgREST relationship).
+  // Order refs/status + captured in-game details in one batch read (the FK
+  // embed was moved here so the ticket query never depends on a cached
+  // PostgREST relationship).
   const orderIds = Array.from(
     new Set(
       ticketRows.map((t) => t.order_id as number).filter((id) => typeof id === "number"),
     ),
   );
-  const orderById = new Map<number, { public_ref: string; status: string }>();
+  const orderById = new Map<
+    number,
+    { public_ref: string; status: string; player_game_id: string | null; server_id: string | null }
+  >();
   if (orderIds.length > 0) {
     const { data: orderRows } = await supabase
       .from("orders")
-      .select("id, public_ref, status")
+      .select("id, public_ref, status, player_game_id, server_id")
       .in("id", orderIds);
     for (const o of (orderRows ?? []) as unknown as Array<{
       id: number;
       public_ref: string;
       status: string;
+      player_game_id: string | null;
+      server_id: string | null;
     }>) {
-      orderById.set(o.id, { public_ref: o.public_ref, status: o.status });
+      orderById.set(o.id, {
+        public_ref: o.public_ref,
+        status: o.status,
+        player_game_id: o.player_game_id,
+        server_id: o.server_id,
+      });
     }
   }
 
@@ -292,6 +326,8 @@ export async function loadTickets(uid: string): Promise<SupportTicket[]> {
             id: orderId,
             public_ref: (orderRow?.public_ref as string) ?? `#${orderId}`,
             status: (orderRow?.status as string) ?? "unknown",
+            player_game_id: (orderRow?.player_game_id as string | null) ?? null,
+            server_id: (orderRow?.server_id as string | null) ?? null,
           }
         : null,
     };

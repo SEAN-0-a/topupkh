@@ -6,19 +6,21 @@ import {
   type ChatMessage,
   type Conversation,
   type SupportTicket,
-  firstEmbed,
 } from "@/lib/messaging";
 
 /** Conversations + all their accessible messages (preview + unread in one go). */
 export async function loadConversations(uid: string): Promise<Conversation[]> {
   // Match the id against BOTH member columns (uuid columns from
   // 0001_marketplace_schema.sql — conversations.buyer_id / seller_user_id).
-  // Every selected column is a real conversation field; the orders() FK embed
-  // comes back null for order-less (pre-purchase) threads without filtering
-  // any rows, so a fresh thread can never be dropped by this query.
+  // DIRECT COLUMNS ONLY — deliberately NO `orders(...)` FK embed: PostgREST
+  // resolves the relationship against its schema cache and a stale/partial
+  // cache 400s the ENTIRE bulk read with
+  //   "Could not find a relationship between 'conversations' and 'orders'"
+  // which empties the whole inbox. Order refs/status are fetched separately
+  // in one batch read below instead, so a bad embed can never kill the list.
   const { data: convRows, error: convError } = await supabase
     .from("conversations")
-    .select("id, order_id, product_id, buyer_id, seller_user_id, last_message_at, orders(id, public_ref, status)")
+    .select("id, order_id, product_id, buyer_id, seller_user_id, last_message_at")
     .or(`buyer_id.eq.${uid},seller_user_id.eq.${uid}`)
     .order("last_message_at", { ascending: false });
 
@@ -83,6 +85,26 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
     }
   }
 
+  // Order refs/status in one batch read (the FK embed was moved here so the
+  // conversation query never depends on a cached PostgREST relationship).
+  const orderIds = Array.from(
+    new Set(convs.map((c) => c.order_id as number).filter((id) => typeof id === "number")),
+  );
+  const orderById = new Map<number, { public_ref: string; status: string }>();
+  if (orderIds.length > 0) {
+    const { data: orderRows } = await supabase
+      .from("orders")
+      .select("id, public_ref, status")
+      .in("id", orderIds);
+    for (const o of (orderRows ?? []) as unknown as Array<{
+      id: number;
+      public_ref: string;
+      status: string;
+    }>) {
+      orderById.set(o.id, { public_ref: o.public_ref, status: o.status });
+    }
+  }
+
   return convs.map((c) => {
     const otherId =
       (c.buyer_id as string) === uid
@@ -90,7 +112,7 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
         : (c.buyer_id as string);
     const profile = nameById.get(otherId);
     const orderId = c.order_id as number | null;
-    const orderRow = firstEmbed(c.orders);
+    const orderRow = orderId != null ? orderById.get(orderId) ?? null : null;
     const order = orderId
       ? {
           id: orderId,
@@ -126,8 +148,10 @@ export async function loadConversations(uid: string): Promise<Conversation[]> {
  *    auth.uid() OR is_staff()) in 0001_marketplace_schema.sql is the single
  *    permission gate, so a foreign or unknown id resolves to null and the
  *    caller silently ignores it. Strict mode never trips (maybeSingle).
- *  - Every selected column is a real conversations field; the orders() FK
- *    embed is null for pre-purchase threads without filtering anything.
+ *  - Every selected column is a real conversations field — DIRECT COLUMNS
+ *    ONLY, no `orders(...)` FK embed (the cached-relationship 400 that can
+ *    kill bulk reads would equally kill this deep-link fetch); order
+ *    refs/status are read from the orders table directly below.
  *  - Counterparty profile + product title are resolved the same way as
  *    loadConversations to keep the Conversation shape consistent.
  */
@@ -137,9 +161,7 @@ export async function loadConversationById(
 ): Promise<Conversation | null> {
   const { data: row } = await supabase
     .from("conversations")
-    .select(
-      "id, order_id, product_id, buyer_id, seller_user_id, last_message_at, orders(id, public_ref, status)",
-    )
+    .select("id, order_id, product_id, buyer_id, seller_user_id, last_message_at")
     .eq("id", convId)
     .maybeSingle<Record<string, unknown>>();
   if (!row) return null;
@@ -177,7 +199,23 @@ export async function loadConversationById(
   }
 
   const orderId = row.order_id as number | null;
-  const orderRow = firstEmbed(row.orders);
+  // Order ref/status from a direct orders read (no FK embed in the
+  // conversations query — see loadConversations for the cache-400 rationale).
+  let orderRow: { public_ref: string; status: string } | null = null;
+  if (orderId != null) {
+    const { data: orderRowData } = await supabase
+      .from("orders")
+      .select("id, public_ref, status")
+      .eq("id", orderId)
+      .maybeSingle<Record<string, unknown>>();
+    orderRow =
+      orderRowData == null
+        ? null
+        : {
+            public_ref: orderRowData.public_ref as string,
+            status: orderRowData.status as string,
+          };
+  }
 
   return {
     id: row.id as number,
@@ -203,11 +241,11 @@ export async function loadConversationById(
 
 /** Support tickets of the signed-in user, newest first. */
 export async function loadTickets(uid: string): Promise<SupportTicket[]> {
+  // DIRECT COLUMNS ONLY — no `orders(...)` FK embed (same PostgREST
+  // schema-cache 400 as the conversations query); refs/status fetch below.
   const { data: rows, error } = await supabase
     .from("support_tickets")
-    .select(
-      "id, public_ref, subject, status, created_at, orders(id, public_ref, status)",
-    )
+    .select("id, order_id, public_ref, subject, status, created_at")
     .eq("user_id", uid)
     .order("created_at", { ascending: false });
 
@@ -215,9 +253,34 @@ export async function loadTickets(uid: string): Promise<SupportTicket[]> {
     console.error("[dashboard/messages] tickets read failed:", error.message);
     return [];
   }
-  return ((rows ?? []) as unknown as Array<Record<string, unknown>>).map((t) => {
+  const ticketRows = ((rows ?? []) as unknown as Array<Record<string, unknown>>);
+  if (ticketRows.length === 0) return [];
+
+  // Order refs/status in one batch read (the FK embed was moved here so the
+  // ticket query never depends on a cached PostgREST relationship).
+  const orderIds = Array.from(
+    new Set(
+      ticketRows.map((t) => t.order_id as number).filter((id) => typeof id === "number"),
+    ),
+  );
+  const orderById = new Map<number, { public_ref: string; status: string }>();
+  if (orderIds.length > 0) {
+    const { data: orderRows } = await supabase
+      .from("orders")
+      .select("id, public_ref, status")
+      .in("id", orderIds);
+    for (const o of (orderRows ?? []) as unknown as Array<{
+      id: number;
+      public_ref: string;
+      status: string;
+    }>) {
+      orderById.set(o.id, { public_ref: o.public_ref, status: o.status });
+    }
+  }
+
+  return ticketRows.map((t) => {
     const orderId = t.order_id as number | null;
-    const orderRow = firstEmbed(t.orders);
+    const orderRow = orderId != null ? orderById.get(orderId) ?? null : null;
     return {
       id: t.id as number,
       public_ref: t.public_ref as string,

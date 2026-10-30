@@ -16,6 +16,8 @@ export default function PayPanel({
   productId,
   quantity,
   unitPrice,
+  disabled = false,
+  disabledNote,
 }: {
   orderId: number;
   publicRef: string;
@@ -23,17 +25,28 @@ export default function PayPanel({
   productId: number;
   quantity: number;
   unitPrice: number;
+  /** optional gate (e.g. missing in-game details on top-up orders) */
+  disabled?: boolean;
+  disabledNote?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="space-y-3">
       <button
-        onClick={() => setOpen(true)}
-        className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-bold text-black hover:bg-emerald-400"
+        onClick={() => !disabled && setOpen(true)}
+        disabled={disabled}
+        className={`w-full rounded-xl py-3 text-sm font-bold transition-colors ${
+          disabled
+            ? "cursor-not-allowed bg-gray-700 text-gray-400"
+            : "bg-emerald-500 text-black hover:bg-emerald-400"
+        }`}
       >
-        Pay ${amount.toFixed(2)} with KHQR (ABA)
+        {disabled ? "Complete in-game details to pay" : `Pay $${amount.toFixed(2)} with KHQR (ABA)`}
       </button>
+      {disabled && disabledNote && (
+        <p className="text-[11px] text-amber-300">🔒 {disabledNote}</p>
+      )}
       <p className="text-[11px] text-gray-500">
         Scan the KHQR or open the ABA app — payment is verified automatically via ABA PayWay and
         the order updates in real time.

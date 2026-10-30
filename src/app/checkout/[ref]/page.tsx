@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import PayPanel from "@/components/PayPanel";
+import InGameDetailsPayment from "@/components/checkout/InGameDetailsPayment";
 import ConfirmReceiveButton from "@/components/ConfirmReceiveButton";
 import DisputeButton from "@/components/DisputeButton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -39,6 +39,7 @@ export default async function CheckoutOrderPage({
         *,
         products (
           title, image_url, delivery_method,
+          product_categories ( slug, name ),
           sellers ( display_name )
         )
       `,
@@ -56,15 +57,29 @@ export default async function CheckoutOrderPage({
       seller_proceeds: number;
       commission_rate: number;
       quantity: number;
+      player_game_id: string | null;
+      server_id: string | null;
       delivery_payload: string | null;
       created_at: string;
-      products: { title: string; image_url: string | null; delivery_method: string } & {
+      products: {
+        title: string;
+        image_url: string | null;
+        delivery_method: string;
+        product_categories: { slug: string; name: string } | { slug: string; name: string }[];
         sellers: { display_name: string } | null;
       } | null;
     }>();
 
   // RLS hides other people's orders — a nonexistent row means "not yours/invalid"
   if (!order || order.buyer_id !== user.userId) notFound();
+
+  // PostgREST may deliver the to-one product_categories embed as an object or a
+  // one-element array — normalize before reading the slug.
+  const category = Array.isArray(order.products?.product_categories)
+    ? (order.products?.product_categories[0] ?? null)
+    : (order.products?.product_categories ?? null);
+  // "Top Ups" is the topup category: its Game User ID / Player ID is REQUIRED
+  const isTopUp = category?.slug === "top-ups";
 
   const status = STATUS_LABELS[order.status] ?? {
     text: order.status,
@@ -106,14 +121,21 @@ export default async function CheckoutOrderPage({
 
       {order.status === "pending_payment" && (
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
-          <h2 className="mb-3 text-sm font-bold">1️⃣ Payment</h2>
-          <PayPanel
+          <h2 className="mb-3 text-sm font-bold">1️⃣ Delivery details &amp; payment</h2>
+          {/* InGameDetailsPayment renders the "🎮 In-Game Details" form (Game
+              User ID / Player ID + optional Server / Zone ID) FIRST, in JSX,
+              and the gated KHQR "💳 Payment" box directly below it — the form
+              is always visible above the payment controls on this card. */}
+          <InGameDetailsPayment
             orderId={order.id}
             publicRef={order.public_ref}
-            amount={order.subtotal}
             productId={order.product_id}
+            amount={order.subtotal}
             quantity={order.quantity}
             unitPrice={order.unit_price}
+            isTopUp={isTopUp}
+            initialGameUserId={order.player_game_id}
+            initialServerId={order.server_id}
           />
         </div>
       )}

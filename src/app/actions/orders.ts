@@ -129,6 +129,45 @@ export async function completeOrder(orderId: number): Promise<ActionResult> {
 }
 
 /**
+ * Buyer: save WHERE the seller should deliver a top-up / in-game purchase
+ * ("Game User ID / Player ID" + optional "Server / Zone ID").
+ * Writes orders.player_game_id / orders.server_id through the SECURITY
+ * DEFINER RPC from migration 0025 — the orders RLS only lets staff UPDATE
+ * rows directly, so direct table writes from the browser are impossible.
+ * The RPC re-checks ownership (auth.uid() = buyer_id) and freezes the
+ * details once delivery work has started.
+ */
+export async function savePlayerGameDetails(
+  orderId: number,
+  gameUserId: string,
+  serverId: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const supabase = await createSupabaseServerClient();
+
+    const game = gameUserId.trim();
+    const server = serverId.trim();
+    if (game.length < 2 || game.length > 120) {
+      return { ok: false, message: "Game User ID / Player ID must be 2-120 characters." };
+    }
+    if (server.length > 80) {
+      return { ok: false, message: "Server / Zone ID must be at most 80 characters." };
+    }
+
+    const { error } = await supabase.rpc("save_player_game_details", {
+      p_order_id: orderId,
+      p_game_user_id: game,
+      p_server_id: server.length > 0 ? server : null,
+    });
+    if (error) return { ok: false, message: friendlyDbError(error.message) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: msg(e) };
+  }
+}
+
+/**
  * Buyer (or staff): report a problem with the order → 'disputed'.
  * The escrow trigger (migration 0010) freezes the seller's pending escrow and
  * notifies staff; resolution (delivered/refund) happens in the admin panels.

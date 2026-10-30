@@ -180,6 +180,9 @@ export type Order = {
   buyer_id: string;
   product_id: number;
   quantity: number;
+  /** buyer-supplied top-up delivery target (migration 0025) */
+  player_game_id: string | null;
+  server_id: string | null;
   unit_price: number;
   subtotal: number;
   commission_rate: number;

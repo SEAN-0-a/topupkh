@@ -15,10 +15,10 @@ export default function Footer() {
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <img
                 src="/image/RomdoulKHshop.LOGO-01.png"
-                alt="RomdoulKHshop"
-                style={{ height: "36px", width: "auto", objectFit: "contain" }}
+                alt="RomdoulKHShop"
+                style={{ height: "38px", width: "38px", objectFit: "contain" }}
               />
-              <span className="bg-gradient-to-r from-gold to-gold-dark bg-clip-text text-transparent font-extrabold tracking-tight text-lg">
+              <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffcc00" }}>
                 RomdoulKHShop
               </span>
             </div>

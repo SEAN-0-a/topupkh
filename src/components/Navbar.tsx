@@ -61,16 +61,11 @@ export default function Navbar() {
             href="/"
             className="transition-opacity hover:opacity-90"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <img
-                src="/image/RomdoulKHshop.LOGO-01.png"
-                alt="RomdoulKHshop"
-                style={{ height: "36px", width: "auto", objectFit: "contain" }}
-              />
-              <span style={{ fontWeight: "bold", fontSize: "18px", color: "#d4af37" }}>
-                RomdoulKHShop
-              </span>
-            </div>
+            <img
+              src="/image/RomdoulKHshop.LOGO-01.png"
+              alt="RomdoulKHShop"
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
+            />
           </Link>
 
           {/* Main links — one data-driven row, each label a single t() lookup */}

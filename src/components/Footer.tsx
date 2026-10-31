@@ -12,9 +12,13 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
-              <span aria-hidden="true">🎮</span>
-              <span className="bg-gradient-to-r from-gold to-gold-dark bg-clip-text text-transparent">
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <img
+                src="/image/RomdoulKHshop.LOGO-01.png"
+                alt="RomdoulKHshop"
+                style={{ height: "36px", width: "auto", objectFit: "contain" }}
+              />
+              <span className="bg-gradient-to-r from-gold to-gold-dark bg-clip-text text-transparent font-extrabold tracking-tight text-lg">
                 RomdoulKHShop
               </span>
             </div>

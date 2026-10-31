@@ -16,7 +16,7 @@ export default function Footer() {
               <img
                 src="/image/RomdoulKHshop.LOGO-01.png"
                 alt="RomdoulKHShop"
-                style={{ height: "38px", width: "38px", objectFit: "contain" }}
+                style={{ height: "52px", width: "auto", transform: "scale(1.3)", transformOrigin: "left center", objectFit: "contain" }}
               />
               <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffcc00" }}>
                 RomdoulKHShop

@@ -8,6 +8,9 @@ export const metadata = {
   title: "RomdoulKHShop — Cambodia's Gaming Top-Up Marketplace",
   description:
     "Buy Mobile Legends, PUBG, Free Fire and Roblox top-ups safely in Cambodia. USD payments via KHQR (ABA PayWay) with escrow-protected delivery.",
+  icons: {
+    icon: "/image/websitefavicon1.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

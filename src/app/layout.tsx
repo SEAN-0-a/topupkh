@@ -9,7 +9,7 @@ export const metadata = {
   description:
     "Buy Mobile Legends, PUBG, Free Fire and Roblox top-ups safely in Cambodia. USD payments via KHQR (ABA PayWay) with escrow-protected delivery.",
   icons: {
-    icon: "/image/websitefavicon.png",
+    icon: "/image/websitefavicon1.png",
   },
 };
 

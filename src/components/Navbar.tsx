@@ -61,13 +61,13 @@ export default function Navbar() {
             href="/"
             className="transition-opacity hover:opacity-90"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
               <img
                 src="/image/RomdoulKHshop.LOGO-01.png"
                 alt="RomdoulKHShop"
-                style={{ height: "52px", width: "auto", transform: "scale(1.3)", transformOrigin: "left center", objectFit: "contain" }}
+                style={{ height: "48px", width: "auto", objectFit: "contain" }}
               />
-              <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffcc00" }}>
+              <span style={{ fontSize: "22px", fontWeight: "bold", color: "#ffcc00", marginLeft: "4px" }}>
                 RomdoulKHShop
               </span>
             </div>

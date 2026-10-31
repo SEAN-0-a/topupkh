@@ -18,7 +18,7 @@ export default function Footer() {
                 alt="RomdoulKHShop"
                 style={{ height: "64px", width: "auto", objectFit: "contain", marginTop: "-8px", marginBottom: "-8px" }}
               />
-              <span style={{ fontSize: "22px", fontWeight: "bold", color: "#ffcc00", marginLeft: "4px" }}>
+              <span style={{ fontSize: "22px", fontWeight: "bold", color: "#ffffff", letterSpacing: "0.5px", marginLeft: "12px" }}>
                 RomdoulKHShop
               </span>
             </div>

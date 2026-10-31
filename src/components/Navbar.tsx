@@ -59,12 +59,18 @@ export default function Navbar() {
           {/* Brand */}
           <Link
             href="/"
-            className="flex items-center gap-2 text-lg font-extrabold tracking-tight transition-opacity hover:opacity-90"
+            className="transition-opacity hover:opacity-90"
           >
-            <span aria-hidden="true">🎮</span>
-            <span className="bg-gradient-to-r from-gold to-gold-dark bg-clip-text text-transparent">
-              RomdoulKHShop
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <img
+                src="/logo.jpg"
+                alt="RomdoulKHShop"
+                style={{ height: "36px", width: "auto" }}
+              />
+              <span style={{ fontWeight: "bold", fontSize: "18px", color: "#d4af37" }}>
+                RomdoulKHShop
+              </span>
+            </div>
           </Link>
 
           {/* Main links — one data-driven row, each label a single t() lookup */}

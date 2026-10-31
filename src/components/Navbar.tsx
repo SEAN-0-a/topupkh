@@ -65,7 +65,7 @@ export default function Navbar() {
               <img
                 src="/logo.jpg"
                 alt="RomdoulKHShop"
-                style={{ height: "36px", width: "auto" }}
+                style={{ height: "32px", width: "32px", objectFit: "cover", borderRadius: "50%" }}
               />
               <span style={{ fontWeight: "bold", fontSize: "18px", color: "#d4af37" }}>
                 RomdoulKHShop

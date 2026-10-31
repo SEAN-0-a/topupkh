@@ -64,7 +64,7 @@ export default function Navbar() {
             <img
               src="/image/RomdoulKHshop.LOGO-01.png"
               alt="RomdoulKHShop"
-              style={{ height: "44px", width: "auto", objectFit: "contain" }}
+              style={{ height: "60px", width: "auto", maxHeight: "none", objectFit: "contain" }}
             />
           </Link>
 

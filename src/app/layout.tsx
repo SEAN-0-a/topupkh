@@ -2,6 +2,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ThemeProvider from "@/components/ThemeProvider";
+import CrispChat from "@/components/CrispChat";
 import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LanguageProvider>
             <div className="flex min-h-screen flex-col">
               <Navbar />
+              <CrispChat />
               <main className="flex-1">{children}</main>
               <Footer />
             </div>

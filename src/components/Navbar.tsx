@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { Crisp } from "crisp-sdk-web";
 import { useLanguage } from "@/context/LanguageContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
@@ -27,6 +28,21 @@ export default function Navbar() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
+
+  /**
+   * "24/7 live support" → opens the Crisp chat window directly.
+   * chat.open() re-invokes the SDK's auto-inject path, which THROWS
+   * ("websiteId must be set before loading Crisp") when CrispChat never
+   * configured a website id — fall back to the /feedback form instead of
+   * leaving a dead button.
+   */
+  function handleLiveSupport() {
+    try {
+      Crisp.chat.open();
+    } catch {
+      router.push("/feedback");
+    }
+  }
 
   useEffect(() => {
     async function getUser() {
@@ -100,8 +116,11 @@ export default function Navbar() {
 
           {/* Right utilities */}
           <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/feedback"
+            <button
+              type="button"
+              onClick={handleLiveSupport}
+              aria-label="Open 24/7 live support chat"
+              title="24/7 live support"
               className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:text-amber-400 dark:text-gray-300 lg:flex"
             >
               <span className="relative flex h-2 w-2">
@@ -109,7 +128,7 @@ export default function Navbar() {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               </span>
               24/7 live support
-            </Link>
+            </button>
             <LangCurrencySelector />
             <ThemeToggle />
           </div>

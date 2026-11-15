@@ -1,27 +1,27 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
 import ThemeToggle from "@/components/ThemeToggle";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import UserMenu from "@/components/UserMenu";
 
 /**
- * One top-nav entry. `labelKey` is resolved through the ACTIVE language
- * dictionary at render time — each link renders exactly one `t()` result,
- * so the active-language label is the only text that can ever appear.
+ * Eldorado-style two-row header.
+ *
+ * Row 1: brand (left) · wide rounded search bar (center) · message,
+ *        notification and profile controls (right).
+ * Row 2: category pill navigation (left) · live-support link, language/
+ *        currency selector and theme toggle (right).
+ *
+ * Deep-navy surfaces (#0d0f1d / #111322) with gold as the single accent for
+ * the active pill. Mobile keeps the same order but swaps the center search
+ * for a full-width row and lets the pills scroll horizontally.
  */
-interface NavLinkItem {
-  href: string;
-  labelKey: string;
-  /** Optional leading emoji. */
-  icon?: string;
-}
-
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -44,63 +44,41 @@ export default function Navbar() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Built inline (not module scope): entries below depend on auth state.
-  // Per-account destinations (orders, wallet/seller dashboard, verification,
-  // offer creation) live in the UserMenu dropdown — the navbar stays minimal.
-  const mainLinks: NavLinkItem[] = [
-    { href: "/marketplace", labelKey: "nav.marketplace" },
-    { href: "/seller/orders", labelKey: "nav.sell" },
-  ];
-
   return (
-    <nav className="sticky top-0 z-50 border-b border-navy-600 bg-navy/95 backdrop-blur shadow-sm">
-      <div className="mx-auto max-w-7xl px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
+    <nav className="sticky top-0 z-50 border-b border-navy-600 bg-[#0d0f1d]/95 shadow-sm backdrop-blur">
+      <div className="mx-auto max-w-7xl px-4">
+        {/* ── Row 1: brand · search · utilities ─────────────────────── */}
+        <div className="flex items-center gap-3 py-3">
           {/* Brand */}
-          <Link
-            href="/"
-            className="transition-opacity hover:opacity-90"
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              <img
-                src="/image/RomdoulKHshop.LOGO-01.png"
-                alt="RomdoulKHShop"
-                style={{ height: "64px", width: "auto", objectFit: "contain", marginTop: "-8px", marginBottom: "-8px" }}
-              />
-              <span style={{ fontSize: "22px", fontWeight: "bold", color: "#ffffff", letterSpacing: "0.5px", marginLeft: "12px" }}>
-                RomdoulKHShop
-              </span>
-            </div>
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90">
+            <img
+              src="/image/RomdoulKHshop.LOGO-01.png"
+              alt="RomdoulKHShop"
+              className="h-10 w-auto object-contain"
+            />
+            <span className="hidden text-lg font-bold tracking-wide text-white min-[420px]:block">
+              RomdoulKHShop
+            </span>
           </Link>
 
-          {/* Main links — one data-driven row, each label a single t() lookup */}
-          <div className="hidden items-center gap-4 text-xs font-semibold md:flex">
-            {mainLinks.map((item) => {
-              const active = item.href === "/marketplace"
-                ? pathname === "/marketplace" && !pathname.includes("category")
-                : pathname === item.href;
-              return (
-                <NavLink
-                  key={item.href}
-                  {...item}
-                  active={active}
-                  label={t(item.labelKey)}
-                />
-              );
-            })}
-          </div>
+          {/* Wide rounded search bar (desktop) */}
+          <SearchBar className="mx-2 hidden flex-1 md:block" placeholder={t("market.search_placeholder")} />
 
-          {/* Right controls: theme, language, then auth */}
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSwitcher />
+          {/* Utility controls */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <IconLink href="/messages" label="Messages">
+              <ChatIcon />
+            </IconLink>
+            <IconLink href="/notifications" label="Notifications">
+              <BellIcon />
+            </IconLink>
 
             {user ? (
               <UserMenu user={user} />
             ) : (
               <button
                 onClick={() => router.push("/login")}
-                className="rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-navy transition-all hover:bg-gold-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal"
+                className="rounded-full bg-gold px-3.5 py-1.5 text-xs font-bold text-navy transition-all hover:bg-gold-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal"
               >
                 {t("nav.login")}
               </button>
@@ -108,38 +86,63 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Category tabs (Eldorado-style) — mobile: swipeable row.
-            Suspense boundary required: useSearchParams + statically
-            prerendered pages (Next.js 16 rule). */}
-        <Suspense fallback={<div className="h-9" />}>
-          <CategoryTabs pathname={pathname} />
-        </Suspense>
+        {/* Search bar (mobile — full width row under the brand row) */}
+        <SearchBar className="pb-3 md:hidden" placeholder={t("market.search_placeholder")} />
+
+        {/* ── Row 2: category pills · support / language / theme ────── */}
+        <div className="flex items-center justify-between gap-3 border-t border-white/5 py-2">
+          {/* Category pills — mobile: swipeable row.
+              Suspense boundary required: useSearchParams + statically
+              prerendered pages (Next.js 16 rule). */}
+          <Suspense fallback={<div className="h-8 flex-1" />}>
+            <CategoryTabs pathname={pathname} />
+          </Suspense>
+
+          {/* Right utilities */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/feedback"
+              className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 transition-colors hover:text-white lg:flex"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              24/7 live support
+            </Link>
+            <LangCurrencySelector />
+            <ThemeToggle />
+          </div>
+        </div>
       </div>
     </nav>
   );
 }
 
-/** Single-link renderer: displays ONE translated string (+ optional icon). */
-function NavLink({
-  href,
-  label,
-  active,
-  icon,
-}: {
-  href: string;
-  label: string;
-  active: boolean;
-  icon?: string;
-}) {
-  const cls = active
-    ? "font-bold text-gold"
-    : "text-slate-300 hover:text-gold";
+/* ── Search ─────────────────────────────────────────────────────────── */
+
+/** Wide, rounded search bar with a magnifying-glass icon (GET → /marketplace). */
+function SearchBar({ className = "", placeholder }: { className?: string; placeholder?: string }) {
   return (
-    <Link href={href} className={`transition-all ${cls}`}>
-      {icon ? `${icon} ${label}` : label}
-    </Link>
+    <form
+      action="/marketplace"
+      className={`relative w-full items-center ${className}`}
+      role="search"
+    >
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500">
+        <MagnifierIcon />
+      </span>
+      <input
+        name="q"
+        type="search"
+        placeholder={placeholder ?? "Search for games, keywords, sellers..."}
+        className="w-full rounded-full border border-gray-700 bg-[#111322] py-2.5 pl-11 pr-4 text-sm text-white placeholder-gray-500 transition-colors focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30"
+      />
+    </form>
   );
 }
+
+/* ── Category pills ─────────────────────────────────────────────────── */
 
 const CATEGORY_TABS = [
   { slug: "robux-currency", key: "cat.currency" },
@@ -156,7 +159,7 @@ function CategoryTabs({ pathname }: { pathname: string }) {
   const { t } = useLanguage();
 
   return (
-    <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {CATEGORY_TABS.map((tab) => {
         const active = pathname === "/marketplace" && activeCategory === tab.slug;
         return (
@@ -166,7 +169,7 @@ function CategoryTabs({ pathname }: { pathname: string }) {
             className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-all ${
               active
                 ? "bg-gold text-navy"
-                : "bg-white/10 text-slate-300 hover:bg-white/20 hover:text-slate-100"
+                : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white"
             }`}
           >
             {t(tab.key)}
@@ -174,5 +177,81 @@ function CategoryTabs({ pathname }: { pathname: string }) {
         );
       })}
     </div>
+  );
+}
+
+/* ── Language / currency selector ───────────────────────────────────── */
+
+/**
+ * Eldorado-style "English | USD - $" pill. Currency is fixed (USD) and the
+ * button cycles EN ⇄ KH through the global language store, so the whole
+ * header re-renders in the selected language.
+ */
+function LangCurrencySelector() {
+  const { lang, setLanguage, hydrated } = useLanguage();
+  const isKhmer = hydrated ? lang === "km" : true; // stable SSR default
+
+  return (
+    <button
+      type="button"
+      onClick={() => setLanguage(isKhmer ? "en" : "km")}
+      aria-label={isKhmer ? "Switch to English" : "បំលែងទៅភាសាខ្មែរ"}
+      title={isKhmer ? "Switch to English" : "បំលែងទៅភាសាខ្មែរ"}
+      className="flex items-center gap-1.5 rounded-full border border-gray-700 bg-[#111322] px-3 py-1.5 text-[11px] font-semibold text-gray-300 transition-all hover:border-gray-500 hover:text-white"
+    >
+      <span>🌐</span>
+      <span className="hidden sm:inline">{isKhmer ? "ខ្មែរ | USD - $" : "English | USD - $"}</span>
+      <span className="sm:hidden">{isKhmer ? "ខ្មែរ" : "EN"} | $</span>
+    </button>
+  );
+}
+
+/* ── Small building blocks ──────────────────────────────────────────── */
+
+/** Circular icon button linking to a utility page. */
+function IconLink({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="rounded-full border border-gray-700 bg-[#111322] p-2 text-gray-300 transition-all hover:border-gray-500 hover:text-white"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MagnifierIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 8.5-8.5 8.38 8.38 0 0 1 8.5 8.5z" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
   );
 }

@@ -8,6 +8,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseProductDetail, asRecord } from "@/lib/db-parse";
+import { pickCoverImage, resolveProductImageSrc } from "@/lib/product-cover";
 
 type ServerSupabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -17,6 +18,8 @@ export type ProductDetail = {
   title: string;
   description: string;
   image_url: string | null;
+  /** Gallery URLs (0013) — first entry mirrors image_url; [] in degraded reads. */
+  images: string[];
   /** null (missing column) renders as "Price unavailable" — never fake $0.00. */
   price_usd: number | null;
   original_price_usd: number | null;
@@ -42,13 +45,13 @@ export type ProductDetail = {
  *  underlying prepared plan enum-free where possible and make the read
  *  succeed or fail on its own merits. */
 const PRODUCT_COLUMNS =
-  "id, seller_id, title, description, image_url, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
   "delivery_method, delivery_details, stock, stock_is_unlimited, estimated_minutes, " +
   "refund_policy, ownership_note, status, sold_count, rating_sum, rating_count, created_at";
 
 /** Primitive-only fallback (no enum-typed columns: delivery_method, status). */
 const PRODUCT_STUB_COLUMNS =
-  "id, seller_id, title, description, image_url, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
   "delivery_details, stock, stock_is_unlimited, estimated_minutes, refund_policy, " +
   "ownership_note, sold_count, rating_sum, rating_count, created_at";
 

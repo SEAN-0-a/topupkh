@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import SafeProductImage from "@/components/SafeProductImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadProductDetail, type ProductDetail } from "@/lib/product-detail";
+import { pickCoverImage, resolveProductImageSrc } from "@/lib/product-cover";
 import { loadSellerCard, type SellerCard } from "@/lib/seller-card";
 import ProductBuyPanel from "./components/ProductBuyPanel";
 import ProductDetailCards from "./components/ProductDetailCards";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
 type ProductPageData = {
   notFound: false;
   product: ProductDetail;
+  /** Cover URL: image_url, else images[0], with bare Storage paths resolved. */
+  cover: string | null;
   degraded: boolean;
   isOwner: boolean;
   isPending: boolean;
@@ -37,6 +40,12 @@ async function loadProductPageData(productId: string): Promise<ProductPageData |
     const mySellerId = detail?.mySellerId ?? null;
     if (!product) return { notFound: true };
 
+    // Cover: canonical image_url first, then the images[] gallery — and any
+    // bare Storage path is converted to a public URL before rendering, so a
+    // valid photo can never degrade to "COVER UNAVAILABLE" over a naming gap.
+    const coverRaw = pickCoverImage(product.image_url, product.images);
+    const cover = coverRaw ? resolveProductImageSrc(supabase, coverRaw) : null;
+
     const isLive = product.status === "approved";
     const isOwner = mySellerId !== null && product.seller_id === mySellerId;
     if (!isLive && !isOwner) return { notFound: true };
@@ -48,7 +57,7 @@ async function loadProductPageData(productId: string): Promise<ProductPageData |
       ? null
       : await loadSellerCard(supabase, product.seller_id);
 
-    return { notFound: false, product, degraded: !!detail?.degraded, isOwner, isPending, seller };
+    return { notFound: false, product, cover, degraded: !!detail?.degraded, isOwner, isPending, seller };
   } catch (e) {
     console.error("[/product] page data load failed:", e instanceof Error ? e.message : e);
     return { notFound: true };
@@ -64,7 +73,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const data = await loadProductPageData(id); // bigint-exact string id
   if (data.notFound) notFound(); // branded message: ./not-found.tsx
-  const { product, degraded, seller, isOwner, isPending } = data;
+  const { product, cover, degraded, seller, isOwner, isPending } = data;
 
   // ---- null-safe display derivations (DB fields are typed non-null here, but
   // degraded fallbacks / old schemas can still hand us nulls or junk dates) ----
@@ -97,9 +106,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-6 md:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
           {/* SafeProductImage — same visual as ProductCard; a broken/null
-              image_url gets the clean placeholder, never a dead <img>. */}
+              cover gets the clean placeholder, never a dead <img>. The cover
+              itself falls back to images[] when image_url is empty, so a
+              valid photo always renders. */}
           <SafeProductImage
-            src={product.image_url ?? null}
+            src={cover}
             alt={product.title ?? "Product image"}
             loading="eager"
             className="h-72 w-full bg-gray-950 object-cover"

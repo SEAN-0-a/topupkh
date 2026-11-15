@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BuyButton from "@/components/BuyButton";
 import SafeProductImage from "@/components/SafeProductImage";
+import { isUsableImageValue, resolveProductImageSrc } from "@/lib/product-cover";
 import T from "@/components/T";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +84,13 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
     }
   }
 
-  const images = (listing.images ?? []).filter(Boolean);
+  // Legacy rows can hold bare Storage paths (no scheme) instead of full public
+  // URLs — resolve those against the product-images bucket so a valid photo
+  // never 404s into the "COVER UNAVAILABLE" placeholder. blob:/empty junk is
+  // dropped entirely (never renderable for buyers).
+  const images = (listing.images ?? [])
+    .filter(isUsableImageValue)
+    .map((u) => resolveProductImageSrc(supabase, u));
   const cover = images[0] ?? null;
   const rating =
     seller && seller.rating_count > 0

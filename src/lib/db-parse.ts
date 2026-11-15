@@ -10,7 +10,6 @@
 import type { ProductDetail } from "@/lib/product-detail";
 
 // ---- primitives ------------------------------------------------------------
-
 /** unknown → finite number, else null. (Number(null)===0, so null is
  *  explicitly first — a zero price must mean a real zero, never missing data.) */
 export function num(v: unknown): number | null {
@@ -38,6 +37,15 @@ export function bool(v: unknown): boolean | null {
   if (v === "true") return true;
   if (v === "false") return false;
   return null;
+}
+
+/** unknown → string[] (text[] columns, e.g. products.images). Junk entries
+ *  and non-strings are dropped; a missing/non-array column degrades to []. */
+export function strArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((s) => s.length > 0);
 }
 
 /** unchecked object gate for every row parse. */
@@ -73,6 +81,7 @@ export function parseProductDetail(
     title: str(r.title) ?? "",
     description: str(r.description) ?? "",
     image_url: str(r.image_url),
+    images: strArray(r.images),
     price_usd: num(r.price_usd),
     original_price_usd: num(r.original_price_usd),
     delivery_method: str(r.delivery_method) ?? "in_game",

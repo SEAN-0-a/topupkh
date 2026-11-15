@@ -46,7 +46,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur dark:border-navy-600 dark:bg-[#0d0f1d]/95">
-      <div className="mx-auto max-w-7xl px-4">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* ── Row 1: brand · search · utilities ─────────────────────── */}
         <div className="flex items-center gap-3 py-3">
           {/* Brand */}
@@ -159,14 +159,14 @@ function CategoryTabs({ pathname }: { pathname: string }) {
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex flex-1 items-center gap-4 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-6">
       {CATEGORY_TABS.map((tab) => {
         const active = pathname === "/marketplace" && activeCategory === tab.slug;
         return (
           <Link
             key={tab.slug}
             href={`/marketplace?category=${tab.slug}`}
-            className={`whitespace-nowrap px-2.5 py-1.5 text-[11px] font-bold transition-colors first:pl-1 ${
+            className={`whitespace-nowrap py-2 text-sm font-medium transition-colors first:pl-0 ${
               active
                 ? "text-amber-600 dark:text-amber-400"
                 : "text-gray-700 hover:text-amber-400 dark:text-gray-300"

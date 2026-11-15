@@ -45,7 +45,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-navy-600 bg-[#0d0f1d]/95 shadow-sm backdrop-blur">
+    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur dark:border-navy-600 dark:bg-[#0d0f1d]/95">
       <div className="mx-auto max-w-7xl px-4">
         {/* ── Row 1: brand · search · utilities ─────────────────────── */}
         <div className="flex items-center gap-3 py-3">
@@ -56,7 +56,7 @@ export default function Navbar() {
               alt="RomdoulKHShop"
               className="h-10 w-auto object-contain"
             />
-            <span className="hidden text-lg font-bold tracking-wide text-white min-[420px]:block">
+            <span className="hidden text-lg font-bold tracking-wide text-slate-900 dark:text-white min-[420px]:block">
               RomdoulKHShop
             </span>
           </Link>
@@ -90,7 +90,7 @@ export default function Navbar() {
         <SearchBar className="pb-3 md:hidden" placeholder={t("market.search_placeholder")} />
 
         {/* ── Row 2: category pills · support / language / theme ────── */}
-        <div className="flex items-center justify-between gap-3 border-t border-white/5 py-2">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 py-2 dark:border-white/5">
           {/* Category pills — mobile: swipeable row.
               Suspense boundary required: useSearchParams + statically
               prerendered pages (Next.js 16 rule). */}
@@ -102,7 +102,7 @@ export default function Navbar() {
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href="/feedback"
-              className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-gray-300 transition-colors hover:text-white lg:flex"
+              className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:text-amber-400 dark:text-gray-300 lg:flex"
             >
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -129,14 +129,14 @@ function SearchBar({ className = "", placeholder }: { className?: string; placeh
       className={`relative w-full items-center ${className}`}
       role="search"
     >
-      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
         <MagnifierIcon />
       </span>
       <input
         name="q"
         type="search"
         placeholder={placeholder ?? "Search for games, keywords, sellers..."}
-        className="w-full rounded-full border border-gray-700 bg-[#111322] py-2.5 pl-11 pr-4 text-sm text-white placeholder-gray-400 transition-colors focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30"
+        className="w-full rounded-full border border-slate-300 bg-slate-100 py-2.5 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-500 transition-colors focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30 dark:border-gray-700 dark:bg-[#111322] dark:text-white dark:placeholder:text-gray-400"
       />
     </form>
   );
@@ -168,8 +168,8 @@ function CategoryTabs({ pathname }: { pathname: string }) {
             href={`/marketplace?category=${tab.slug}`}
             className={`whitespace-nowrap px-2.5 py-1.5 text-[11px] font-bold transition-colors first:pl-1 ${
               active
-                ? "text-gold"
-                : "text-gray-300 hover:text-white"
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-gray-700 hover:text-amber-400 dark:text-gray-300"
             }`}
           >
             {t(tab.key)}
@@ -197,7 +197,7 @@ function LangCurrencySelector() {
       onClick={() => setLanguage(isKhmer ? "en" : "km")}
       aria-label={isKhmer ? "Switch to English" : "បំលែងទៅភាសាខ្មែរ"}
       title={isKhmer ? "Switch to English" : "បំលែងទៅភាសាខ្មែរ"}
-      className="flex items-center gap-1.5 rounded-full border border-gray-700 bg-[#111322] px-3 py-1.5 text-[11px] font-semibold text-gray-200 transition-all hover:border-gray-500 hover:text-white"
+      className="flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-gray-700 transition-all hover:border-gray-400 hover:text-slate-900 dark:border-gray-700 dark:bg-[#111322] dark:text-gray-200 dark:hover:border-gray-500 dark:hover:text-white"
     >
       <span>🌐</span>
       <span className="hidden sm:inline">{isKhmer ? "ខ្មែរ | USD - $" : "English | USD - $"}</span>
@@ -223,7 +223,7 @@ function IconLink({
       href={href}
       aria-label={label}
       title={label}
-      className="rounded-full border border-gray-700 bg-[#111322] p-2 text-gray-200 transition-all hover:border-gray-500 hover:text-white"
+      className="rounded-full border border-slate-300 bg-slate-100 p-2 text-gray-700 transition-all hover:border-gray-400 hover:text-slate-900 dark:border-gray-700 dark:bg-[#111322] dark:text-gray-200 dark:hover:border-gray-500 dark:hover:text-white"
     >
       {children}
     </Link>

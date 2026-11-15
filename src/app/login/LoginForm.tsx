@@ -18,6 +18,30 @@ function useTurnstileTheme(): "light" | "dark" {
 }
 
 /**
+ * Map raw Supabase/GoTrue error strings to user-actionable messages.
+ * The classic failure for brand-new (Google) accounts is the auth.users
+ * provisioning trigger crashing — see supabase/migrations/0021_fix_auth_trigger_crash.sql.
+ */
+function friendlyAuthError(message: string): string {
+  if (/database error saving new user|unexpected_failure/i.test(message)) {
+    return "Your account could not be created because our user-provisioning step failed. This is a server-side issue (please report it) — existing accounts are unaffected.";
+  }
+  if (/redirect[_ ]?uri|origin not allowed|not in the list of redirect/i.test(message)) {
+    return "Sign-in is blocked by a redirect-URL configuration mismatch. Please report this so we can update the allowed redirect URLs.";
+  }
+  if (/provider.*not.*enabled|unsupported provider|provider is not enabled/i.test(message)) {
+    return "This sign-in provider is currently disabled. Please use email & password for now.";
+  }
+  if (/signups? not allowed/i.test(message)) {
+    return "New account registration is temporarily disabled. Please try again later.";
+  }
+  if (/verification|confirm/i.test(message) && /email/i.test(message)) {
+    return "Please confirm your email address first — check your inbox (and spam folder) for the confirmation link.";
+  }
+  return message;
+}
+
+/**
  * The interactive login form. Authenticated-visit guarding is two-layered:
  *   - the server page (src/app/login/page.tsx) redirects already-signed-in
  *     visitors with full SSR context, and
@@ -39,6 +63,25 @@ export default function LoginForm() {
   // Client-side guard: an authenticated user never sees the login screen.
   useEffect(() => {
     let alive = true;
+
+    // Surface OAuth failures passed back by /auth/callback (?auth_error=...).
+    // Read in an effect (not useSearchParams) so no Suspense boundary is
+    // required, then strip the query so a refresh doesn't re-show the banner.
+    const params = new URLSearchParams(window.location.search);
+    const oauthError =
+      params.get("auth_error") ?? params.get("error_description") ?? params.get("error");
+    if (oauthError) {
+      setErrorMsg(friendlyAuthError(oauthError));
+      params.delete("auth_error");
+      params.delete("error_description");
+      params.delete("error");
+      const rest = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${rest ? `?${rest}` : ""}`,
+      );
+    }
 
     async function checkExistingSession() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -83,14 +126,26 @@ export default function LoginForm() {
 
   async function handleOAuthLogin(provider: "google" | "facebook") {
     const next = getNextPath();
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        // /auth/callback exchanges the PKCE ?code= for a cookie session
-        // (see src/app/auth/callback/route.ts) and then redirects to `next`.
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // /auth/callback exchanges the PKCE ?code= for a cookie session
+          // (see src/app/auth/callback/route.ts) and then redirects to `next`.
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      });
+      // signInWithOAuth does NOT throw for config problems (provider disabled,
+      // redirect URL rejected) — it RESOLVES with an error. Never discard it.
+      if (error) throw error;
+      // Success: the browser is navigating to the provider; keep the spinner.
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "OAuth sign-in failed";
+      setErrorMsg(friendlyAuthError(message));
+      setLoading(false);
+    }
   }
 
   async function handleAuth(e: React.FormEvent) {
@@ -129,7 +184,7 @@ export default function LoginForm() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed";
-      setErrorMsg(message);
+      setErrorMsg(friendlyAuthError(message));
       resetTurnstile();
     } finally {
       setLoading(false);

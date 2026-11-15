@@ -12,8 +12,13 @@ export async function GET(request: NextRequest) {
 
   const error = searchParams.get("error");
   if (error) {
-    console.warn("OAuth provider returned an error:", error, searchParams.get("error_description"));
-    return NextResponse.redirect(new URL("/login", origin));
+    const description = searchParams.get("error_description") ?? error;
+    console.warn("OAuth provider returned an error:", error, description);
+    // Surface the failure on /login instead of bouncing the user back to an
+    // unexplained, clean form.
+    return NextResponse.redirect(
+      new URL(`/login?auth_error=${encodeURIComponent(description)}`, origin),
+    );
   }
 
   const next = searchParams.get("next") ?? "/marketplace";
@@ -45,7 +50,14 @@ export async function GET(request: NextRequest) {
     if (exchangeError) {
       console.error("Failed to exchange OAuth code for session:", exchangeError.message);
       // The response cookie jar may have been mutated; re-create redirect only.
-      return NextResponse.redirect(new URL("/login", origin));
+      // Common causes surfaced to the user: PKCE verifier cookie missing
+      // (cookies blocked / cross-domain) or a code replayed after expiry.
+      return NextResponse.redirect(
+        new URL(
+          `/login?auth_error=${encodeURIComponent(`Sign-in could not be completed: ${exchangeError.message}`)}`,
+          origin,
+        ),
+      );
     }
   }
 

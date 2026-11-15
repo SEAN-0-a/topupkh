@@ -109,7 +109,12 @@ export default function SafeProductImage({
       height={height}
       className={className}
       loading={loading}
-      onError={() => setFailed(true)}
+      // Broken/missing URL → the branded placeholder. The guard prevents a
+      // redundant state write if the (unfailable) data-URL placeholder itself
+      // were to report an error — onError can never loop.
+      onError={() => {
+        if (usable) setFailed(true);
+      }}
     />
   );
 }

@@ -1,6 +1,19 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { JUNK_TITLE_PATTERN } from "@/lib/catalog";
+import { pickCoverImage, resolveProductImageSrc } from "@/lib/product-cover";
 import type { seller_status, product_status } from "@/lib/db-enums";
+
+/** Cover normalization for the store shelf: image_url → images[0], then any
+ *  bare Storage path resolved to a public URL (never "COVER UNAVAILABLE"
+ *  when a valid photo exists). */
+function resolveStoreCover(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  imageUrl: string | null,
+  images: string[] | null | undefined,
+): string | null {
+  const raw = pickCoverImage(imageUrl, images);
+  return raw ? resolveProductImageSrc(supabase, raw) : null;
+}
 
 // =============================================================================
 // /seller/[id] store data — Eldorado-style VENDOR PROFILE
@@ -38,6 +51,8 @@ export type StoreProduct = {
   id: number;
   title: string;
   image_url: string | null;
+  /** Gallery URLs (0013) — normalized away into image_url by the loader. */
+  images?: string[] | null;
   price_usd: number;
   original_price_usd: number | null;
   stock: number;
@@ -177,7 +192,7 @@ export async function loadStoreData(
   // `delivery_time` comes from migration 0013; databases that predate it must
   // NOT blank out the whole shelf, so on that specific schema error we retry
   // with the core-0001 column set (estimated_minutes covers the badge).
-  const PRODUCT_COLUMNS = `id, title, image_url, price_usd, original_price_usd, stock,
+  const PRODUCT_COLUMNS = `id, title, image_url, images, price_usd, original_price_usd, stock,
        stock_is_unlimited, estimated_minutes, updated_at,
        sold_count, rating_sum, rating_count,
        product_categories ( id, name, slug, stock_model ),
@@ -217,7 +232,8 @@ export async function loadStoreData(
     (p) => ({
       id: p.id,
       title: p.title,
-      image_url: p.image_url,
+      // cover fallback chain (image_url → images[0]) + Storage-path resolution
+      image_url: resolveStoreCover(supabase, p.image_url, p.images),
       price_usd: Number(p.price_usd),
       original_price_usd: p.original_price_usd === null ? null : Number(p.original_price_usd),
       stock: p.stock,

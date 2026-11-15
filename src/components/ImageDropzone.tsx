@@ -13,8 +13,17 @@ type ItemStatus = "uploading" | "stored" | "local";
 type Item = {
   id: string;
   fileName: string;
-  /** storage public URL (stored) or blob: object URL (local preview) */
-  url: string;
+  /**
+   * Instant LOCAL PREVIEW — a blob: object URL created with
+   * URL.createObjectURL(file) at SELECTION time, so the seller sees their
+   * photo immediately (before, during and after upload). Revoked on
+   * removal / unmount.
+   */
+  previewUrl: string;
+  /** Raw file, kept for (re)uploading to Supabase Storage. */
+  file: File;
+  /** Storage public URL once uploaded; null while uploading or degraded. */
+  url: string | null;
   status: ItemStatus;
 };
 
@@ -28,13 +37,16 @@ type Props = {
  *
  * - pick from the device (<input type="file" accept="image/*" multiple>) AND
  *   drag & drop
+ * - INSTANT LOCAL PREVIEWS: every picked file immediately gets a blob: object
+ *   URL (URL.createObjectURL) rendered in the thumbnail strip, so the seller
+ *   sees their photo the moment they select it — during, and independent of,
+ *   the Storage upload. The raw File is kept on the item for the upload.
  * - files upload to Supabase Storage's public "product-images" bucket and the
- *   public URL lands in the listing form state
+ *   public URL replaces the preview as the submitted value
  * - if Storage is not fully configured (bucket missing, RLS deny, client
- *   error), the image degrades to URL.createObjectURL(file) so sellers get an
- *   immediate preview. Those previews are local-only and are deliberately NOT
- *   submitted with the offer (a blob: URL would be dead for buyers), and the
- *   seller is told so explicitly.
+ *   error), the item keeps its local preview (status "local"). Those previews
+ *   are local-only and are deliberately NOT submitted with the offer (a blob:
+ *   URL would be dead for buyers), and the seller is told so explicitly.
  */
 export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
   const [items, setItems] = useState<Item[]>([]);
@@ -63,27 +75,31 @@ export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
     const prev = itemsRef.current;
     itemsRef.current = items;
     for (const p of prev) {
-      if (
-        p.status === "local" &&
-        p.url.startsWith("blob:") &&
-        !items.some((i) => i.id === p.id)
-      ) {
-        URL.revokeObjectURL(p.url);
+      if (!items.some((i) => i.id === p.id)) {
+        URL.revokeObjectURL(p.previewUrl);
       }
     }
-    onChangeRef.current(items.filter((i) => i.status === "stored").map((i) => i.url));
+    onChangeRef.current(items.filter((i) => i.status === "stored").map((i) => i.url!));
   }, [items]);
 
-  // teardown: release any blob: preview urls this component created
+  // teardown: release every blob: preview this component created
   useEffect(() => {
     return () => {
       for (const i of itemsRef.current) {
-        if (i.status === "local" && i.url.startsWith("blob:")) URL.revokeObjectURL(i.url);
+        URL.revokeObjectURL(i.previewUrl);
       }
     };
   }, []);
 
-  async function uploadOne(file: File): Promise<{ url: string; status: ItemStatus }> {
+  /**
+   * Uploads the raw File to Supabase Storage. The caller already created the
+   * instant local preview, so failure no longer needs to fabricate one — the
+   * item simply keeps its blob: preview (status "local") and the seller sees
+   * their photo throughout.
+   */
+  async function uploadOne(
+    file: File,
+  ): Promise<{ url: string | null; status: ItemStatus }> {
     const ext = file.name.split(".").pop()?.toLowerCase() || "png";
     const parent = (await supabase.auth.getUser()).data.user?.id ?? "anon";
     const path = `${parent}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
@@ -96,8 +112,8 @@ export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
       if (!data.publicUrl) throw new Error("no public URL returned");
       return { url: data.publicUrl, status: "stored" };
     } catch (e) {
-      console.log("LISTING IMAGE UPLOAD FAILED — falling back to local preview:", e);
-      return { url: URL.createObjectURL(file), status: "local" };
+      console.log("LISTING IMAGE UPLOAD FAILED — keeping local preview:", e);
+      return { url: null, status: "local" };
     }
   }
 
@@ -111,11 +127,16 @@ export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
     const picked = images.slice(0, room);
     setSkipped(images.length > picked.length ? images.length - picked.length : 0);
 
-    // placeholders render instantly, then resolve to their upload result
+    // INSTANT LOCAL PREVIEW: each picked file gets its blob: object URL at
+    // selection time, so the thumbnail renders the seller's actual photo
+    // immediately — never a blank/NULL slot while Storage upload runs.
+    // The raw File is kept on the item for the upload below.
     const pending: Item[] = picked.map((f) => ({
       id: crypto.randomUUID(),
       fileName: f.name,
-      url: "",
+      previewUrl: URL.createObjectURL(f),
+      file: f,
+      url: null,
       status: "uploading",
     }));
     setItems((prev) => [...prev, ...pending]);
@@ -202,7 +223,7 @@ export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
         </p>
       )}
 
-      {/* ---- thumbnails ---- */}
+      {/* ---- thumbnails: instant local previews ---- */}
       {items.length > 0 && (
         <ul className="mt-3 flex flex-wrap gap-2">
           {items.map((item, index) => (
@@ -210,20 +231,30 @@ export default function ImageDropzone({ onChange, maxImages = 8 }: Props) {
               key={item.id}
               className="flex items-center gap-2 rounded-full border border-gray-800 bg-black py-1 pl-1 pr-2.5 text-[11px] text-gray-300"
             >
-              {item.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.url}
-                  alt={item.fileName}
-                  className={`h-8 w-8 rounded-full object-cover ${
-                    item.status === "local" ? "opacity-60" : ""
-                  }`}
-                />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800 text-[9px] text-gray-400">
-                  ⏳
-                </span>
-              )}
+              {/* ALWAYS renders the item's instant blob: preview, so the
+                  seller sees their selected photo right away — the slot is
+                  never blank/NULL while the Storage upload runs. Stored items
+                  render the Storage public URL (proving the buyer-facing copy
+                  works) and fall back to the preview on load errors. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={item.status === "stored" && item.url ? item.url : item.previewUrl}
+                alt={item.fileName}
+                className={`h-8 w-8 rounded-full object-cover ${
+                  item.status === "local"
+                    ? "opacity-60"
+                    : item.status === "uploading"
+                      ? "animate-pulse"
+                      : ""
+                }`}
+                onError={(e) => {
+                  // Stored URL 404'd (rare) → back to the local preview so
+                  // the seller never sees a broken thumbnail mid-flow.
+                  if (e.currentTarget.src !== item.previewUrl) {
+                    e.currentTarget.src = item.previewUrl;
+                  }
+                }}
+              />
               <span className="max-w-[150px] truncate">
                 {item.status === "uploading"
                   ? `Uploading ${item.fileName}`

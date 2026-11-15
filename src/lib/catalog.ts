@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { pickCoverImage, resolveProductImageSrc } from "@/lib/product-cover";
 import type { Product, ProductCategory, Game, Seller } from "@/lib/types";
 
 export type CatalogQuery = {
@@ -132,14 +133,26 @@ async function fetchProductsPage(
   if (error) throw new Error(`Failed to load products: ${error.message}`);
 
   const rows = (data ?? []) as unknown as RawProductRow[];
-  const items = rows.map((r) => ({
-    ...r,
-    joined: {
-      games: r.games ?? null,
-      product_categories: r.product_categories ?? null,
-      sellers: r.sellers ?? null,
-    },
-  })) as unknown as Product[];
+  // Normalize the cover at the data layer so EVERY feed consumer (home
+  // popular shelf, marketplace grid) renders a real photo when one exists:
+  //   1. image_url, else the first gallery entry (products.images, 0013)
+  //   2. bare Storage paths ("uid/….png" in older rows) resolved to public
+  //      URLs via supabase.storage.from("product-images").getPublicUrl()
+  // Full URLs pass through unchanged; rows with no image at all keep null
+  // and SafeProductImage draws its branded placeholder.
+  const items = rows.map((r) => {
+    const coverRaw = pickCoverImage(r.image_url, r.images);
+    return {
+      ...r,
+      image_url: coverRaw ? resolveProductImageSrc(supabase, coverRaw) : null,
+      images: r.images ?? [],
+      joined: {
+        games: r.games ?? null,
+        product_categories: r.product_categories ?? null,
+        sellers: r.sellers ?? null,
+      },
+    };
+  }) as unknown as Product[];
 
   const total = count ?? 0;
   return {
@@ -307,6 +320,7 @@ type groupTemplateProductRow = BaseOfferRow & {
   title: string;
   description: string | null;
   image_url: string | null;
+  images?: string[] | null;
   template_id: number | string | null;
   games: MaybeArray<Pick<Game, "name" | "slug">> | null;
   product_categories: MaybeArray<Pick<ProductCategory, "name" | "slug">> | null;
@@ -513,7 +527,7 @@ export async function getOfferGroup(
   const { data: product } = await supabase
     .from("products")
     .select(`
-      id, title, description, image_url, template_id,
+      id, title, description, image_url, images, template_id,
       price_usd, original_price_usd, delivery_method, estimated_minutes,
       stock, stock_is_unlimited, status, is_deleted,
       games ( name, slug ),
@@ -531,11 +545,14 @@ export async function getOfferGroup(
   if (product.status !== "approved" || product.is_deleted) return null;
 
   const offer = toOfferRow(product);
+  // Cover normalization: image_url → images[0] fallback + Storage-path
+  // resolution, so a valid photo never renders as "COVER UNAVAILABLE".
+  const coverRaw = pickCoverImage(product.image_url, product.images);
   return {
     id: Number(product.id),
     title: product.title,
     description: product.description ?? "",
-    image_url: product.image_url ?? null,
+    image_url: coverRaw ? resolveProductImageSrc(supabase, coverRaw) : null,
     games: one(product.games),
     categories: one(product.product_categories),
     offers: [offer],

@@ -70,6 +70,19 @@ export default function SellerListingForm({ games, categories, sellerStatus }: P
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    // Cover image is REQUIRED: buyers can't evaluate a listing without a
+    // photo, and ImageDropzone only reports successfully-uploaded ("stored")
+    // URLs here — degraded/local previews are deliberately excluded. A blank
+    // gallery means no image survived upload, so block submission client-side
+    // (the DB guard in migration 0027 enforces the same rule server-side).
+    if (imageUrls.length === 0) {
+      setError(
+        "Please upload at least one cover photo before publishing — buyers need to see the item. If the upload keeps failing, check your connection and try again.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {

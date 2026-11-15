@@ -7,6 +7,7 @@ import BuyButton from "@/components/BuyButton";
 import SafeProductImage, {
   PRODUCT_IMAGE_FALLBACK,
 } from "@/components/SafeProductImage";
+import { pickCoverImage } from "@/lib/product-cover";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ type SimilarRow = {
   title: string;
   price_usd: number;
   image_url: string | null;
+  images?: string[];
 };
 
 function one<T>(v: T | T[] | null): T | null {
@@ -94,7 +96,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
     .from("products")
     .select(
       `
-        id, title, price_usd, image_url,
+        id, title, price_usd, image_url, images,
         games ( slug ),
         product_categories ( slug ),
         sellers!inner ( status )
@@ -224,7 +226,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
                     >
                       <div className="aspect-square w-full overflow-hidden rounded-xl bg-gray-950">
                         <SafeProductImage
-                          src={s.image_url}
+                          src={pickCoverImage(s.image_url, s.images)}
                           alt={s.title}
                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         />

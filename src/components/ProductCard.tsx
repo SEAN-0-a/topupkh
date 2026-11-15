@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import SafeProductImage from "@/components/SafeProductImage";
+import { pickCoverImage } from "@/lib/product-cover";
 
 function fmtRating(ratingSum: number, ratingCount: number) {
   if (ratingCount === 0) return null;
@@ -24,6 +25,11 @@ export default function ProductCard({ product }: { product: Product }) {
   const categoryName = category?.name ?? "";
   const sellerName = seller?.display_name ?? "Seller";
   const rating = fmtRating(product.rating_sum, product.rating_count);
+  // Cover fallback chain: canonical image_url → first gallery image
+  // (products.images, 0013). Anything unusable (null/empty/blob:) falls
+  // through to SafeProductImage's branded "cover unavailable" SVG — the
+  // project's placeholder equivalent, always renderable, no dead request.
+  const cover = pickCoverImage(product.image_url, product.images);
   const discount =
     product.original_price_usd && product.original_price_usd > product.price_usd
       ? Math.round((1 - product.price_usd / product.original_price_usd) * 100)
@@ -36,10 +42,12 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       {/* ---- large visual ---- */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-navy-deep">
-        {/* SafeProductImage: null/empty/broken image_url → clean placeholder
-            instead of the browser's silent broken-image icon. */}
+        {/* SafeProductImage: null/empty/broken cover → clean placeholder
+            instead of the browser's silent broken-image icon. The cover
+            itself now falls back to the images[] gallery when image_url
+            is empty, so a valid photo always renders. */}
         <SafeProductImage
-          src={product.image_url}
+          src={cover}
           alt={product.title}
           width={640}
           height={400}

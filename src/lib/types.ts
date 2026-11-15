@@ -133,6 +133,12 @@ export type Product = {
   title: string;
   description: string;
   image_url: string | null;
+  /**
+   * Gallery URLs (migration 0013, written by ImageDropzone → Storage).
+   * images[0] mirrors image_url; feeds use it as the cover fallback when
+   * image_url is empty. Optional: legacy-bridge rows may not carry it.
+   */
+  images?: string[];
   price_usd: number;
   original_price_usd: number | null;
   delivery_method: delivery_method;

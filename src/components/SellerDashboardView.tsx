@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
+import SellerListings from "@/components/SellerListings";
 
 /**
  * Legacy seller dashboard — interactive UI only. Session verification is done
@@ -87,6 +88,9 @@ export default function SellerDashboardView() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 text-white">
+      {/* Listings management — edit / soft-delete seller products */}
+      <SellerListings />
+
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 rounded-3xl border border-gray-800 bg-gray-900 p-6 sm:flex-row sm:items-center">
         <div>

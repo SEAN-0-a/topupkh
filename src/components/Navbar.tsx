@@ -187,8 +187,8 @@ function CategoryTabs({ pathname }: { pathname: string }) {
             href={`/marketplace?category=${tab.slug}`}
             className={`whitespace-nowrap py-2 text-sm font-medium transition-colors first:pl-0 ${
               active
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-gray-700 hover:text-amber-400 dark:text-gray-300"
+                ? "text-amber-700 dark:text-amber-400"
+                : "text-slate-900 hover:text-gold dark:text-white"
             }`}
           >
             {t(tab.key)}

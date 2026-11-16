@@ -114,7 +114,15 @@ export default async function HomePage() {
               ) : (
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-elev text-2xl">🎮</div>
               )}
-              <span className="text-center text-[11px] font-bold leading-tight">{game.name}</span>
+              {/* Explicit theme-paired color on the label itself (NOT inherited
+                  from the page root) — same pattern as SectionHeader:
+                    light → slate-900 on the white tile (~17:1)
+                    dark  → white on the #1e1e1e tile (~15:1)
+                  group-hover:text-gold matches the tile's hover:border-gold/70;
+                  globals.css darkens gold to #a16207 in light mode. */}
+              <span className="text-center text-[11px] font-bold leading-tight text-slate-900 transition-colors group-hover:text-gold dark:text-white">
+                {game.name}
+              </span>
             </Link>
           ))}
         </div>

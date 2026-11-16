@@ -15,6 +15,12 @@ export default function ThemeProvider({
       attribute="class"
       defaultTheme="dark"
       enableSystem={false}
+      /* Crisp atomic theme swap: next-themes injects a <style> that suspends
+         CSS transitions while it flips `class="dark"` on <html>. Without it,
+         the class changes instantly but `transition-colors duration-200`
+         surfaces (body, cards, nav) repaint over ~200ms — backgrounds lag
+         behind text and the UI visibly desyncs from the class state. */
+      disableTransitionOnChange
       {...props}
     >
       {children}

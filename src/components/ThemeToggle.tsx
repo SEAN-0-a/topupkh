@@ -31,15 +31,16 @@ export default function ThemeToggle() {
     );
   }
 
-  const isDark = resolvedTheme !== "light";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <button
       type="button"
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-pressed={isDark}
       title={isDark ? "Switch to light theme" : "Switch to dark theme"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-xs font-bold transition-all hover:bg-gray-700"
+      className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-xs font-bold transition-all hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal"
     >
       {isDark ? "🌙" : "☀️"}
     </button>

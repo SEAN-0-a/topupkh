@@ -98,7 +98,7 @@ export default function AvatarPicker({
 
   return (
     <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-      <h2 className="text-sm font-bold text-white">Profile photo</h2>
+      <h2 className="text-sm font-bold text-slate-900 dark:text-white">Profile photo</h2>
       <div className="mt-4 flex items-center gap-4">
         <Avatar
           src={previewUrl ?? avatarUrl}

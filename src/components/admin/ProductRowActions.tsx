@@ -88,7 +88,7 @@ export default function ProductRowActions({ productId, active, deleted }: Props)
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (e.g. spam / prohibited item) — required"
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-[10px] text-slate-900 dark:text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
           />
           <button
             type="button"

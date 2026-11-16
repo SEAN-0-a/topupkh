@@ -87,7 +87,7 @@ export default function SellerDashboardView() {
   const pending = wallet ? Number(wallet.pending_escrow_balance) : 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6 text-white">
+    <div className="mx-auto max-w-4xl space-y-6 p-6 text-slate-900 dark:text-white">
       {/* Listings management — edit / soft-delete seller products */}
       <SellerListings />
 
@@ -113,7 +113,7 @@ export default function SellerDashboardView() {
           <span className="text-xs font-semibold text-emerald-400">
             {tf("Available Balance", "ប្រាក់អាចដកបាន")}
           </span>
-          <p className="text-3xl font-extrabold text-white">
+          <p className="text-3xl font-extrabold text-slate-900 dark:text-white">
             ${available.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
           </p>
           <p className="text-[10px] text-gray-400">
@@ -125,7 +125,7 @@ export default function SellerDashboardView() {
           <span className="text-xs font-semibold text-amber-400">
             {tf("Pending Escrow Balance", "ប្រាក់កំពុងរក្សាទុក (Escrow)")}
           </span>
-          <p className="text-3xl font-extrabold text-white">
+          <p className="text-3xl font-extrabold text-slate-900 dark:text-white">
             ${pending.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
           </p>
           <p className="text-[10px] text-gray-400">
@@ -147,7 +147,7 @@ export default function SellerDashboardView() {
             {payouts.map((p) => (
               <div key={p.id} className="flex items-center justify-between border-b border-gray-800 pb-3 text-xs">
                 <div>
-                  <p className="font-bold text-white">${Number(p.amount).toFixed(2)} USD</p>
+                  <p className="font-bold text-slate-900 dark:text-white">${Number(p.amount).toFixed(2)} USD</p>
                   <p className="text-[10px] text-gray-400">
                     {p.account_name} ({p.account_number}) · {p.bank_name}
                   </p>

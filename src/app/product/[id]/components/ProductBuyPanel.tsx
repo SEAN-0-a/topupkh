@@ -62,7 +62,7 @@ export default function ProductBuyPanel({
             ${price.toFixed(2)}
           </span>
         ) : (
-          <span className="text-sm font-bold text-gray-400">Price unavailable</span>
+          <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Price unavailable</span>
         )}
         {originalPrice !== null && price !== null && originalPrice > price && (
           <span className="text-sm font-medium text-slate-500 line-through dark:text-slate-400">

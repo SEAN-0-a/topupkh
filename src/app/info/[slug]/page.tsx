@@ -44,11 +44,11 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
     <div className="mx-auto max-w-4xl px-4 py-8 text-slate-900 dark:text-white">
       {/* breadcrumbs */}
       <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-gray-400">
-        <Link href="/" className="transition-colors hover:text-slate-900 dark:hover:text-white">
+        <Link href="/" className="transition-colors hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-white">
           Home
         </Link>
         <span aria-hidden="true">/</span>
-        <Link href="/info/help-center" className="transition-colors hover:text-slate-900 dark:hover:text-white">
+        <Link href="/info/help-center" className="transition-colors hover:text-slate-900 dark:hover:text-slate-900 dark:hover:text-white">
           Info
         </Link>
         <span aria-hidden="true">/</span>
@@ -119,7 +119,7 @@ function InfoBlock({ block }: { block: Block }) {
                 {i + 1}
               </span>
               <div>
-                <p className="text-sm font-bold text-white">{step.title}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">{step.title}</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-400">{step.text}</p>
               </div>
             </li>
@@ -179,7 +179,7 @@ function InfoBlock({ block }: { block: Block }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {block.items.map((card, i) => (
             <div key={i} className="rounded-2xl border border-hairline bg-surface p-4">
-              <p className="text-sm font-bold text-white">{card.title}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white">{card.title}</p>
               <p className="mt-1.5 text-xs leading-relaxed text-gray-400">{card.text}</p>
             </div>
           ))}
@@ -199,7 +199,7 @@ function InfoBlock({ block }: { block: Block }) {
                 →
               </span>
               <span>
-                <span className="block text-sm font-bold text-white">{link.label}</span>
+                <span className="block text-sm font-bold text-slate-900 dark:text-white">{link.label}</span>
                 <span className="block text-xs text-gray-500">{link.text}</span>
               </span>
             </Link>

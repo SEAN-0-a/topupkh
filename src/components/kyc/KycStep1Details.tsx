@@ -16,7 +16,7 @@ export type KycStep1Form = {
 };
 
 const inputClass =
-  "mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none";
+  "mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none";
 const labelClass = "block text-xs font-semibold text-gray-300";
 
 export default function KycStep1Details({

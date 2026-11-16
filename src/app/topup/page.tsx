@@ -101,7 +101,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-black text-slate-900 dark:text-white flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-gray-900 border border-gray-800 p-6 rounded-2xl space-y-6 shadow-xl">
         <div className="text-center space-y-1">
           <h1 className="text-3xl font-extrabold text-gold">🎮 RomdoulKHShop</h1>
@@ -119,7 +119,7 @@ export default function HomePage() {
               value={playerId}
               onChange={(e) => setPlayerId(e.target.value)}
               placeholder="e.g. Player123"
-              className="w-full bg-black border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full bg-black border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -159,11 +159,11 @@ export default function HomePage() {
                     onClick={() => setSelectedPackage(pkg)}
                     className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                       selectedPackage?.id === pkg.id
-                        ? "border-emerald-500 bg-emerald-500/10 text-white"
+                        ? "border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white"
                         : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-700"
                     }`}
                   >
-                    <div className="font-bold text-sm text-white">{pkg.name}</div>
+                    <div className="font-bold text-sm text-slate-900 dark:text-white">{pkg.name}</div>
                     <div className="text-emerald-400 font-mono text-xs">${pkg.price} USD</div>
                   </button>
                 ))}

@@ -29,11 +29,11 @@ export default function DetailsForm({
   onSave: (e: React.FormEvent) => void;
 }) {
   const inputClass =
-    "mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none";
+    "mt-1 w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-gray-500 focus:border-emerald-400 focus:outline-none";
 
   return (
     <form onSubmit={onSave} className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-      <h2 className="text-sm font-bold text-white">Profile details</h2>
+      <h2 className="text-sm font-bold text-slate-900 dark:text-white">Profile details</h2>
       <div className="mt-4 space-y-4">
         <div>
           <label className="block text-xs font-semibold text-gray-300">Display name</label>

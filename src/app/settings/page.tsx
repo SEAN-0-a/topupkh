@@ -82,9 +82,9 @@ export default async function SettingsPage() {
     // EXPLICIT error UI — never an empty render.
     console.error("[settings] rendering explicit error state for user", ctx.userId);
     return (
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-page">
         <div className="mx-auto max-w-2xl px-4 py-8">
-          <h1 className="text-lg font-bold text-white">Account settings</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Account settings</h1>
           <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
             <p className="font-bold">We couldn&apos;t load your account data.</p>
             <p className="mt-1 text-xs text-red-200/80">Details: {dbError}</p>
@@ -99,9 +99,9 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-page">
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-lg font-bold text-white">Account settings</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white">Account settings</h1>
         <p className="mt-1 text-xs text-gray-400">
           Update your profile details, shop branding, avatar, and see your account standing.
         </p>

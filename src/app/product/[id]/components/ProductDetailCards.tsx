@@ -18,8 +18,8 @@ export default function ProductDetailCards({
           {product.description || "No description provided."}
         </p>
         {product.delivery_details && (
-          <p className="mt-3 whitespace-pre-line text-xs leading-relaxed text-gray-400">
-            <span className="font-semibold text-white">Delivery details: </span>
+          <p className="mt-3 whitespace-pre-line text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+            <span className="font-semibold text-slate-900 dark:text-white">Delivery details: </span>
             {product.delivery_details}
           </p>
         )}

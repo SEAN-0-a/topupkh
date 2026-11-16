@@ -36,11 +36,11 @@ export default async function NotificationsPage() {
   const unreadCount = rows.filter((n) => !n.read_at).length;
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-page">
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Notifications</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-900 dark:text-white">Notifications</h1>
             <p className="mt-0.5 text-xs text-gray-400">
               {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up."}
             </p>
@@ -63,7 +63,7 @@ export default async function NotificationsPage() {
                 } ${n.link ? "cursor-pointer" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-bold text-white">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">
                     {unread && <span className="mr-1.5 text-emerald-400">•</span>}
                     {n.title}
                   </p>

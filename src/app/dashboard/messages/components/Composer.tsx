@@ -70,7 +70,7 @@ export default function Composer({
             }
           }}
           placeholder={uploading ? "Uploading screenshot…" : "Type a message… (Enter to send)"}
-          className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-400"
+          className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-400"
         />
         <button
           type="button"

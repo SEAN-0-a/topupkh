@@ -213,7 +213,7 @@ export default function UserMenu({ user }: { user: User }) {
             <div className="flex items-center gap-3">
               <Avatar src={info.avatarUrl} name={info.displayName} sizePx={40} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-white">{info.displayName}</p>
+                <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{info.displayName}</p>
                 {info.username && (
                   <p className="truncate text-[11px] text-gray-400">@{info.username}</p>
                 )}
@@ -257,7 +257,7 @@ export default function UserMenu({ user }: { user: User }) {
                 className={`flex w-full items-center gap-2.5 px-4 py-2 text-xs transition-all ${
                   pathname === item.href
                     ? "bg-gray-800 font-bold text-emerald-400"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="text-sm">{item.icon}</span>

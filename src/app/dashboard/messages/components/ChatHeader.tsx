@@ -21,7 +21,7 @@ export default function ChatHeader({
           <Avatar src={conv.otherAvatar} name={conv.otherName} sizePx={40} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-white truncate">{conv.otherName}</span>
+              <span className="font-bold text-sm text-slate-900 dark:text-white truncate">{conv.otherName}</span>
               <span className="px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 text-[10px] font-bold">
                 {conv.otherRole}
               </span>
@@ -45,7 +45,7 @@ export default function ChatHeader({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-white truncate">Support Team</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-white truncate">Support Team</span>
                 <StatusChip status={ticket.status} />
               </div>
               <p className="text-[10px] text-gray-500 truncate">{ticket.subject}</p>

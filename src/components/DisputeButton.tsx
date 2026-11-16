@@ -50,7 +50,7 @@ export default function DisputeButton({ orderId }: { orderId: number }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Describe the problem (wrong item, not received, in-game issue...)"
-            className="w-full rounded-xl border border-red-500/30 bg-black/40 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
+            className="w-full rounded-xl border border-red-500/30 bg-black/40 px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
           />
           {error && <p className="text-[11px] text-red-400">{error}</p>}
           <div className="flex gap-2">

@@ -33,7 +33,7 @@ export default function OrderReceiptCard({
       </div>
 
       {/* Item name */}
-      <p className="mt-1 truncate text-sm font-bold text-white" title={productTitle ?? undefined}>
+      <p className="mt-1 truncate text-sm font-bold text-slate-900 dark:text-white" title={productTitle ?? undefined}>
         {productTitle ?? "Order item"}
       </p>
 

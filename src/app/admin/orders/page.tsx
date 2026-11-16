@@ -71,13 +71,13 @@ export default function AdminOrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8">
+    <div className="min-h-screen bg-black text-slate-900 dark:text-white p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center border-b border-gray-800 pb-4">
           <h1 className="text-2xl font-bold text-emerald-400">
             📦 គ្រប់គ្រងការបញ្ជាទិញ (Order Dashboard)
           </h1>
-          <Link href="/" className="text-xs text-gray-400 hover:text-white">
+          <Link href="/" className="text-xs text-gray-400 hover:text-slate-900 dark:hover:text-white">
             ← ត្រឡប់ក្រោយ (Home)
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default function AdminOrdersPage() {
                     <div className="text-xs text-gray-400">
                       Order #{order.id}
                     </div>
-                    <div className="font-bold text-white">
+                    <div className="font-bold text-slate-900 dark:text-white">
                       Player ID: {order.player_id}
                     </div>
                     {order.game_name && (

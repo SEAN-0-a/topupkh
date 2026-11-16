@@ -20,7 +20,7 @@ function Section({
 }) {
   return (
     <section className="rounded-2xl border border-hairline bg-surface p-6">
-      <h2 className="text-lg font-bold text-white">{title}</h2>
+      <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted">
         {children}
       </div>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           <p className="text-[11px] font-bold uppercase tracking-widest text-gold">
             Legal · Privacy
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             Privacy &amp; Seller KYC Policy
           </h1>
           <p className="mt-3 text-sm text-muted">

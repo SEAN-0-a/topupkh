@@ -175,7 +175,7 @@ export default function MessagesDashboard() {
             type="button"
             onClick={() => setSelectedImage(null)}
             aria-label="Close image"
-            className="absolute right-4 top-4 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+            className="absolute right-4 top-4 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-bold text-slate-900 dark:text-white backdrop-blur-sm transition-colors hover:bg-white/20"
           >
             ✕ Close
           </button>

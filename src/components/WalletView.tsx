@@ -31,7 +31,7 @@ export default function WalletView({ userId }: { userId: string }) {
       <div className="min-h-screen bg-gray-950 px-4 py-16">
         <div className="mx-auto max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center">
           <p className="text-4xl">💼</p>
-          <h1 className="mt-2 text-sm font-bold text-white">Wallet</h1>
+          <h1 className="mt-2 text-sm font-bold text-slate-900 dark:text-white">Wallet</h1>
           <p className="mt-2 text-xs text-gray-400">
             Your escrow wallet lives here once your account is fully set up.
           </p>

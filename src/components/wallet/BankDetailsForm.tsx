@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { SellerKycProfile } from "@/lib/types";
 
 const bankInput =
-  "w-full rounded-xl border border-gray-800 bg-black/50 px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none";
+  "w-full rounded-xl border border-gray-800 bg-black/50 px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none";
 
 export default function BankDetailsForm({
   seller,

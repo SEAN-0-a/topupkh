@@ -109,7 +109,7 @@ export default function OrderStatusBanner({
             maxLength={4000}
             onChange={(e) => setPayload(e.target.value)}
             placeholder="Delivery details — e.g. account credited per item, redemption link, etc."
-            className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2.5 text-xs text-white placeholder:text-gray-600 focus:border-amber-400 focus:outline-none"
+            className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-gray-600 focus:border-amber-400 focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === "Enter") void markDelivered();
             }}

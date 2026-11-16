@@ -64,7 +64,7 @@ export default function AccountStanding({
 
   return (
     <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-      <h2 className="text-sm font-bold text-white">Account standing</h2>
+      <h2 className="text-sm font-bold text-slate-900 dark:text-white">Account standing</h2>
       <div className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
         <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500">Rank</p>
@@ -75,7 +75,7 @@ export default function AccountStanding({
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500">Balance</p>
-          <p className="mt-2 font-bold text-white">
+          <p className="mt-2 font-bold text-slate-900 dark:text-white">
             {balance !== null ? `$${Number(balance).toFixed(2)}` : "—"}
           </p>
           <p className="mt-1.5 text-[11px] text-gray-500">
@@ -86,7 +86,7 @@ export default function AccountStanding({
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
           <p className="text-[11px] uppercase tracking-wide text-gray-500">Verified</p>
-          <p className="mt-2 font-bold text-white">{sellerBlock.label}</p>
+          <p className="mt-2 font-bold text-slate-900 dark:text-white">{sellerBlock.label}</p>
           <p className="mt-1.5 text-[11px] text-gray-500">{sellerBlock.detail}</p>
         </div>
       </div>

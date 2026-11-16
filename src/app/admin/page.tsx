@@ -21,7 +21,7 @@ export default async function AdminIndexPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-lg font-bold text-slate-900 dark:text-white">🛠️ Admin Panel</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-slate-900 dark:text-white">🛠️ Admin Panel</h1>
         <p className="mt-1 text-xs text-gray-400">Admin: {ctx.profile.display_name}</p>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -32,7 +32,7 @@ export default async function AdminIndexPage() {
               className="rounded-2xl border border-gray-800 bg-gray-900 p-5 transition-all hover:border-gray-600"
             >
               <p className="text-xl">{s.icon}</p>
-              <p className="mt-1 text-xs font-bold text-white">{s.title}</p>
+              <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">{s.title}</p>
               <p className="mt-1 text-[11px] text-gray-400">{s.desc}</p>
             </Link>
           ))}

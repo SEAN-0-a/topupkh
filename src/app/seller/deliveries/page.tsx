@@ -108,7 +108,7 @@ export default function SellerDeliveriesPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-lg text-white">
+                    <span className="font-bold text-lg text-slate-900 dark:text-white">
                       Order #{order.id}
                     </span>
                     {order.item_name && (
@@ -133,7 +133,7 @@ export default function SellerDeliveriesPage() {
                         [order.id]: e.target.value,
                       })
                     }
-                    className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600"
+                    className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600"
                   />
                   <button
                     onClick={() => handleDeliverCode(order.id)}

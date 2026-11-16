@@ -37,7 +37,7 @@ export default function ChatList({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search chats, orders or players…"
-            className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-400"
+            className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-400"
           />
         </div>
       </div>

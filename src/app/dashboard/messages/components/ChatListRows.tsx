@@ -34,7 +34,7 @@ export function ConversationRow({
       <Avatar src={conv.otherAvatar} name={conv.otherName} sizePx={40} />
       <div className="min-w-0 flex-1">
         <div className="flex justify-between items-center gap-2">
-          <span className="font-bold text-xs text-white truncate">{conv.otherName}</span>
+          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">{conv.otherName}</span>
           <span className="text-[10px] text-gray-500 whitespace-nowrap">{compactTime(at)}</span>
         </div>
         <p className="text-[10px] text-gray-500 truncate">
@@ -85,7 +85,7 @@ export function TicketRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex justify-between items-center gap-2">
-          <span className="font-bold text-xs text-white truncate">Support</span>
+          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">Support</span>
           <span className="text-[10px] text-gray-500 whitespace-nowrap">{compactTime(at)}</span>
         </div>
         <p className="text-[10px] text-gray-500 truncate">

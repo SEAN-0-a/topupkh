@@ -189,7 +189,7 @@ export default function SellerListings() {
 
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <div>
-                  <h3 className="line-clamp-2 text-sm font-bold text-white">{listing.title}</h3>
+                  <h3 className="line-clamp-2 text-sm font-bold text-slate-900 dark:text-white">{listing.title}</h3>
                   <p className="mt-1 text-[10px] text-gray-500">
                     {listing.stock_is_unlimited
                       ? "Unlimited stock"

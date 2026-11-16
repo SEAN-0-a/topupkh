@@ -166,7 +166,7 @@ export default function OrderDetailsPage({ params }: OrderPageProps) {
                     className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
                       isMe
                         ? "bg-emerald-500 text-black font-medium rounded-br-none"
-                        : "bg-gray-800 text-white rounded-bl-none border border-gray-700/50"
+                        : "bg-gray-800 text-slate-900 dark:text-white rounded-bl-none border border-gray-700/50"
                     }`}
                   >
                     {msg.message}
@@ -184,7 +184,7 @@ export default function OrderDetailsPage({ params }: OrderPageProps) {
             placeholder="Type your message here..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"

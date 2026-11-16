@@ -50,7 +50,7 @@ export default async function OfferGroupsPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-slate-900 dark:text-white">
       {/* breadcrumb + header */}
-      <nav className="flex items-center gap-2 text-[11px] text-gray-400">
+      <nav className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
         <Link href="/marketplace" className="hover:text-slate-900 dark:hover:text-white">Marketplace</Link>
         <span>/</span>
         <Link href={`/marketplace?game=${game.slug}`} className="hover:text-slate-900 dark:hover:text-white">{game.name}</Link>
@@ -62,7 +62,7 @@ export default async function OfferGroupsPage({ params }: Props) {
           <h1 className="text-2xl font-bold">
             🎮 {game.name} — <span className="text-emerald-400">{category.name}</span>
           </h1>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
             {templates.length} product{templates.length === 1 ? "" : "s"} · pick one to compare
             competing seller offers by price and delivery speed
           </p>
@@ -79,7 +79,7 @@ export default async function OfferGroupsPage({ params }: Props) {
       {!error && templates.length === 0 && (
         <div className="rounded-3xl border border-gray-800 bg-gray-900 p-10 text-center">
           <p className="text-lg font-bold">No products in this category yet</p>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
             Be the first seller: create the product page and competing offers appear under it.
           </p>
           <Link
@@ -108,7 +108,7 @@ export default async function OfferGroupsPage({ params }: Props) {
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
-              <span className="absolute left-2.5 top-2.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-navy-deep/80 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
                 🎮 {t.game?.name ?? "—"}
               </span>
             </div>
@@ -121,7 +121,7 @@ export default async function OfferGroupsPage({ params }: Props) {
                 {t.title}
               </h3>
               <div className="mt-auto flex items-baseline justify-between border-t border-gray-800 pt-3 text-xs">
-                <span className="text-gray-400">
+                <span className="text-slate-600 dark:text-slate-400">
                   {t.offerCount} offer{t.offerCount === 1 ? "" : "s"}
                 </span>
                 <span className="font-mono text-base font-extrabold text-emerald-400">

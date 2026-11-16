@@ -7,7 +7,7 @@ export default function SellerVerifyPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-xl px-4 py-8">
-        <h1 className="text-lg font-bold text-white">Seller verification</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white">Seller verification</h1>
         <p className="mb-6 mt-1 text-xs text-gray-400">
           Complete verification to post offers and deliver with escrow protection.
         </p>

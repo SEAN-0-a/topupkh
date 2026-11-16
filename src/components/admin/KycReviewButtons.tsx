@@ -57,7 +57,7 @@ export default function KycReviewButtons({ sellerUserId }: { sellerUserId: strin
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Reason shown to the seller (required)"
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-2 text-[11px] text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-2 text-[11px] text-slate-900 dark:text-white placeholder-gray-500 focus:border-red-400 focus:outline-none"
           />
           <button
             type="button"

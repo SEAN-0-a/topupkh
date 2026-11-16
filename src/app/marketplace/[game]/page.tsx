@@ -69,7 +69,7 @@ export default async function GamePage({ params }: Props) {
             Roblox Marketplace / Game
           </p>
           <h1 className="mt-1 text-3xl font-extrabold">{game.name}</h1>
-          <p className="mt-1 max-w-xl text-xs text-gray-400">
+          <p className="mt-1 max-w-xl text-xs text-slate-600 dark:text-slate-400">
             {game.description ?? "Buy from verified Cambodian sellers with Bakong KHQR payments and escrow protection."}
           </p>
         </div>
@@ -104,7 +104,7 @@ export default async function GamePage({ params }: Props) {
                 className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${
                   allowed && count > 0
                     ? "border-gray-800 bg-gray-900 hover:-translate-y-0.5 hover:border-emerald-500/60"
-                    : "border-gray-800/60 bg-gray-900/50 text-gray-400 hover:border-gray-700"
+                    : "border-gray-800/60 bg-gray-900/50 text-slate-600 dark:text-slate-400 hover:border-gray-700"
                 }`}
               >
                 {tab.label}

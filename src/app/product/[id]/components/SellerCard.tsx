@@ -56,7 +56,7 @@ export default function SellerCard({ seller }: { seller: SellerCard }) {
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px]">
             <span
               className={`inline-flex items-center gap-1 font-semibold ${
-                seller.isOnline ? "text-emerald-400" : "text-gray-400"
+                seller.isOnline ? "text-emerald-400" : "text-slate-600 dark:text-slate-400"
               }`}
             >
               {seller.isOnline ? "Online" : "Offline"}
@@ -73,7 +73,7 @@ export default function SellerCard({ seller }: { seller: SellerCard }) {
           </p>
         </div>
 
-        <span className="shrink-0 text-xs font-bold text-gray-400 hover:text-gold">
+        <span className="shrink-0 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-gold">
           Store →
         </span>
       </div>

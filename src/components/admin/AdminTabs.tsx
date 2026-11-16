@@ -28,7 +28,7 @@ export default function AdminTabs() {
             className={`whitespace-nowrap rounded-full px-3.5 py-2 font-bold transition-all ${
               active
                 ? "bg-emerald-500 text-black"
-                : "border border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600 hover:text-white"
+                : "border border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
             {t.label}

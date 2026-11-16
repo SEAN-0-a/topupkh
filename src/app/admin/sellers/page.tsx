@@ -85,7 +85,7 @@ export default async function AdminSellersPage() {
       <div key={r.user_id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-white">{r.shop_name || "(no shop name)"}</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white">{r.shop_name || "(no shop name)"}</p>
             <p className="mt-0.5 text-[11px] text-gray-400">
               {r.display_name} · <span className="capitalize">{r.seller_type_text}</span> · 📞 {r.phone_number || "—"}
             </p>
@@ -154,7 +154,7 @@ export default async function AdminSellersPage() {
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">🛡️ KYC Review</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-900 dark:text-white">🛡️ KYC Review</h1>
           <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
             {pending.length} pending
           </span>

@@ -24,7 +24,7 @@ export function WalletBalances({
           <span className="text-xs font-semibold text-emerald-400">
             {tf("Available Balance", "ប្រាក់អាចដកបាន")}
           </span>
-          <p className="mt-2 text-3xl font-extrabold text-white">
+          <p className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">
             ${available.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
           </p>
           <p className="mt-1 text-[10px] text-gray-400">
@@ -35,7 +35,7 @@ export function WalletBalances({
           <span className="text-xs font-semibold text-amber-400">
             {tf("Pending Escrow Balance", "ប្រាក់កំពុងរក្សាទុក (Escrow)")}
           </span>
-          <p className="mt-2 text-3xl font-extrabold text-white">
+          <p className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">
             ${pendingEscrow.toFixed(2)} <span className="text-sm font-normal text-gray-400">USD</span>
           </p>
           <p className="mt-1 text-[10px] text-gray-400">

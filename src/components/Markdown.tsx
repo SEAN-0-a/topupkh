@@ -25,7 +25,7 @@ function inline(text: string, keyBase: string): ReactNode[] {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const key = `${keyBase}-i${i++}`;
     if (m[2] !== undefined) {
-      nodes.push(<strong key={key} className="font-bold text-white">{m[2]}</strong>);
+      nodes.push(<strong key={key} className="font-bold text-slate-900 dark:text-white">{m[2]}</strong>);
     } else if (m[4] !== undefined) {
       nodes.push(<em key={key}>{m[4]}</em>);
     } else if (m[6] !== undefined) {
@@ -131,7 +131,7 @@ export default function Markdown({ text, className = "" }: { text: string; class
         switch (b.kind) {
           case "heading":
             return b.level === 2 ? (
-              <h3 key={key} className="text-sm font-bold text-slate-900 dark:text-white">
+              <h3 key={key} className="text-sm font-bold text-slate-900 dark:text-slate-900 dark:text-white">
                 {inline(b.text, key)}
               </h3>
             ) : (

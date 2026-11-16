@@ -59,7 +59,7 @@ export default async function AdminPayoutsPage() {
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">💸 Payout Requests</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-900 dark:text-white">💸 Payout Requests</h1>
           <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
             {pending.length} pending · ${totalPendingUsd.toFixed(2)} held
           </span>
@@ -86,7 +86,7 @@ export default async function AdminPayoutsPage() {
             <div key={r.id} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold text-white">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">
                     ${Number(r.amount).toFixed(2)} USD
                   </p>
                   <p className="mt-0.5 text-[11px] text-gray-400">
@@ -114,7 +114,7 @@ export default async function AdminPayoutsPage() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-800 bg-gray-900 p-4 text-xs"
                 >
                   <div>
-                    <p className="font-bold text-white">
+                    <p className="font-bold text-slate-900 dark:text-white">
                       ${Number(r.amount).toFixed(2)} → {r.bank_name} ({r.account_number})
                     </p>
                     <p className="text-[10px] text-gray-500">

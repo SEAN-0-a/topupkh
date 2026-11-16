@@ -39,7 +39,7 @@ export default function PayoutHistoryTable({ payouts }: { payouts: PayoutRequest
             <tbody>
               {payouts.map((p) => (
                 <tr key={p.id} className="border-b border-gray-800/60 align-top">
-                  <td className="py-3 pr-3 font-bold text-white">${Number(p.amount).toFixed(2)} USD</td>
+                  <td className="py-3 pr-3 font-bold text-slate-900 dark:text-white">${Number(p.amount).toFixed(2)} USD</td>
                   <td className="py-3 pr-3 text-[10px] text-gray-400">
                     {p.account_name} ({p.account_number}) · {p.bank_name}
                   </td>

@@ -57,10 +57,10 @@ export default async function OffersPage() {
   const rows = (offers ?? []) as OfferRow[];
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-page">
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">My offers</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-900 dark:text-white">My offers</h1>
           {canSell ? (
             <Link
               href="/offers/create"
@@ -108,7 +108,7 @@ export default async function OffersPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-white">{o.title}</p>
+                  <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{o.title}</p>
                   <p className="mt-1 text-[11px] text-gray-400">
                     ${Number(o.price_usd).toFixed(2)} ·{" "}
                     {o.stock_is_unlimited ? "unlimited stock" : `${o.stock} in stock`} · edited{" "}

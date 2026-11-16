@@ -8,11 +8,13 @@ export default function ThemeProvider({
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
   return (
+    // attribute="class" → next-themes manages `class="dark"|"light"` on <html>,
+    // which is what the `@custom-variant dark` + `.dark {}` token blocks in
+    // globals.css key off.
     <NextThemesProvider
       attribute="class"
       defaultTheme="dark"
       enableSystem={false}
-      scriptProps={{ type: "application/json" }}
       {...props}
     >
       {children}

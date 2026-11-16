@@ -4,79 +4,73 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 
 /**
- * RomdoulKHShop site footer — sleek dark surface, 3-column link grid.
- * Bilingual (EN/KH): reads the global LanguageContext by default, or takes an
- * explicit `lang` prop ('en' | 'kh') which wins when provided. The site's
- * navbar toggle uses 'km' internally, so it is mapped to 'kh' here.
+ * RomdoulKHShop site footer — sleek dark surface (#0d0f1d) with a
+ * responsive 3-column link layout (1 column on mobile).
+ *
+ * Language: accepts an explicit `lang` prop ("en" | "kh"). When omitted it
+ * follows the global LanguageContext toggle, so the navbar EN/KH switcher
+ * re-renders every label live. All labels are data-driven: each link renders
+ * exactly one lookup from the dictionary below for the active language.
  */
 
 type FooterLang = "en" | "kh";
 
 interface FooterLink {
+  href: string;
   en: string;
   kh: string;
-  href: string;
 }
 
-interface FooterColumn {
-  heading: { en: string; kh: string };
-  links: FooterLink[];
-}
-
-const TRANSLATIONS: FooterColumn[] = [
+const FOOTER_COLUMNS: { links: FooterLink[] }[] = [
   {
-    heading: { en: "Company & Support", kh: "ក្រុមហ៊ុន និងជំនួយ" },
+    // Column 1 — company & community
     links: [
-      { en: "Help center", kh: "មជ្ឈមណ្ឌលជំនួយ", href: "/help" },
-      { en: "Contact us", kh: "ទំនាក់ទំនងយើង", href: "/contact" },
-      { en: "About us", kh: "អំពីយើង", href: "/about" },
-      { en: "Careers", kh: "ឱកាសការងារ", href: "/careers" },
-      { en: "Bug bounty", kh: "កម្មវិធីរាយការណ៍កំហុស", href: "/bug-bounty" },
-      { en: "Blog", kh: "ប្លុក", href: "/blog" },
-      { en: "Influencer program", kh: "កម្មវិធី Influencer", href: "/influencer" },
-      { en: "Become an affiliate", kh: "ក្លាយជាដៃគូផ្សព្វផ្សាយ", href: "/affiliate" },
-      { en: "Become a seller", kh: "ក្លាយជាអ្នកលក់", href: "/seller/register" },
+      { href: "/info/help-center", en: "Help center", kh: "មជ្ឈមណ្ឌលជំនួយ" },
+      { href: "/info/contact-us", en: "Contact us", kh: "ទំនាក់ទំនងយើង" },
+      { href: "/info/about-us", en: "About us", kh: "អំពីយើង" },
+      { href: "/info/careers", en: "Careers", kh: "ឱកាសការងារ" },
+      { href: "/info/bug-bounty", en: "Bug bounty", kh: "កម្មវិធីរាយការណ៍កំហុស" },
+      { href: "/info/blog", en: "Blog", kh: "ប្លុក" },
+      { href: "/info/influencer-program", en: "Influencer program", kh: "កម្មវិធី Influencer" },
+      { href: "/info/become-an-affiliate", en: "Become an affiliate", kh: "ក្លាយជាដៃគូផ្សព្វផ្សាយ" },
+      { href: "/info/become-a-seller", en: "Become a seller", kh: "ក្លាយជាអ្នកលក់" },
     ],
   },
   {
-    heading: { en: "Protection & Payments", kh: "ការការពារ និងការទូទាត់" },
+    // Column 2 — buyer & account protection
     links: [
-      { en: "Account warranty", kh: "ការធានាគណនី", href: "/account-warranty" },
-      { en: "TradeShield (buying)", kh: "TradeShield (ការទិញ)", href: "/tradeshield?mode=buy" },
-      { en: "TradeShield (selling)", kh: "TradeShield (ការលក់)", href: "/tradeshield?mode=sell" },
-      { en: "Withdrawals", kh: "ការដកប្រាក់", href: "/wallet" },
-      { en: "Account seller rules", kh: "វិធានសម្រាប់អ្នកលក់គណនី", href: "/seller-rules#account" },
+      { href: "/info/account-warranty", en: "Account warranty", kh: "ការធានាគណនី" },
+      { href: "/info/tradeshield-buying", en: "TradeShield (buying)", kh: "TradeShield (ការទិញ)" },
+      { href: "/info/tradeshield-selling", en: "TradeShield (selling)", kh: "TradeShield (ការលក់)" },
+      { href: "/info/withdrawals", en: "Withdrawals", kh: "ការដកប្រាក់" },
+      { href: "/info/account-seller-rules", en: "Account seller rules", kh: "វិធានសម្រាប់អ្នកលក់គណនី" },
     ],
   },
   {
-    heading: { en: "Policies & Resources", kh: "គោលការណ៍ និងធនធាន" },
+    // Column 3 — seller resources & policies
     links: [
-      { en: "Seller rules", kh: "វិធានសម្រាប់អ្នកលក់", href: "/seller-rules" },
-      { en: "Changing username", kh: "ការផ្លាស់ប្តូរឈ្មោះ", href: "/settings" },
-      { en: "Fees", kh: "កម្រៃសេវា", href: "/fees" },
-      { en: "Refund Policy", kh: "គោលការណ៍សងប្រាក់វិញ", href: "/refund-policy" },
-      { en: "App on iPhone (PWA)", kh: "កម្មវិធីលើ iPhone (PWA)", href: "/pwa" },
+      { href: "/info/seller-rules", en: "Seller rules", kh: "វិធានសម្រាប់អ្នកលក់" },
+      { href: "/info/changing-username", en: "Changing username", kh: "ការផ្លាស់ប្តូរឈ្មោះ" },
+      { href: "/info/fees", en: "Fees", kh: "កម្រៃសេវា" },
+      { href: "/info/refund-policy", en: "Refund Policy", kh: "គោលការណ៍សងប្រាក់វិញ" },
+      { href: "/info/app-on-iphone-pwa", en: "App on iPhone (PWA)", kh: "កម្មវិធីលើ iPhone (PWA)" },
     ],
   },
 ];
 
 export default function Footer({ lang }: { lang?: FooterLang }) {
+  // Explicit prop wins; otherwise follow the global EN/KH toggle.
+  // Context language is "en" | "km" — "km" maps onto the Khmer labels.
   const { lang: contextLang } = useLanguage();
-  // Explicit prop wins; otherwise derive from the global toggle ('km' → 'kh').
   const active: FooterLang = lang ?? (contextLang === "km" ? "kh" : "en");
-  const isKhmer = active === "kh";
 
   return (
-    <footer className="mt-16 border-t border-gray-800 bg-[#0d0f1d] text-gray-400">
+    <footer className="mt-16 bg-[#0d0f1d] text-gray-400">
       <div className="mx-auto max-w-7xl px-4 py-10">
-        {/* 3-column link grid: stacks on mobile, spreads on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {TRANSLATIONS.map((column, index) => (
-            <nav key={index} aria-label={column.heading[active]}>
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
-                {column.heading[active]}
-              </h3>
-              <ul className={`mt-3 space-y-2 text-sm ${isKhmer ? "leading-relaxed" : ""}`}>
+          {FOOTER_COLUMNS.map((column, index) => (
+            <nav key={index} aria-label={`Footer links ${index + 1}`}>
+              <ul className="space-y-2 text-sm">
                 {column.links.map((link) => (
                   <li key={link.href}>
                     <Link
@@ -93,24 +87,11 @@ export default function Footer({ lang }: { lang?: FooterLang }) {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-gray-800 pt-6 text-xs text-gray-500 sm:flex-row">
-          <p>© {new Date().getFullYear()} RomdoulKHShop · All rights reserved</p>
-          <nav
-            aria-label={isKhmer ? "ខាងផ្លូវចិត្ត" : "Legal"}
-            className="flex flex-wrap items-center gap-x-2"
-          >
-            <Link href="/terms" className="transition-colors hover:text-white">
-              {isKhmer ? "លក្ខខណ្ឌ" : "Terms"}
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/seller-terms" className="transition-colors hover:text-white">
-              {isKhmer ? "លក្ខខណ្ឌអ្នកលក់" : "Seller Terms"}
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/privacy" className="transition-colors hover:text-white">
-              {isKhmer ? "ភាពឯកជន" : "Privacy"}
-            </Link>
-          </nav>
+        <div className="mt-10 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+          <p>
+            © {new Date().getFullYear()} RomdoulKHShop ·{" "}
+            {active === "kh" ? "រក្សាសិទ្ធិគ្រប់យ៉ាង" : "All rights reserved"}
+          </p>
         </div>
       </div>
     </footer>

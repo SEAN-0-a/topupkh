@@ -92,7 +92,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 text-slate-900 dark:text-white">
-      <Link href="/marketplace" className="mb-4 inline-block text-xs text-gray-400 hover:text-white">
+      <Link
+        href="/marketplace"
+        className="mb-4 inline-block text-xs text-slate-700 transition-colors hover:text-gold-dark dark:text-slate-300 dark:hover:text-gold"
+      >
         ← Back to marketplace
       </Link>
 

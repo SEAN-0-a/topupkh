@@ -50,7 +50,7 @@ export default function ProductBuyPanel({
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{product.title ?? "Untitled listing"}</h1>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           Listed {created ?? "recently"} · {soldCount.toLocaleString()} sold
           {rating && <span className="ml-2 text-yellow-400">★ {rating}</span>}
         </p>
@@ -65,7 +65,7 @@ export default function ProductBuyPanel({
           <span className="text-sm font-bold text-gray-400">Price unavailable</span>
         )}
         {originalPrice !== null && price !== null && originalPrice > price && (
-          <span className="text-sm text-gray-500 line-through">
+          <span className="text-sm font-medium text-slate-500 line-through dark:text-slate-400">
             ${originalPrice.toFixed(2)}
           </span>
         )}
@@ -75,18 +75,18 @@ export default function ProductBuyPanel({
           The single contact action stays below the Buy button. */}
       {seller && <SellerCard seller={seller} />}
 
-      <ul className="space-y-1 rounded-2xl border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300">
+      <ul className="space-y-1 rounded-2xl border border-hairline bg-surface p-4 text-xs text-slate-700 dark:text-slate-300">
         <li>
-          <span className="text-gray-500">Delivery:</span>{" "}
+          <span className="text-slate-500 dark:text-slate-400">Delivery:</span>{" "}
           {DELIVERY_LABELS[product.delivery_method] ?? product.delivery_method}
         </li>
         <li>
-          <span className="text-gray-500">Availability:</span>{" "}
+          <span className="text-slate-500 dark:text-slate-400">Availability:</span>{" "}
           {inStock ? (product.stock_is_unlimited ? "Service, always available" : `${stock.toLocaleString()} in stock`) : "Out of stock"}
         </li>
         {product.estimated_minutes && (
           <li>
-            <span className="text-gray-500">Est. fulfilment:</span> ~{product.estimated_minutes} min
+            <span className="text-slate-500 dark:text-slate-400">Est. fulfilment:</span> ~{product.estimated_minutes} min
           </li>
         )}
       </ul>
@@ -116,7 +116,7 @@ export default function ProductBuyPanel({
         </div>
       )}
 
-      <p className="text-[11px] text-gray-500">
+      <p className="text-[11px] text-slate-700 dark:text-slate-300">
         Protected checkout: pay through this site in USD via KHQR. Funds are released only after
         delivery is confirmed. Never pay outside the platform — such payments cannot be protected.
       </p>

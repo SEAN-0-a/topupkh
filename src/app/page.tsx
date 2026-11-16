@@ -235,12 +235,14 @@ function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="mb-5">
-      {/* Explicit theme-aware heading color — this header used to inherit from
-          the page's dark-first `text-white` root, which rendered white-on-light
-          (invisible) when the inherited color resolved for dark mode. Now:
-          light → slate-900 ink on #F5F5F5 (~17:1), dark → white on charcoal. */}
-      <h2 className="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{title}</h2>
-      <p className="text-xs text-muted">{subtitle}</p>
+      {/* Permanent fix for the "Popular games" invisibility bug: the heading
+          once inherited the page root's old dark-first `text-white`, rendering
+          white-on-light. It now carries EXPLICIT theme-paired classes (no
+          inheritance dependency), and the page root itself is theme-aware.
+            light → pitch-dark slate-900 on #F5F5F5 (~17:1)
+            dark  → bright white on #121212 (~18:1) */}
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
+      <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>
     </div>
   );
 }

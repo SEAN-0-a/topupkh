@@ -54,7 +54,11 @@
   --color-elev: #161616;        /* inset fills, darker than the card          */
   --color-elev-strong: #2e2e2e; /* chips + hover on elev                      */
   --color-hairline: rgb(192 192 192 / 0.25); /* silver borders, dimmed       */
-  --color-muted: #a3a3a3;       /* lighter muted text for dark backgrounds    */}
+  --color-muted: #a3a3a3;       /* lighter muted text for dark backgrounds    */
+  /* Bright contrasting text in dark mode: default gray-500 #6b7280 is only
+     ~3.4:1 on #1e1e1e cards (fails AA). Bump to gray-400 #9ca3af → ~7:1. */
+  --color-gray-500: #9ca3af;
+}
 
 /* The whole app was authored dark-first (bg-gray-950 pages, bg-gray-900
    cards, text-white headings, bg-black inputs…). Instead of touching every
@@ -128,6 +132,25 @@ html:not(.dark) .text-yellow-400,
 html:not(.dark) .text-yellow-300,
 html:not(.dark) .text-amber-400 {
   color: #b45309;
+}
+/* Pastel status text (amber/red/indigo/emerald -200/-300/-400) is written
+   for charcoal cards; on white / #F5F5F5 it drops to ~2:1. Darken to the
+   -600/-700 family so warnings, errors and chips stay AA-readable. */
+html:not(.dark) .text-amber-300 {
+  color: #b45309;
+}
+html:not(.dark) .text-red-400 {
+  color: #dc2626;
+}
+html:not(.dark) .text-red-300,
+html:not(.dark) .text-red-200 {
+  color: #b91c1c;
+}
+html:not(.dark) .text-indigo-300 {
+  color: #4f46e5;
+}
+html:not(.dark) .text-emerald-200 {
+  color: #047857;
 }
 html:not(.dark) .text-sky-300,
 html:not(.dark) .text-cyan-300 {

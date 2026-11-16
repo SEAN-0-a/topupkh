@@ -54,7 +54,14 @@ export default function ContactSellerButton({
       <button
         onClick={handleContact}
         disabled={busy}
-        className={`rounded-xl border border-indigo-500/50 bg-indigo-500/10 font-bold text-indigo-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50 ${
+        // Secondary CTA in the brand palette (was off-palette indigo-300 on
+        // indigo-500/10 — ~1.9:1 on white, illegible in light mode):
+        //   light → goldenrod-dark text #a16207 (via the light-mode polish)
+        //           on a strong goldenrod border — ≥4.5:1, clearly outlined.
+        //   dark  → bright #FFD700 text on a gold border on charcoal — ~13:1.
+        // Disabled keeps solid tokens (no element opacity) so the label
+        // stays readable while the action is busy.
+        className={`rounded-xl border-2 border-gold-dark/60 bg-transparent font-bold text-gold-dark transition-colors hover:border-gold hover:bg-gold/10 hover:text-gold dark:text-gold dark:hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal disabled:cursor-not-allowed disabled:border-hairline disabled:bg-elev disabled:text-muted ${
           compact ? "px-3 py-1.5 text-[11px]" : "w-full py-2.5 text-sm"
         }`}
       >

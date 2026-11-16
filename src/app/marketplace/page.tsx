@@ -128,10 +128,10 @@ export default async function MarketplacePage({
 
       {prohibitedNotice && (
         <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6">
-          <h2 className="text-sm font-bold text-red-300">
+          <h2 className="text-sm font-bold text-red-700 dark:text-red-300">
             <T k="prohibited.title" vars={{ name: prohibitedNotice.name }} />
           </h2>
-          <p className="mt-2 text-xs leading-relaxed text-red-200/80">
+          <p className="mt-2 text-xs leading-relaxed text-red-600 dark:text-red-200/80">
             {prohibitedNotice.reason && <>{prohibitedNotice.reason} </>}
             <T k="prohibited.reason" />
           </p>
@@ -147,7 +147,7 @@ export default async function MarketplacePage({
       )}
 
       {error && (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-700 dark:text-red-200">
           {error}
         </div>
       )}

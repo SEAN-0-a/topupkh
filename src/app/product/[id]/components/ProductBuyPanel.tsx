@@ -104,7 +104,7 @@ export default function ProductBuyPanel({
       )}
 
       {isPending && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-300">
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-300">
           <p className="font-bold">⏳ Listing Pending Review</p>
           <p className="mt-1">
             {product.status === "draft" ? (

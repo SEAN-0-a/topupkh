@@ -96,7 +96,7 @@ export default function ProductCard({ product }: { product: Product }) {
               ? "bg-gold/10 text-gold-dark"
               : product.stock > 0
                 ? "bg-elev-strong text-muted"
-                : "bg-red-500/10 text-red-400"
+                : "bg-red-500/10 text-red-700 dark:text-red-400"
           }`}>
             {product.stock_is_unlimited ? "Always available" : product.stock > 0 ? `${product.stock} left` : "Sold out"}
           </span>

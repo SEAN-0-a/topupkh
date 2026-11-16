@@ -134,21 +134,21 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="mx-auto max-w-6xl px-4 py-8 text-white">
+      <div className="mx-auto max-w-6xl px-4 py-8 text-slate-900 dark:text-white">
         {/* breadcrumb */}
         <nav className="mb-4 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
-          <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
+          <Link href="/marketplace" className="hover:text-slate-900 dark:hover:text-white">Marketplace</Link>
           <span>/</span>
           {game && (
             <>
-              <Link href={`/marketplace/${game.slug}`} className="hover:text-white">{game.name}</Link>
+              <Link href={`/marketplace/${game.slug}`} className="hover:text-slate-900 dark:hover:text-white">{game.name}</Link>
               <span>/</span>
             </>
           )}
           {category && (
             <Link
               href={`/marketplace/${game?.slug ?? "all"}/${category.slug}`}
-              className="hover:text-white"
+              className="hover:text-slate-900 dark:hover:text-white"
             >
               {category.name}
             </Link>
@@ -207,7 +207,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
               <Markdown text={product.description} />
               {product.delivery_details && (
                 <p className="mt-4 whitespace-pre-line border-t border-gray-800 pt-4 text-xs leading-relaxed text-gray-400">
-                  <span className="font-semibold text-white">Delivery details: </span>
+                  <span className="font-semibold text-slate-900 dark:text-white">Delivery details: </span>
                   {product.delivery_details}
                 </p>
               )}

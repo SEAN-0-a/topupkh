@@ -34,13 +34,13 @@ export default async function OffersPage({ params, searchParams }: Props) {
   if (!group) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 text-white">
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 text-slate-900 dark:text-white">
       {/* breadcrumb */}
       <nav className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
-        <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
+        <Link href="/marketplace" className="hover:text-slate-900 dark:hover:text-white">Marketplace</Link>
         <span>/</span>
         {group.games && group.categories ? (
-          <Link href={`/marketplace/${group.games.slug}/${group.categories.slug}`} className="hover:text-white">
+          <Link href={`/marketplace/${group.games.slug}/${group.categories.slug}`} className="hover:text-slate-900 dark:hover:text-white">
             {group.games.name} · {group.categories.name}
           </Link>
         ) : (
@@ -91,7 +91,7 @@ export default async function OffersPage({ params, searchParams }: Props) {
               key={s}
               href={`/offer/${group.id}?sort=${s}`}
               className={`rounded-full px-3 py-1.5 font-bold transition-colors ${
-                sortKind === s ? "bg-emerald-500 text-black" : "bg-gray-800 text-gray-300 hover:text-white"
+                sortKind === s ? "bg-emerald-500 text-black" : "bg-gray-800 text-gray-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               {s === "price" ? "💰 Price" : "⚡ Fastest delivery"}

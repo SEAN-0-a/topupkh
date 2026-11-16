@@ -38,7 +38,7 @@ export default function SellerCard({ seller }: { seller: SellerCard }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
-            <span className="font-bold text-white">Sold by</span>
+            <span className="font-bold text-slate-900 dark:text-white">Sold by</span>
             <span className="truncate font-bold text-gold hover:underline">
               {seller.displayName}
             </span>

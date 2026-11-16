@@ -87,7 +87,7 @@ export default async function CheckoutOrderPage({
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-4 py-8 text-white">
+    <div className="mx-auto max-w-2xl space-y-5 px-4 py-8 text-slate-900 dark:text-white">
       <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-lg font-bold">Order {order.public_ref}</h1>
@@ -179,10 +179,10 @@ export default async function CheckoutOrderPage({
       )}
 
       <div className="flex flex-wrap gap-3 pb-6 text-xs">
-        <Link href="/orders" className="text-gray-400 hover:text-white">
+        <Link href="/orders" className="text-gray-400 hover:text-slate-900 dark:hover:text-white">
           My orders
         </Link>
-        <Link href="/feedback" className="text-gray-400 hover:text-white">
+        <Link href="/feedback" className="text-gray-400 hover:text-slate-900 dark:hover:text-white">
           Problem? Contact support
         </Link>
       </div>

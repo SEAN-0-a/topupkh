@@ -2,6 +2,7 @@ import Link from "next/link";
 import MarketplaceFilters from "@/components/MarketplaceFilters";
 import MarketplaceSearch from "@/components/MarketplaceSearch";
 import ProductCard from "@/components/ProductCard";
+import Reveal from "@/components/motion/Reveal";
 import T from "@/components/T";
 import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { CatalogQuery } from "@/lib/catalog";
@@ -104,7 +105,7 @@ export default async function MarketplacePage({
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-white">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-slate-900 dark:text-white">
       {/* header */}
       <div className="flex flex-col justify-between gap-3 rounded-3xl border border-hairline bg-surface p-6 md:flex-row md:items-center">
         <div>
@@ -161,10 +162,12 @@ export default async function MarketplacePage({
         </div>
       )}
 
-      {/* results */}
+      {/* results — Reveal gives each card a fade-up entry, staggered per row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {result.items.map((p) => (
-          <ProductCard key={p.id} product={p} />
+        {result.items.map((p, i) => (
+          <Reveal key={p.id} delay={(i % 4) * 0.06}>
+            <ProductCard product={p} />
+          </Reveal>
         ))}
       </div>
 

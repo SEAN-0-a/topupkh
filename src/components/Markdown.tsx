@@ -131,7 +131,7 @@ export default function Markdown({ text, className = "" }: { text: string; class
         switch (b.kind) {
           case "heading":
             return b.level === 2 ? (
-              <h3 key={key} className="text-sm font-bold text-white">
+              <h3 key={key} className="text-sm font-bold text-slate-900 dark:text-white">
                 {inline(b.text, key)}
               </h3>
             ) : (

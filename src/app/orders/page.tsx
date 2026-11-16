@@ -45,7 +45,7 @@ export default async function OrdersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 text-white">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 text-slate-900 dark:text-white">
       <h1 className="text-xl font-bold">🧾 My orders</h1>
 
       {!orders?.length && (

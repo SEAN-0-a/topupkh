@@ -49,7 +49,7 @@ export default async function GamePage({ params }: Props) {
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 text-white">
+    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 text-slate-900 dark:text-white">
       {/* ================= game header ================= */}
       <section className="flex flex-col items-start gap-5 rounded-3xl border border-gray-800 bg-gray-900 p-6 md:flex-row md:items-center md:p-8">
         {game.icon_url ? (

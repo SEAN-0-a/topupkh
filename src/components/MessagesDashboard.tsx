@@ -58,10 +58,10 @@ export default function MessagesDashboard() {
   }, [selectedImage]);
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 text-white space-y-4">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 text-slate-900 dark:text-white space-y-4">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">💬 Messages</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">💬 Messages</h1>
         <p className="text-xs text-gray-400">
           Trusted messaging — coordinate top-up deliveries with escrow protection.
         </p>
@@ -89,7 +89,7 @@ export default function MessagesDashboard() {
           {!m.active || (!m.activeConv && !m.activeTicket) ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-500 space-y-2">
               <span className="text-3xl">💬</span>
-              <h2 className="font-bold text-sm text-white">Select a conversation</h2>
+              <h2 className="font-bold text-sm text-slate-900 dark:text-white">Select a conversation</h2>
               <p className="text-xs max-w-sm">
                 Pick a chat from the left list to see live messages, order status and
                 coordinate delivery with your trade partner.

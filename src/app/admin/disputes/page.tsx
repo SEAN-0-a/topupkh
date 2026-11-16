@@ -111,7 +111,7 @@ export default function AdminDisputesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 text-white space-y-6">
+    <div className="max-w-5xl mx-auto p-6 text-slate-900 dark:text-white space-y-6">
       <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl shadow-xl flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-red-400">🛡️ Admin Escrow Dispute Queue</h1>

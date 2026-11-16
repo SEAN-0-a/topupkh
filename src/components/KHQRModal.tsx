@@ -7,6 +7,7 @@
 // DialogDescription equivalent), Escape-to-close and backdrop-click-to-close.
 
 import { useEffect, useState } from "react";
+import ModalShell from "@/components/motion/ModalShell";
 import { sendTelegramNotification } from "@/lib/telegram";
 
 interface KHQRModalProps {
@@ -55,17 +56,14 @@ export default function KHQRModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="khqr-dialog-title"
-      aria-describedby="khqr-dialog-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
-      }}
+    <ModalShell
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      panelClassName="w-full max-w-sm space-y-4 rounded-2xl border border-hairline bg-surface p-6 text-center shadow-2xl"
+      labelledBy="khqr-dialog-title"
+      describedBy="khqr-dialog-desc"
+      onClose={onClose}
+      busy={loading}
     >
-      <div className="w-full max-w-sm space-y-4 rounded-2xl border border-hairline bg-surface p-6 text-center shadow-2xl">
         <h2 id="khqr-dialog-title" className="text-xl font-bold text-slate-900 dark:text-white">
           Complete Payment
         </h2>
@@ -111,7 +109,6 @@ export default function KHQRModal({
             {loading ? "Verifying..." : "I Have Paid"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

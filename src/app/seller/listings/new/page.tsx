@@ -86,7 +86,7 @@ export default async function SellerNewListingPage() {
   );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 text-white">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 text-slate-900 dark:text-white">
       <div className="rounded-3xl border border-gray-800 bg-gray-900 p-6">
         <h1 className="text-xl font-bold">🛒 <T k="sell.form_title" /></h1>
         <p className="mt-1 text-xs text-gray-400">

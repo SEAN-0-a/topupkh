@@ -6,6 +6,7 @@
 // (aria-describedby), Escape-to-close.
 
 import { useEffect } from "react";
+import ModalShell from "@/components/motion/ModalShell";
 
 export default function PayoutModal({
   seller,
@@ -36,19 +37,17 @@ export default function PayoutModal({
   }, [requesting, onClose]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="payout-dialog-title"
-      aria-describedby="payout-dialog-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !requesting) onClose();
-      }}
+    <ModalShell
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      panelClassName="w-full max-w-sm rounded-2xl border border-hairline bg-surface p-6 shadow-2xl"
+      labelledBy="payout-dialog-title"
+      describedBy="payout-dialog-desc"
+      onClose={onClose}
+      busy={requesting}
     >
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-2xl border border-hairline bg-surface p-6 shadow-2xl"
+        className="w-full"
       >
         <h3 id="payout-dialog-title" className="text-sm font-bold text-slate-900 dark:text-white">
           💸 Request payout
@@ -95,6 +94,6 @@ export default function PayoutModal({
           </button>
         </div>
       </form>
-    </div>
+    </ModalShell>
   );
 }

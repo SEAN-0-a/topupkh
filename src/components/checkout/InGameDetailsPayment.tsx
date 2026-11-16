@@ -90,7 +90,7 @@ export default function InGameDetailsPayment({
       {/* ============ In-Game Details form (above the payment box) ============ */}
       <section aria-label="In-game delivery details">
         <div className="mb-1 flex items-baseline justify-between">
-          <h3 className="text-sm font-bold text-white">🎮 In-Game Details</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">🎮 In-Game Details</h3>
           <span
             className={`text-[10px] font-semibold ${isTopUp ? "text-amber-300" : "text-gray-500"}`}
           >

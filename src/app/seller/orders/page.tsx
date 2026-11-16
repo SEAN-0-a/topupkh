@@ -71,7 +71,7 @@ export default async function SellerOrdersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 text-white">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 text-slate-900 dark:text-white">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">📦 Incoming orders</h1>
         <span className="text-[11px] text-gray-500">as {seller.display_name}</span>

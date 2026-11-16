@@ -100,7 +100,7 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
   const created = listing.created_at ? new Date(listing.created_at).toLocaleDateString() : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 text-white">
+    <div className="mx-auto max-w-5xl px-4 py-8 text-slate-900 dark:text-white">
       <Link href="/marketplace" className="mb-4 inline-block text-xs text-muted transition-colors hover:text-royal">
         ← Back to marketplace
       </Link>
@@ -131,7 +131,7 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
 
         <div className="space-y-4">
           <div>
-            <h1 className="text-2xl font-bold">{listing.title}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{listing.title}</h1>
             <p className="mt-1 text-xs text-muted">
               {listing.game_name ?? "Game not labeled"}
               {created && <> · listed {created}</>}

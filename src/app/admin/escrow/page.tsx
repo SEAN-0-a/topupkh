@@ -85,7 +85,7 @@ export default function AdminEscrowPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 text-white">
+    <div className="max-w-4xl mx-auto p-6 text-slate-900 dark:text-white">
       <h1 className="text-2xl font-bold mb-6">Escrow Verification Queue</h1>
 
       {loading ? (

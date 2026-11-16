@@ -110,7 +110,7 @@ export default async function AdminProductsPage() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-white">📦 Products &amp; Offers</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">📦 Products &amp; Offers</h1>
             <p className="mt-1 text-xs text-gray-400">
               Every listing across all sellers — Admin: {ctx.profile.display_name}
             </p>

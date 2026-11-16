@@ -5,6 +5,7 @@ import { listGames, listTemplates, listActiveCategories } from "@/lib/catalog";
 import type { TemplateSummary } from "@/lib/catalog";
 import type { Game } from "@/lib/types";
 import SafeProductImage from "@/components/SafeProductImage";
+import Reveal from "@/components/motion/Reveal";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +48,12 @@ export default async function OfferGroupsPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-white">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-slate-900 dark:text-white">
       {/* breadcrumb + header */}
       <nav className="flex items-center gap-2 text-[11px] text-gray-400">
-        <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
+        <Link href="/marketplace" className="hover:text-slate-900 dark:hover:text-white">Marketplace</Link>
         <span>/</span>
-        <Link href={`/marketplace?game=${game.slug}`} className="hover:text-white">{game.name}</Link>
+        <Link href={`/marketplace?game=${game.slug}`} className="hover:text-slate-900 dark:hover:text-white">{game.name}</Link>
         <span>/</span>
         <span className="text-gray-300">{category.name}</span>      </nav>
 
@@ -90,11 +91,11 @@ export default async function OfferGroupsPage({ params }: Props) {
         </div>
       )}
 
-      {/* templates grid */}
+      {/* templates grid — fade-up entry, staggered per row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {templates.map((t) => (
+        {templates.map((t, i) => (
+          <Reveal key={t.id} delay={(i % 4) * 0.06}>
           <Link
-            key={t.id}
             href={`/offer/${t.id}`}
             className="group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-lg transition-all hover:-translate-y-0.5 hover:border-emerald-500/60"
           >
@@ -116,7 +117,7 @@ export default async function OfferGroupsPage({ params }: Props) {
               <span className="mb-1.5 w-fit rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-300">
                 {t.category?.name ?? "—"}
               </span>
-              <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white group-hover:text-emerald-300">
+              <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white group-hover:text-emerald-300">
                 {t.title}
               </h3>
               <div className="mt-auto flex items-baseline justify-between border-t border-gray-800 pt-3 text-xs">
@@ -129,6 +130,7 @@ export default async function OfferGroupsPage({ params }: Props) {
               </div>
             </div>
           </Link>
+          </Reveal>
         ))}
       </div>
     </div>

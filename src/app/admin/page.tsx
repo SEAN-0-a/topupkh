@@ -21,7 +21,7 @@ export default async function AdminIndexPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-lg font-bold text-white">🛠️ Admin Panel</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white">🛠️ Admin Panel</h1>
         <p className="mt-1 text-xs text-gray-400">Admin: {ctx.profile.display_name}</p>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">

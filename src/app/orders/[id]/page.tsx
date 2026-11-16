@@ -114,7 +114,7 @@ export default function OrderDetailsPage({ params }: OrderPageProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 text-white space-y-6">
+    <div className="max-w-4xl mx-auto p-6 text-slate-900 dark:text-white space-y-6">
       {/* Order Summary Header */}
       <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 space-y-4">
         <div className="flex justify-between items-center">
@@ -126,9 +126,9 @@ export default function OrderDetailsPage({ params }: OrderPageProps) {
 
         <div className="bg-gray-800/50 rounded-2xl p-4 flex flex-col sm:flex-row justify-between gap-4">
           <div>
-            <h2 className="font-bold text-base text-white">{order.listings?.title}</h2>
+            <h2 className="font-bold text-base text-slate-900 dark:text-white">{order.listings?.title}</h2>
             <p className="text-xs text-gray-400 mt-1">
-              Roblox Username: <span className="text-white font-semibold">{order.roblox_username}</span>
+              Roblox Username: <span className="font-semibold text-slate-900 dark:text-white">{order.roblox_username}</span>
             </p>
           </div>
           <div className="text-right">
@@ -141,7 +141,7 @@ export default function OrderDetailsPage({ params }: OrderPageProps) {
       {/* Eldorado Style Live Chat Box */}
       <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 flex flex-col h-[500px]">
         <div className="border-b border-gray-800 pb-3 mb-4">
-          <h2 className="font-bold text-sm text-white">💬 Order Support & Trade Chat</h2>
+          <h2 className="font-bold text-sm text-slate-900 dark:text-white">💬 Order Support & Trade Chat</h2>
           <p className="text-[11px] text-gray-400">Communicate directly with your trading partner safely inside escrow.</p>
         </div>
 

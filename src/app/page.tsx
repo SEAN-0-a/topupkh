@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
+import Reveal from "@/components/motion/Reveal";
 import { listGames, listProducts, listTopSellers, listActiveCategories } from "@/lib/catalog";
 import type { Product, Game, ProductCategory } from "@/lib/types";
 
@@ -23,7 +24,7 @@ export default async function HomePage() {
   const dbReady = featured.status === "fulfilled" && recent.status === "fulfilled";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 text-white">
+    <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 text-slate-900 dark:text-white">
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden rounded-3xl border border-navy-600 bg-gradient-to-br from-navy via-navy to-navy-deep p-8 text-center shadow-2xl md:p-16">
         <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
@@ -135,8 +136,10 @@ export default async function HomePage() {
           subtitle="Ranked by real completed orders on the platform"
         />
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {featuredItems.map((p) => (
-            <ProductCard key={p.id} product={p} />
+          {featuredItems.map((p, i) => (
+            <Reveal key={p.id} delay={(i % 4) * 0.06}>
+              <ProductCard product={p} />
+            </Reveal>
           ))}
         </div>
       </section>
@@ -145,8 +148,10 @@ export default async function HomePage() {
       <section>
         <SectionHeader title="🆕 Recently added" subtitle="Freshly approved listings" />
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {recentItems.map((p) => (
-            <ProductCard key={p.id} product={p} />
+          {recentItems.map((p, i) => (
+            <Reveal key={p.id} delay={(i % 4) * 0.06}>
+              <ProductCard product={p} />
+            </Reveal>
           ))}
         </div>
       </section>
@@ -230,15 +235,21 @@ function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="mb-5">
-      <h2 className="text-lg font-bold md:text-xl">{title}</h2>
+      {/* Explicit theme-aware heading color — this header used to inherit from
+          the page's dark-first `text-white` root, which rendered white-on-light
+          (invisible) when the inherited color resolved for dark mode. Now:
+          light → slate-900 ink on #F5F5F5 (~17:1), dark → white on charcoal. */}
+      <h2 className="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{title}</h2>
       <p className="text-xs text-muted">{subtitle}</p>
     </div>
   );
 }
 
 function Banner({ children }: { children: React.ReactNode }) {
+  // Same class of bug: pastel yellow-200 is written for charcoal backgrounds
+  // and drops to ~1.8:1 on the light #F5F5F5 page — pair it per theme.
   return (
-    <div className="rounded-2xl border border-yellow-600/40 bg-yellow-500/10 p-4 text-xs text-yellow-200">
+    <div className="rounded-2xl border border-yellow-600/40 bg-yellow-500/10 p-4 text-xs text-yellow-700 dark:text-yellow-200">
       {children}
     </div>
   );

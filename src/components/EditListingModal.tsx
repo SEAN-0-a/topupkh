@@ -7,6 +7,7 @@
 // never sent — RLS only allows edits without status changes.
 
 import { useEffect, useRef, useState } from "react";
+import ModalShell from "@/components/motion/ModalShell";
 import { supabase } from "@/lib/supabase";
 
 /** Public Storage bucket for listing photos (ImageDropzone writes here too). */
@@ -156,19 +157,15 @@ export default function EditListingModal({ listing, onSaved, onClose }: Props) {
   const busy = saving || uploadProgress;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-listing-title"
-      aria-describedby="edit-listing-desc"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <ModalShell
+      overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      panelClassName="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-hairline bg-surface p-6 shadow-2xl"
+      labelledBy="edit-listing-title"
+      describedBy="edit-listing-desc"
+      onClose={onClose}
+      busy={busy}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-hairline bg-surface p-6 shadow-2xl"
-      >
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="edit-listing-title" className="text-lg font-bold text-gold-dark dark:text-gold">
               ✏️ Edit Listing
@@ -252,7 +249,6 @@ export default function EditListingModal({ listing, onSaved, onClose }: Props) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

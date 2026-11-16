@@ -41,14 +41,14 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
   if (!page) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 text-white">
+    <div className="mx-auto max-w-4xl px-4 py-8 text-slate-900 dark:text-white">
       {/* breadcrumbs */}
       <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-gray-400">
-        <Link href="/" className="transition-colors hover:text-white">
+        <Link href="/" className="transition-colors hover:text-slate-900 dark:hover:text-white">
           Home
         </Link>
         <span aria-hidden="true">/</span>
-        <Link href="/info/help-center" className="transition-colors hover:text-white">
+        <Link href="/info/help-center" className="transition-colors hover:text-slate-900 dark:hover:text-white">
           Info
         </Link>
         <span aria-hidden="true">/</span>
@@ -57,7 +57,7 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
 
       {/* header */}
       <header className="mb-8">
-        <h1 className="text-3xl font-extrabold tracking-tight">{page.title}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{page.title}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-400">{page.subtitle}</p>
         <span className="mt-3 inline-block rounded-full border border-gray-700 bg-slate-900/60 px-3 py-1 text-[10px] font-semibold text-gray-500">
           {page.updated}

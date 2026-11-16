@@ -7,7 +7,7 @@ import SafeProductImage from "@/components/SafeProductImage";
  */
 export default function ProductNotFound() {
   return (
-    <div className="min-h-[70vh] w-full flex items-center justify-center bg-gray-950 px-4 text-white">
+    <div className="min-h-[70vh] w-full flex items-center justify-center bg-gray-950 px-4 text-slate-900 dark:text-white">
       <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center shadow-2xl">
         <SafeProductImage
           src={null}

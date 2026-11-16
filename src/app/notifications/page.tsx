@@ -40,7 +40,7 @@ export default async function NotificationsPage() {
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-white">Notifications</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Notifications</h1>
             <p className="mt-0.5 text-xs text-gray-400">
               {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up."}
             </p>

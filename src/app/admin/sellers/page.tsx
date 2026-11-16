@@ -154,7 +154,7 @@ export default async function AdminSellersPage() {
     <div className="min-h-screen bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-white">🛡️ KYC Review</h1>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">🛡️ KYC Review</h1>
           <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
             {pending.length} pending
           </span>

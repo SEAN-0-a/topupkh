@@ -49,7 +49,7 @@ export default function ProductBuyPanel({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">{product.title ?? "Untitled listing"}</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{product.title ?? "Untitled listing"}</h1>
         <p className="mt-1 text-xs text-gray-400">
           Listed {created ?? "recently"} · {soldCount.toLocaleString()} sold
           {rating && <span className="ml-2 text-yellow-400">★ {rating}</span>}

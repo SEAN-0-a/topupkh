@@ -91,7 +91,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const inStock = product.stock_is_unlimited || (product.stock ?? 0) > 0;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 text-white">
+    <div className="mx-auto max-w-5xl px-4 py-8 text-slate-900 dark:text-white">
       <Link href="/marketplace" className="mb-4 inline-block text-xs text-gray-400 hover:text-white">
         ← Back to marketplace
       </Link>

@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+// KHQR payment dialog (ABA escrow flow).
+// Radix-Dialog parity: role="dialog" + aria-modal, accessible NAME from the
+// visible <h2> (aria-labelledby — the DialogTitle equivalent), accessible
+// DESCRIPTION from the subtitle <p> (aria-describedby — the
+// DialogDescription equivalent), Escape-to-close and backdrop-click-to-close.
+
+import { useEffect, useState } from "react";
 import { sendTelegramNotification } from "@/lib/telegram";
 
 interface KHQRModalProps {
@@ -18,6 +24,15 @@ export default function KHQRModal({
   onSuccess,
 }: KHQRModalProps) {
   const [loading, setLoading] = useState(false);
+
+  // Escape closes — but not mid-confirmation (avoid losing the claim state).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !loading) onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [loading, onClose]);
 
   async function handleConfirmPayment() {
     setLoading(true);
@@ -40,13 +55,24 @@ export default function KHQRModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl">
-        <h2 className="text-xl font-bold text-white">Complete Payment</h2>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="khqr-dialog-title"
+      aria-describedby="khqr-dialog-desc"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
+      }}
+    >
+      <div className="w-full max-w-sm space-y-4 rounded-2xl border border-hairline bg-surface p-6 text-center shadow-2xl">
+        <h2 id="khqr-dialog-title" className="text-xl font-bold text-slate-900 dark:text-white">
+          Complete Payment
+        </h2>
 
-        <p className="text-xs text-gray-400">
+        <p id="khqr-dialog-desc" className="text-xs text-gray-400">
           Scan to pay{" "}
-          <span className="text-gold font-bold">${amount} USD</span>
+          <span className="font-bold text-gold">${amount} USD</span>
         </p>
 
         {/* Static ABA QR Display */}
@@ -59,9 +85,10 @@ export default function KHQRModal({
           />
         </div>
 
-        {/* Remark Requirement Reminder */}
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl text-left">
-          <p className="font-semibold text-amber-400">⚠️ Important Note:</p>
+        {/* Remark Requirement Reminder — amber-700 on light tint (AA),
+            bright amber-300 on charcoal (AA). */}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-left text-xs text-amber-700 dark:text-amber-300">
+          <p className="font-semibold text-amber-800 dark:text-amber-400">⚠️ Important Note:</p>
           <p className="mt-1 text-[11px] leading-relaxed">
             Please type <span className="font-bold underline">ORDER #{orderId}</span> into the ABA transfer remark/note field before confirming payment.
           </p>
@@ -70,14 +97,16 @@ export default function KHQRModal({
         <div className="flex gap-2 pt-2">
           <button
             onClick={onClose}
-            className="w-1/2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+            className="w-1/2 rounded-xl border border-hairline bg-elev py-2.5 text-xs font-bold text-gray-300 transition-colors hover:bg-elev-strong"
           >
             Cancel
           </button>
+          {/* Primary CTA = palette gold (#FFD700) with charcoal ink (~13:1);
+              disabled uses solid tokens so the label never falls below AA. */}
           <button
             onClick={handleConfirmPayment}
             disabled={loading}
-            className="w-1/2 bg-gold hover:bg-gold-dark disabled:opacity-50 text-navy font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer"
+            className="w-1/2 rounded-xl border border-transparent bg-gold py-2.5 text-xs font-bold text-navy transition-all hover:bg-gold-dark disabled:cursor-not-allowed disabled:border-hairline disabled:bg-elev-strong disabled:text-muted"
           >
             {loading ? "Verifying..." : "I Have Paid"}
           </button>

@@ -54,10 +54,15 @@ export default function PaymentModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="ABA PayWay payment"
+      aria-labelledby="payment-dialog-title"
+      aria-describedby="payment-dialog-desc"
     >
+      {/* DialogDescription equivalent — screen-reader-only so no visual change. */}
+      <p id="payment-dialog-desc" className="sr-only">
+        Escrow-protected KHQR payment for order {publicRef}
+      </p>
       <div className="max-w-sm w-full space-y-4 rounded-2xl border border-hairline bg-surface p-6 text-center shadow-2xl">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h2 id="payment-dialog-title" className="text-xl font-bold text-slate-900 dark:text-white">
           {phase === "paid" ? "Payment Successful! 🎉" : "Pay with KHQR"}
         </h2>
 

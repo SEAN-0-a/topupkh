@@ -1,12 +1,22 @@
 "use client";
 
+// Edit Listing modal (seller dashboard) — Radix-Dialog parity: role="dialog"
+// + aria-modal, NAME via aria-labelledby → visible <h2>, DESCRIPTION via
+// aria-describedby → listing-title <p>, Escape + backdrop close. Saves
+// title/description/price (+ optional cover) to public.products. `status` is
+// never sent — RLS only allows edits without status changes.
+
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 /** Public Storage bucket for listing photos (ImageDropzone writes here too). */
 const BUCKET = "product-images";
 
-/** The editable shape of a seller's product row (subset of public.products). */
+/** Theme-token fields: bg-elev flips with .dark; dark ink in light mode. */
+const INPUT_CLS =
+  "w-full rounded-xl border border-hairline bg-elev px-4 py-2.5 text-sm text-slate-900 transition-colors focus:border-gold-dark focus:outline-none focus:ring-2 focus:ring-gold/30 dark:text-white";
+const LABEL_CLS = "mb-1.5 block text-xs font-semibold text-gray-300";
+
 export interface EditableListing {
   id: number;
   title: string;
@@ -17,37 +27,19 @@ export interface EditableListing {
 }
 
 interface Props {
-  /** The listing being edited; null closes the modal. */
-  listing: EditableListing | null;
-  /** Called after a successful save so the parent can refresh its grid. */
-  onSaved: () => void;
+  listing: EditableListing | null; // null closes the modal
+  onSaved: () => void; // parent refresh after a successful save
   onClose: () => void;
 }
 
-/**
- * Edit Listing modal for the seller dashboard.
- *
- * Pre-fills title / description / price_usd / image_url from the product row.
- * Text fields save straight back to public.products via
- * `.update({...}).eq("id", ...)`. A NEW cover image is optional: the file is
- * uploaded to the public `product-images` bucket under the seller's auth.uid
- * folder and its public URL replaces image_url (the old file is intentionally
- * left in Storage — buyers may still be seeing it in cached grids).
- *
- * NOTE: `status` is never sent in the update — RLS (products_seller_write +
- * the products_status_guard trigger) only allows sellers to edit their own
- * rows WITHOUT changing the status, and approved listings stay approved.
- */
 export default function EditListingModal({ listing, onSaved, onClose }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
-
   const [newFile, setNewFile] = useState<File | null>(null);
   const [newPreviewUrl, setNewPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -122,25 +114,21 @@ export default function EditListingModal({ listing, onSaved, onClose }: Props) {
       if (newFile) {
         setUploadProgress(true);
         const ext = newFile.name.split(".").pop()?.toLowerCase() || "png";
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const parent = user?.id ?? "anon";
-        const path = `${parent}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const { data } = await supabase.auth.getUser();
+        const path = `${data.user?.id ?? "anon"}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
           .upload(path, newFile, { cacheControl: "3600", contentType: newFile.type || "image/*" });
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
 
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        if (!data.publicUrl) throw new Error("Could not resolve the uploaded image URL.");
-        newImageUrl = data.publicUrl;
+        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        if (!pub.publicUrl) throw new Error("Could not resolve the uploaded image URL.");
+        newImageUrl = pub.publicUrl;
         setUploadProgress(false);
       }
 
-      // `.update(...).eq("id", ...)` — RLS (products_seller_write) enforces
-      // ownership server-side; status/seller_id are never touched.
+      // RLS (products_seller_write) enforces ownership; status never touched.
       const patch: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim(),
@@ -158,148 +146,108 @@ export default function EditListingModal({ listing, onSaved, onClose }: Props) {
       onSaved();
       onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save changes.";
-      setErrorMsg(message);
+      setErrorMsg(err instanceof Error ? err.message : "Failed to save changes.");
     } finally {
       setUploadProgress(false);
       setSaving(false);
     }
   }
 
+  const busy = saving || uploadProgress;
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Edit listing: ${listing.title}`}
+      aria-labelledby="edit-listing-title"
+      aria-describedby="edit-listing-desc"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-gray-800 bg-slate-900 p-6 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-hairline bg-surface p-6 shadow-2xl"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-emerald-400">✏️ Edit Listing</h2>
-            <p className="mt-0.5 truncate text-[11px] text-gray-500">{listing.title}</p>
+            <h2 id="edit-listing-title" className="text-lg font-bold text-gold-dark dark:text-gold">
+              ✏️ Edit Listing
+            </h2>
+            <p id="edit-listing-desc" className="mt-0.5 truncate text-[11px] text-gray-500">
+              {listing.title}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-full border border-gray-700 p-1.5 text-gray-400 transition-colors hover:text-white"
+            className="rounded-full border border-hairline p-1.5 text-gray-400 transition-colors hover:text-white"
           >
             ✕
           </button>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-400"
+          >
             {errorMsg}
           </div>
         )}
 
         <form onSubmit={handleSave} className="space-y-4">
-          {/* Title */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-300">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              minLength={3}
-              className="w-full rounded-xl border border-gray-700 bg-slate-950 px-4 py-2.5 text-sm text-white transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
+            <label htmlFor="edit-title" className={LABEL_CLS}>Title</label>
+            <input id="edit-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              required minLength={3} className={INPUT_CLS} />
           </div>
 
-          {/* Price */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-300">Price (USD)</label>
+            <label htmlFor="edit-price" className={LABEL_CLS}>Price (USD)</label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                $
-              </span>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-                className="w-full rounded-xl border border-gray-700 bg-slate-950 px-4 py-2.5 pl-8 text-sm text-white transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+              <input id="edit-price" type="number" min="0.01" step="0.01" value={price}
+                onChange={(e) => setPrice(e.target.value)} required className={`${INPUT_CLS} pl-8`} />
             </div>
           </div>
 
-          {/* Description */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-300">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              className="w-full resize-y rounded-xl border border-gray-700 bg-slate-950 px-4 py-2.5 text-sm text-white transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
+            <label htmlFor="edit-description" className={LABEL_CLS}>Description</label>
+            <textarea id="edit-description" value={description} onChange={(e) => setDescription(e.target.value)}
+              rows={5} className={`${INPUT_CLS} resize-y`} />
           </div>
 
           {/* Cover image — optional replacement */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-gray-300">Cover image</label>
+            <span className={LABEL_CLS}>Cover image</span>
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={newPreviewUrl ?? existingImageUrl ?? ""}
-                alt="Cover preview"
-                className="h-16 w-16 shrink-0 rounded-xl border border-gray-700 bg-slate-950 object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.visibility = "hidden";
-                }}
-              />
+              <img src={newPreviewUrl ?? existingImageUrl ?? ""} alt="Cover preview"
+                className="h-16 w-16 shrink-0 rounded-xl border border-hairline bg-elev object-cover"
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
               <div className="min-w-0 flex-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    pickImage(e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={saving || uploadProgress}
-                  className="rounded-xl border border-gray-700 bg-slate-950 px-3.5 py-2 text-xs font-bold text-emerald-400 transition-colors hover:border-emerald-500/50 disabled:opacity-50"
-                >
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { pickImage(e.target.files?.[0]); e.target.value = ""; }} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy}
+                  className="rounded-xl border border-hairline bg-elev px-3.5 py-2 text-xs font-bold text-gold-dark transition-colors hover:border-gold-dark disabled:cursor-not-allowed disabled:text-muted dark:text-gold dark:hover:border-gold">
                   {newFile ? "Change photo" : "Replace photo…"}
                 </button>
                 <p className="mt-1 truncate text-[10px] text-gray-500">
-                  {newFile
-                    ? newFile.name
-                    : existingImageUrl
-                      ? "JPG / PNG / WEBP — optional"
-                      : "No image yet — upload one"}
+                  {newFile ? newFile.name : existingImageUrl ? "JPG / PNG / WEBP — optional" : "No image yet — upload one"}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-gray-800 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving || uploadProgress}
-              className="rounded-xl border border-gray-700 px-4 py-2.5 text-xs font-bold text-gray-300 transition-colors hover:text-white disabled:opacity-50"
-            >
+          <div className="flex justify-end gap-2 border-t border-hairline pt-4">
+            <button type="button" onClick={onClose} disabled={busy}
+              className="rounded-xl border border-hairline bg-elev px-4 py-2.5 text-xs font-bold text-gray-300 transition-colors hover:bg-elev-strong disabled:cursor-not-allowed disabled:text-muted">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={saving || uploadProgress}
-              className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-black transition-all hover:bg-emerald-400 disabled:opacity-50"
-            >
+            {/* Primary CTA = palette gold + charcoal ink; solid disabled tokens. */}
+            <button type="submit" disabled={busy}
+              className="rounded-xl border border-transparent bg-gold px-5 py-2.5 text-xs font-bold text-navy transition-all hover:bg-gold-dark disabled:cursor-not-allowed disabled:border-hairline disabled:bg-elev-strong disabled:text-muted">
               {uploadProgress ? "Uploading image…" : saving ? "Saving…" : "Save changes"}
             </button>
           </div>

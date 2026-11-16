@@ -6,8 +6,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #0b1234;
-  --foreground: #ededed;
+  --background: #f5f5f5;
+  --foreground: #171717;
 }
 
 @theme inline {
@@ -20,68 +20,74 @@
 /* ============================================== RomdoulKHShop brand palette ==
    Literal tokens (NOT remapped by the light-mode inversion below), so they
    render identically in both themes. Generated utilities:
-     navy / gold / gold-dark / royal / royal-dark / page / surface /
+     navy / gold / gold-dark / royal / silver / page / surface /
      muted / hairline  →  bg-navy, text-gold, border-hairline, …        */
 @theme {
-  --color-navy: #101b46;        /* Deep Navy   — nav, footer, hero, dark surfaces */
-  --color-navy-700: #1a2560;    /* raised navy surface (hover / active rows)   */
-  --color-navy-600: #26326e;    /* borders + highlights on navy                */
-  --color-navy-deep: #0b1234;   /* deepest navy (hero gradients, inputs)       */
-  --color-gold: #f8c85a;        /* Golden Yellow — primary CTAs, highlights    */
-  --color-gold-dark: #e4a635;   /* Dark Gold — premium badges, subtle borders  */
+  /* Dark neutral surfaces — the legacy "navy" tokens now point at the
+     CHARCOAL family (#121212 base per the palette spec). STRICT RULE:
+     never brown #8B4513 for backgrounds. */
+  --color-navy: #121212;        /* charcoal   — nav, footer, hero, dark surfaces */
+  --color-navy-700: #1e1e1e;    /* raised charcoal surface (hover / active)   */
+  --color-navy-600: #2e2e2e;    /* borders + highlights on charcoal           */
+  --color-navy-deep: #0e0e0e;   /* deepest charcoal (hero gradients, inputs)  */
+  /* Gold accents — primary #FFD700, secondary/hover #DAA520 (Goldenrod) */
+  --color-gold: #ffd700;        /* Bright Gold — primary CTAs, active states  */
+  --color-gold-dark: #daa520;   /* Goldenrod — hover states, badges           */
+  --color-silver: #c0c0c0;      /* Silver — borders, dividers, muted icons    */
   --color-royal: #1749e8;       /* Royal Blue — links, secondary buttons       */
   --color-royal-dark: #1138c4;  /* Royal hover state                           */
   /* semantic neutrals — LIGHT values by default; the `.dark` block below
      flips them so converted components read correctly in both themes */
-  --color-page: #f8fafc;        /* clean marketplace background                */
-  --color-surface: #ffffff;     /* card surface                                */
-  --color-elev: #e2e8f0;        /* inset fills: inputs, quiet buttons          */
-  --color-elev-strong: #e2e8f0; /* chips / hover state on elev fills           */
-  --color-muted: #64748b;       /* Text Muted                                  */
-  --color-hairline: #e2e8f0;    /* Border                                      */}
+  --color-page: #f5f5f5;        /* clean light neutral background             */
+  --color-surface: #ffffff;     /* card surface (white separates from page)   */
+  --color-elev: #ebebeb;        /* inset fills: inputs, quiet buttons         */
+  --color-elev-strong: #e5e5e5; /* chips / hover state on elev fills          */
+  --color-muted: #616161;       /* muted text (darkened from silver for AA)   */
+  --color-hairline: #c0c0c0;    /* border — silver                            */}
 
-/* Dark-mode values for the semantic tokens: navy-tinted surfaces per the
-   RomdoulKHShop brand (Deep Navy #101B46 family) instead of neutral gray. */
+/* Dark-mode values for the semantic tokens: sleek dark NEUTRAL surfaces
+   (#121212 charcoal family) instead of the old navy tint. Silver borders
+   dim to low-alpha silver so #C0C0C0 keeps its role without glaring. */
 .dark {
-  --color-page: #0b1234;        /* navy-deep page background                   */
-  --color-surface: #131c4a;     /* raised navy card surface                    */
-  --color-elev: #0e173d;        /* inset fills, darker than the card           */
-  --color-elev-strong: #26326e; /* chips + hover on elev (navy-600)            */
-  --color-hairline: #26326e;    /* navy-600 borders                            */
-  --color-muted: #94a3b8;       /* lighter muted text for dark backgrounds     */}
+  --color-page: #121212;        /* charcoal page background                   */
+  --color-surface: #1e1e1e;     /* raised charcoal card surface               */
+  --color-elev: #161616;        /* inset fills, darker than the card          */
+  --color-elev-strong: #2e2e2e; /* chips + hover on elev                      */
+  --color-hairline: rgb(192 192 192 / 0.25); /* silver borders, dimmed       */
+  --color-muted: #a3a3a3;       /* lighter muted text for dark backgrounds    */}
 
 /* The whole app was authored dark-first (bg-gray-950 pages, bg-gray-900
    cards, text-white headings, bg-black inputs…). Instead of touching every
    component, LIGHT mode remaps Tailwind v4's neutral palette variables to
-   a slate-hued light scale:
-     page bg (black/gray-950) → soft slate-50            #f8fafc
-     cards (bg-gray-900)      → white                    #ffffff
-     borders (gray-800/700)   → slate-200 / slate-300
-     white text               → dark ink                 #0f172a
+   a NEUTRAL light scale matching the #F5F5F5 / #C0C0C0 palette:
+     page bg (black/gray-950) → clean light neutral     #f5f5f5
+     cards (bg-gray-900)      → white                   #ffffff
+     borders (gray-800/700)   → silver family           #c0c0c0
+     white text               → dark ink                #171717
    every `bg-gray-900` / `text-white` / `border-gray-800` / … utility
    resolves through these vars at runtime and flips automatically. */
 html:not(.dark) {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f5f5f5;
+  --foreground: #171717;
 
-  --color-black: #f8fafc;
+  --color-black: #f5f5f5;
 
   /* NOTE: --color-white must NOT be remapped here. Legacy `text-white` needs
      dark ink in light mode, but `bg-white` (body, login card, KHQR modal
      backdrop) must stay pure white #ffffff. The token is left at Tailwind's
      default and the text side is inverted per-utility below. */
 
-  /* inverted + slate-hued neutral scale */
-  --color-gray-950: #f1f5f9;
+  /* inverted neutral gray scale (#F5F5F5 → #171717 family) */
+  --color-gray-950: #ebebeb;
   --color-gray-900: #ffffff;
-  --color-gray-800: #e2e8f0;
-  --color-gray-700: #cbd5e1;
-  --color-gray-600: #94a3b8;
-  --color-gray-500: #64748b;
-  --color-gray-400: #475569;
-  --color-gray-300: #334155;
-  --color-gray-200: #1e293b;
-  --color-gray-100: #0f172a;
+  --color-gray-800: #e5e5e5;
+  --color-gray-700: #c0c0c0;
+  --color-gray-600: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-400: #525252;
+  --color-gray-300: #404040;
+  --color-gray-200: #262626;
+  --color-gray-100: #171717;
 }
 
 /* Elevated-surface depth in light mode: card-like surfaces get a soft
@@ -92,15 +98,15 @@ html:not(.dark) .bg-gray-900,
 html:not(.dark) .bg-white,
 html:not(.dark) .bg-surface {
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 4px 14px -4px rgb(15 23 42 / 0.10);
+    0 1px 2px rgb(23 23 23 / 0.06),
+    0 4px 14px -4px rgb(23 23 23 / 0.10);
 }
 
 /* Legacy dark-first pages were authored with `text-white` headings/body copy.
    In light mode that text must become dark ink (the old token-level inversion
    did this, but it also broke `bg-white` surfaces — see note above). */
 html:not(.dark) .text-white {
-  color: #0f172a;
+  color: #171717;
 }
 
 body {
@@ -109,8 +115,8 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ============================================== light-mode polish == */
-/* Keep accent colors readable on the light surfaces (e.g. emerald text
+/* ============================================== light-mode polish ==
+   Keep accent colors readable on the light surfaces (e.g. emerald text
    darkens slightly for contrast on white cards). */
 html:not(.dark) .text-emerald-400 {
   color: #059669;
@@ -132,32 +138,33 @@ html:not(.dark) .text-purple-300 {
 }
 
 /* ============================================== brand tokens, light mode polish ==
-   Golden-Yellow text is barely legible on white cards, so on ROMDOULKHSHOP's
-   light surfaces it darkens to a readable amber. Navy surfaces (nav, footer,
-   hero) are exempt — gold must stay bright there, and these overrides win on
+   Bright Gold #FFD700 text is barely legible on white cards, so on
+   ROMDOULKHSHOP's light surfaces it darkens to a readable goldenrod-amber
+   (#a16207). Charcoal surfaces (nav, footer, hero — the "navy" tokens) are
+   exempt — gold must stay bright #FFD700 there, and these overrides win on
    specificity (two class selectors). */
 html:not(.dark) .text-gold,
 html:not(.dark) .text-gold-dark {
-  color: #b45309;
+  color: #a16207;
 }
 html:not(.dark) .bg-navy .text-gold,
 html:not(.dark) .bg-navy .text-gold-dark,
 html:not(.dark) .bg-navy-deep .text-gold,
 html:not(.dark) .bg-navy-deep .text-gold-dark {
-  color: #f8c85a;
+  color: #ffd700;
 }
 html:not(.dark) .hover\:text-gold:hover {
-  color: #b45309;
+  color: #a16207;
 }
 html:not(.dark) .bg-navy .hover\:text-gold:hover,
 html:not(.dark) .bg-navy-deep .hover\:text-gold:hover {
-  color: #f8c85a;
+  color: #ffd700;
 }
 html:not(.dark) .group-hover\:bg-gold:hover {
-  background-color: #e4a635;
+  background-color: #daa520;
 }
 html:not(.dark) .group-hover\:text-gold:hover {
-  color: #b45309;
+  color: #a16207;
 }
 /* Royal Blue links need a touch more weight on white for WCAG AA */
 html:not(.dark) .text-royal {

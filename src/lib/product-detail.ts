@@ -20,6 +20,8 @@ export type ProductDetail = {
   image_url: string | null;
   /** Gallery URLs (0013) — first entry mirrors image_url; [] in degraded reads. */
   images: string[];
+  /** Seller-facing game label — drives the game-themed no-cover fallback. */
+  game_name: string | null;
   /** null (missing column) renders as "Price unavailable" — never fake $0.00. */
   price_usd: number | null;
   original_price_usd: number | null;
@@ -45,13 +47,13 @@ export type ProductDetail = {
  *  underlying prepared plan enum-free where possible and make the read
  *  succeed or fail on its own merits. */
 const PRODUCT_COLUMNS =
-  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, game_name, price_usd, original_price_usd, " +
   "delivery_method, delivery_details, stock, stock_is_unlimited, estimated_minutes, " +
   "refund_policy, ownership_note, status, sold_count, rating_sum, rating_count, created_at";
 
 /** Primitive-only fallback (no enum-typed columns: delivery_method, status). */
 const PRODUCT_STUB_COLUMNS =
-  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, game_name, price_usd, original_price_usd, " +
   "delivery_details, stock, stock_is_unlimited, estimated_minutes, refund_policy, " +
   "ownership_note, sold_count, rating_sum, rating_count, created_at";
 
@@ -60,7 +62,7 @@ const PRODUCT_STUB_COLUMNS =
  *  (sold_count / rating_sum / …) or the is_deleted predicate itself, this
  *  still proves the row exists — the page renders owner-gated instead of 404. */
 const PRODUCT_MINIMAL_COLUMNS =
-  "id, seller_id, title, description, image_url, price_usd, stock, " +
+  "id, seller_id, title, description, image_url, game_name, price_usd, stock, " +
   "stock_is_unlimited, is_deleted, created_at";
 
 export interface ProductLoadResult {

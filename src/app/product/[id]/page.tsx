@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import SafeProductImage from "@/components/SafeProductImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadProductDetail, type ProductDetail } from "@/lib/product-detail";
 import { pickCoverImage, resolveProductImageSrc } from "@/lib/product-cover";
 import { loadSellerCard, type SellerCard } from "@/lib/seller-card";
+import ProductHeroImage from "@/components/ProductHeroImage";
 import ProductBuyPanel from "./components/ProductBuyPanel";
 import ProductDetailCards from "./components/ProductDetailCards";
 
@@ -107,16 +107,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
-          {/* SafeProductImage — same visual as ProductCard; a broken/null
-              cover gets the clean placeholder, never a dead <img>. The cover
-              itself falls back to images[] when image_url is empty, so a
-              valid photo always renders. */}
-          <SafeProductImage
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900">
+          {/* ProductHeroImage — a missing/broken cover gets the game-themed
+              fallback card (game name + verified badge), never the old
+              "COVER UNAVAILABLE" SVG. The cover itself falls back to images[]
+              when image_url is empty, so a valid photo always renders. */}
+          <ProductHeroImage
             src={cover}
             alt={product.title ?? "Product image"}
-            loading="eager"
-            className="h-72 w-full bg-gray-950 object-cover"
+            gameName={product.game_name ?? null}
+            verified={product.status === "approved"}
+            className="h-72 w-full"
           />
         </div>
 

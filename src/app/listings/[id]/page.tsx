@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import BuyButton from "@/components/BuyButton";
+import ProductHeroImage from "@/components/ProductHeroImage";
 import SafeProductImage from "@/components/SafeProductImage";
 import { isUsableImageValue, resolveProductImageSrc } from "@/lib/product-cover";
 import T from "@/components/T";
@@ -114,11 +115,13 @@ export default async function LegacyListingPage({ params }: { params: Promise<{ 
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* ---- gallery (auto-selected photos, no manual URL handling) ---- */}
-        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-3">
-          <SafeProductImage
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-100 p-3 dark:border-slate-800 dark:bg-slate-900">
+          <ProductHeroImage
             src={cover}
             alt={listing.title}
-            className="h-72 w-full rounded-xl object-cover"
+            gameName={listing.game_name ?? null}
+            verified={listing.status === "approved"}
+            className="h-72 w-full rounded-xl"
           />
           {images.length > 1 && (
             <div className="flex gap-2">

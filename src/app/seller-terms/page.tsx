@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LastUpdatedBadge from "@/components/LastUpdatedBadge";
 
 /**
  * /seller-terms — Seller Terms & Guidelines. Static content page styled with
@@ -50,9 +51,11 @@ export default function SellerTermsPage() {
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             Seller Terms &amp; Guidelines
           </h1>
-          <p className="mt-3 text-sm text-muted">
-            Last updated: October 26, 2026 · RomdoulKHShop
-          </p>
+          <LastUpdatedBadge
+            en="Last updated: October 26, 2026 · RomdoulKHShop"
+            km="ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ ២៦ ខែតុលា ២០២៦ · RomdoulKHShop"
+            className="mt-3"
+          />
         </header>
 
         <div className="space-y-6">

@@ -78,7 +78,6 @@ export type StoreReview = {
   comment: string | null;
   created_at: string;
   buyerName: string | null;
-  productTitle: string | null;
 };
 
 export type StoreData = {
@@ -249,13 +248,14 @@ export async function loadStoreData(
     }),
   );
 
-  // --- 3. reviews (RLS: reviews_read is `using(true)`)
+  // --- 3. reviews (RLS: seller_reviews_read is `using(true)`) — the canonical
+  // buyer→seller feedback table (migration 0030); sellers.rating_sum/count are
+  // trigger-synced from it, so the header average always matches this list.
   const { data: reviewRows, error: reviewsError } = await supabase
-    .from("reviews")
+    .from("seller_reviews")
     .select(
       `id, rating, comment, created_at,
-       profiles ( display_name, avatar_url ),
-       products ( title )`,
+       profiles ( display_name, avatar_url )`,
     )
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false })
@@ -271,9 +271,6 @@ export async function loadStoreData(
     comment: string | null;
     created_at: string;
     profiles: { display_name: string | null; avatar_url: string | null } | null;
-    // products is 1:1 but RLS on products may hide the joined row entirely —
-    // PostgREST then returns null for the embed, never a 404 for the review.
-    products: { title: string } | null;
   };
 
   const rawReviews = (reviewRows ?? []) as unknown as RawReview[];
@@ -283,7 +280,6 @@ export async function loadStoreData(
     comment: r.comment,
     created_at: r.created_at,
     buyerName: r.profiles?.display_name ?? null,
-    productTitle: r.products?.title ?? null,
   }));
 
   // --- 4. aggregates

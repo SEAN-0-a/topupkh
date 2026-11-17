@@ -1,26 +1,25 @@
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import Reveal from "@/components/motion/Reveal";
-import { listGames, listProducts, listTopSellers, listActiveCategories } from "@/lib/catalog";
+import TopSellersSection from "@/components/TopSellersSection";
+import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { Product, Game, ProductCategory } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   // Parallel, server-side queries — no client fetch for first paint.
-  const [featured, recent, games, categories, sellersResult] = await Promise.allSettled([
+  const [featured, recent, games, categories] = await Promise.allSettled([
     listProducts({ sort: "popular", perPage: 8, page: 1 }),
     listProducts({ sort: "newest", perPage: 8, page: 1 }),
     listGames(),
     listActiveCategories(),
-    listTopSellers(),
   ]);
 
   const featuredItems: Product[] = featured.status === "fulfilled" ? featured.value.items : [];
   const recentItems: Product[] = recent.status === "fulfilled" ? recent.value.items : [];
   const gamesList: Game[] = settledValue(games, []);
   const categoryList = settledValue(categories, []);
-  const sellerList = settledValue(sellersResult, []);
   const dbReady = featured.status === "fulfilled" && recent.status === "fulfilled";
 
   return (
@@ -152,6 +151,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ================= TOP SELLERS ================= */}
+      <TopSellersSection limit={8} />
+
       {/* ================= NEWLY LISTED ================= */}
       <section>
         <SectionHeader title="🆕 Recently added" subtitle="Freshly approved listings" />
@@ -179,31 +181,6 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
-      </section>
-
-      {/* ================= TRUST / SELLERS ================= */}
-      <section>
-        <SectionHeader title="⭐ Trusted sellers" subtitle="Ranked by verified completed sales" />
-        {sellerList.length === 0 ? (
-          <p className="rounded-2xl border border-hairline bg-surface p-5 text-xs text-muted">
-            No approved sellers yet. Seller statistics appear only from real platform activity — we
-            never display invented reviews or numbers.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {sellerList.map((s, i) => (
-              <div key={i} className="rounded-2xl border border-hairline bg-surface p-4">
-                <div className="text-sm font-bold">{s.display_name}</div>
-                <div className="mt-1 text-[11px] text-muted">🏆 {s.completed_sales} completed sales</div>
-                <div className="text-[11px] text-gold-dark">
-                  {s.rating_count > 0
-                    ? `★ ${(s.rating_sum / s.rating_count).toFixed(1)} (${s.rating_count})`
-                    : "No reviews yet"}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* ================= BUYER PROTECTION ================= */}

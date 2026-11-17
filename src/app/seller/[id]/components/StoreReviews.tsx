@@ -4,9 +4,10 @@ import { StoreSectionTitle } from "@/app/seller/[id]/components/StoreTabs";
 
 // =============================================================================
 // StoreReviews — Eldorado-style customer reviews tab.
-// Data comes from public.reviews (RLS `reviews_read` is public) joined with
-// the buyer profile display basics. Rating = 1..5 stars bought from a
-// completed order (only_after_deliver), so every row is a real sale.
+// Data comes from public.seller_reviews (RLS `seller_reviews_read` is public;
+// migration 0030) joined with the buyer profile display basics. Rating =
+// 1..5 stars written by a buyer with a COMPLETED order at this store
+// (DB-enforced guard), so every row is a real sale.
 // =============================================================================
 export default function StoreReviews({ store }: { store: StoreData }) {
   if (store.reviews.length === 0) {
@@ -63,11 +64,6 @@ export default function StoreReviews({ store }: { store: StoreData }) {
 
             {r.comment && (
               <p className="mt-2 text-xs leading-relaxed text-slate-300">{r.comment}</p>
-            )}
-            {r.productTitle && (
-              <p className="mt-2 truncate text-[10px] text-slate-500">
-                Purchased: {r.productTitle}
-              </p>
             )}
           </article>
         ))}

@@ -3,8 +3,11 @@
 // SimpleCreateListingForm — simplified seller listing creation: ONE card, six
 // fields, cover uploaded straight to Supabase Storage before the DB insert
 // (0027's cover guard is the final net; 0031 creates the `products` bucket).
-// Stock/warranty/refund/ownership are server-side defaults now — the hardened
-// createListing action keeps every write server-side.
+// UPLOAD PROGRESSION: an uploadStep state machine re-labels the submit button
+// per step ("Uploading cover image… ⏳" → "Publishing listing to marketplace…
+// 🚀") with an animated SVG spinner, and CoverDropzone (./simple-create) shows
+// the picked photo as an instant blob: preview. Storage filenames are
+// collision-resistant: <auth-uid>/<timestamp>-<UUID>.<ext>.
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -14,6 +17,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Game, ProductCategory } from "@/lib/types";
 import SuccessCard from "./simple-create/SuccessCard";
+import CoverDropzone from "./simple-create/CoverDropzone";
 
 /** Public bucket for listing covers (migration 0031 creates it). */
 const COVER_BUCKET = "products";
@@ -29,18 +33,26 @@ type Props = {
   categories: Pick<ProductCategory, "id" | "name" | "slug" | "stock_model">[];
 };
 
-/** Submit lifecycle: idle → uploading cover → saving listing. */
-type Phase = "idle" | "uploading" | "saving";
+/** Granular submit progression — each step gets its own button label. */
+type UploadStep = { step: "idle" } | { step: "uploading" } | { step: "publishing" };
 
 /** Label + control wrapper — keeps the six field blocks under one shape. */
 function Field({ id, label, span, children }: { id: string; label: string; span?: boolean; children: ReactNode }) {
   return (
     <div className={span ? "sm:col-span-2" : undefined}>
-      <label htmlFor={id} className={LABEL_CLASS}>
-        {label}
-      </label>
+      <label htmlFor={id} className={LABEL_CLASS}>{label}</label>
       {children}
     </div>
+  );
+}
+
+/** Animated SVG spinner for in-progress submit steps (decorative). */
+function Spinner() {
+  return (
+    <svg className="mr-2 inline-block h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
+    </svg>
   );
 }
 
@@ -59,12 +71,13 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
   const [description, setDescription] = useState("");
   const [deliveryDetails, setDeliveryDetails] = useState("");
 
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [uploadStep, setUploadStep] = useState<UploadStep>({ step: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [createdProductId, setCreatedProductId] = useState<number | null>(null);
   const [published, setPublished] = useState(false);
 
-  // instant local preview of the picked cover; revoked on replace/unmount
+  // instant live preview: every picked file gets a blob: object URL so the
+  // seller sees their cover BEFORE submitting; revoked on replace/unmount
   useEffect(() => {
     if (!coverFile) {
       setCoverPreview(null);
@@ -74,6 +87,8 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
     setCoverPreview(preview);
     return () => URL.revokeObjectURL(preview);
   }, [coverFile]);
+
+  const busy = uploadStep.step !== "idle";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,14 +110,15 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
       return;
     }
 
-    // ---- 1+2: upload the cover, resolve the public URL for image_url ----
+    // ---- STEP 1 · upload the cover to Supabase Storage ----
     // A failed upload ABORTS the whole submission — a listing without its
     // cover is exactly the bug this form exists to prevent.
-    setPhase("uploading");
+    setUploadStep({ step: "uploading" });
     let coverUrl = "";
     try {
       const ext = coverFile.name.split(".").pop()?.toLowerCase() || "png";
       const userId = (await supabase.auth.getUser()).data.user?.id ?? "anon";
+      // collision-resistant filename: per-seller folder + timestamp + random hash
       const filePath = `${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from(COVER_BUCKET)
@@ -115,14 +131,14 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
       const detail = e instanceof Error ? e.message : String(e);
       setError(tf("Cover upload failed — the listing was NOT created. Check your connection and try again. (",
         "ការផ្ទុករូបភាពបរាជ័យ — ទំនិញមិនត្រូវបានបង្កើតទេ។ សូមពិនិត្យការតភ្ជាប់ ហើយព្យាយាមម្តងទៀត។ (") + detail + ")");
-      setPhase("idle");
+      setUploadStep({ step: "idle" });
       return;
     }
 
-    // ---- 3: persist the listing (image_url = the Storage public URL) ----
+    // ---- STEP 2 · insert the listing row (image_url = the public URL) ----
     // Stock follows the category's own model: service categories (boosting,
     // creator services…) stay live forever; one-off items list 1 unit.
-    setPhase("saving");
+    setUploadStep({ step: "publishing" });
     const stockIsUnlimited = categories.find((c) => c.id === categoryId)?.stock_model === "unlimited";
     try {
       const result = await createListing({
@@ -153,7 +169,7 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
     } catch (e) {
       setError(formatListingError(e));
     } finally {
-      setPhase("idle");
+      setUploadStep({ step: "idle" });
     }
   }
 
@@ -178,7 +194,7 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-[#121212]"
+      className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 dark:border-slate-800 dark:bg-[#121212] dark:text-white"
     >
       <p className="mb-5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
         {tf("List an item in under a minute — pick the game and type, add a title, cover photo, price and description.",
@@ -217,23 +233,14 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
           />
         </Field>
 
-        {/* 4 · Cover image file picker */}
+        {/* 4 · Cover image — dashed dropzone with instant live preview */}
         <Field id="sclf-cover" label={tf("Cover image", "រូបភាពស្លោក")} span>
-          <input
-            id="sclf-cover"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
-            className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-900 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 transition-colors hover:file:bg-gold dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          <CoverDropzone
+            file={coverFile}
+            preview={coverPreview}
+            disabled={busy}
+            onPick={setCoverFile}
           />
-          {coverPreview && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={coverPreview}
-              alt={tf("Cover preview", "ការមើលរូបភាពស្លោក")}
-              className="mt-2 h-20 w-32 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
-            />
-          )}
         </Field>
 
         {/* 5 · Price */}
@@ -284,13 +291,14 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
 
       <button
         type="submit"
-        disabled={phase !== "idle"}
-        className="mt-5 w-full rounded-2xl bg-amber-500 py-3.5 text-sm font-bold text-slate-950 transition-colors hover:bg-gold disabled:opacity-50"
+        disabled={busy}
+        className="mt-5 flex w-full items-center justify-center rounded-2xl bg-amber-500 py-3.5 text-sm font-bold text-slate-950 transition-colors hover:bg-gold disabled:opacity-50"
       >
-        {phase === "uploading"
-          ? tf("Uploading cover…", "កំពុងផ្ទុករូបភាព…")
-          : phase === "saving"
-            ? tf("Publishing…", "កំពុងផ្សាយ…")
+        {uploadStep.step !== "idle" && <Spinner />}
+        {uploadStep.step === "uploading"
+          ? tf("Uploading cover image... ⏳", "កំពុងផ្ទុករូបភាពស្លោក... ⏳")
+          : uploadStep.step === "publishing"
+            ? tf("Publishing listing to marketplace... 🚀", "កំពុងផ្សាយទំនិញទៅផ្សារ... 🚀")
             : tf("Publish listing", "ផ្សាយទំនិញ")}
       </button>
     </form>

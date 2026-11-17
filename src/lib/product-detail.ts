@@ -3,8 +3,11 @@
 //
 // Every read result is parsed through lib/db-parse.ts before use: Supabase
 // generics (`maybeSingle<ProductDetail>()`) are compile-time claims only —
-// this pipeline guarantees the type at RUNTIME too, so null rows / missing
-// relations degrade to clean 404s or conservative defaults instead of crashes.
+// degraded fallback reads, stale schema caches and old databases can hand
+// back rows with missing/null/junk fields. This pipeline guarantees the type
+// at RUNTIME too, so null rows / missing relations degrade to clean 404s or
+// conservative defaults instead of crashes — and a live listing is never
+// 404'd merely because its id arrived in a different shape.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseProductDetail, asRecord } from "@/lib/db-parse";
@@ -75,26 +78,38 @@ export interface ProductLoadResult {
 }
 
 /**
- * Product read pipeline with three increasingly-degraded fallbacks:
- *   #1 full columns (concurrent with the auth session)
- *   #2 primitive-only stub (owner-only fallback via RLS)
- *   #3 minimal core columns, soft-delete filtered client-side
+ * Safe route-id resolution. The URL param is ALWAYS digits (validated by the
+ * caller's regex), but it must not be trusted as a JS number blindly:
+ * products.id is PostgreSQL int8 (up to 19 digits) while JS numbers are exact
+ * only up to 2^53 — parseInt/Number on a 19-digit id silently ROUNDS it to a
+ * different (nonexistent) row, the classic "valid product → Product not
+ * found" bug. So the query key is dynamic:
+ *   safe integer  → the numeric value (what the client naturally expects)
+ *   beyond 2^53   → the ORIGINAL digits string (PostgREST casts to bigint
+ *                    exactly — no precision loss)
+ * Both shapes produce the same SQL predicate; only the JS-side exactness
+ * differs. NaN is impossible here (digits-only regex runs first).
  */
+function resolveIdKey(id: string): number | string {
+  const numericId = Number.parseInt(id, 10);
+  if (!Number.isNaN(numericId) && Number.isSafeInteger(numericId)) return numericId;
+  return id;
+}
+
 export async function loadProductDetail(
   supabase: ServerSupabase,
   productId: string,
 ): Promise<ProductLoadResult> {
   // ---------------------------------------------------------------------------
-  // bigint-exact lookup: products.id is bigserial (PostgreSQL int8). The id is
-  // carried as the ORIGINAL DIGITS STRING all the way into the queries —
-  // PostgREST casts the text to bigint in SQL — so ids above JS's
-  // Number.MAX_SAFE_INTEGER are never silently rounded to a different row the
-  // way `Number(id)` would do (no throw, just wrong data — the worst failure).
-  // A valid int8 fits 19 digits; anything longer/invalid is rejected upfront.
+  // bigint-exact validation: digits-only AND within PostgreSQL int8 range
+  // (19 digits max). "/product/abc" and 1000-digit junk are rejected BEFORE
+  // any DB round-trip; valid bigint ids travel as their original string.
   // ---------------------------------------------------------------------------
   if (!/^\d+$/.test(productId) || productId.length > 19) {
     return { product: null, degraded: false, authUserId: null, mySellerId: null };
   }
+  const idKey = resolveIdKey(productId); // numeric when safe, exact string otherwise
+
   // ---------------------------------------------------------------------------
   // session identity — the raw auth id, so ownership does NOT depend on a
   // profiles row still existing (crash-era OAuth accounts may not have one;
@@ -107,7 +122,7 @@ export async function loadProductDetail(
     supabase
       .from("products")
       .select(PRODUCT_COLUMNS)
-      .eq("id", productId)
+      .eq("id", idKey)
       .eq("is_deleted", false)
       .maybeSingle<unknown>(),
   ]);
@@ -134,9 +149,43 @@ export async function loadProductDetail(
     console.error("[/product] full read failed:", fullRead.value.error.message);
   }
 
+  // ---------------------------------------------------------------------------
+  // TEMPLATE-ID FALLBACK — the second id-shape the route receives. Historical
+  // surfaces (offer groups, /offer/[id], older share links) carry the
+  // product_templates PK, and /product/<templateId> 404'd even though LIVE
+  // approved offers exist under that template. Resolve the template to its
+  // cheapest live approved offer (status = 'approved' — a public surface must
+  // never leak pending rows; RLS gates visibility server-side regardless).
+  // ---------------------------------------------------------------------------
+  if (!product) {
+    const { data: template, error: templateError } = await supabase
+      .from("product_templates")
+      .select("id")
+      .eq("id", idKey)
+      .maybeSingle<{ id: number }>();
+    if (templateError) console.error("[/product] template lookup failed:", templateError.message);
+
+    if (template) {
+      const { data: offer, error: offerError } = await supabase
+        .from("products")
+        .select(PRODUCT_COLUMNS)
+        .eq("template_id", template.id)
+        .eq("is_deleted", false)
+        .eq("status", "approved")
+        .order("price_usd", { ascending: true })
+        .limit(1)
+        .maybeSingle<unknown>();
+      if (offerError) console.error("[/product] template-offer read failed:", offerError.message);
+      product = parseProductDetail(offer);
+    }
+  }
+
   // the caller's own sellers row id — mirrors the exact predicate
   // products_read RLS uses (`seller_id in (select s.id from sellers s
-  // where s.user_id = auth.uid())`), so code-level and DB-level ownership agree
+  // where s.user_id = auth.uid())`), so code-level and DB-level ownership agree.
+  // This is what permits an authenticated seller to preview their OWN listing
+  // (the app-layer equivalent of `auth.uid() = seller_user_id`); strangers
+  // still only ever see approved rows.
   let mySellerId: number | null = null;
   if (authUserId) {
     const { data: mySeller } = await supabase
@@ -147,20 +196,21 @@ export async function loadProductDetail(
     mySellerId = mySeller?.id ?? null;
 
     // ---------------------------------------------------------------------------
-    // read #2 (owner-only fallback) and #3 below are only meaningful when the
-    // RLS lets this caller see the row; skip them entirely for anonymous users —
-    // anon either sees read #1's approved product or gets a 404.
+    // read #2 (owner-only fallback) is only meaningful when the RLS lets this
+    // caller see the row; skip it entirely for anonymous users — anon either
+    // sees read #1's / template-fallback's approved product or gets a 404.
     // ---------------------------------------------------------------------------
-    if (!product || !product.status) {
+    if (!product) {
       // stub read — primitive-only columns, so an enum-typed column / stale
       // plan can't kill it. Proves the row exists and is visible under RLS so
       // the seller lands on their listing instead of a 404.
       const { data: stub, error: stubError } = await supabase
         .from("products")
         .select(PRODUCT_STUB_COLUMNS)
-        .eq("id", productId)
+        .eq("id", idKey)
         .eq("is_deleted", false)
-        .maybeSingle<unknown>();      if (stubError) console.error("[/product] stub read failed:", stubError.message);
+        .maybeSingle<unknown>();
+      if (stubError) console.error("[/product] stub read failed:", stubError.message);
 
       const parsedStub = parseProductDetail(stub); // status default → pending_review
       if (parsedStub) {
@@ -182,13 +232,34 @@ export async function loadProductDetail(
     const { data: minimal, error: minimalError } = await supabase
       .from("products")
       .select(PRODUCT_MINIMAL_COLUMNS)
-      .eq("id", productId)
-      .maybeSingle<unknown>();    if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
+      .eq("id", idKey)
+      .maybeSingle<unknown>();
+    if (minimalError) console.error("[/product] minimal read failed:", minimalError.message);
 
     const row = asRecord(minimal);
     if (row && row.is_deleted !== true) {
       degraded = true;
       product = parseProductDetail(row); // unknown status → owner-gated default
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // status probe — the degraded reads (#2/#3) deliberately omit the enum-typed
+  // status column, so parseProductDetail defaults it to 'pending_review' and a
+  // LIVE listing "undergoing status validation" would 404 its public viewers.
+  // RLS has ALREADY decided this row is visible, so asking for status alone
+  // can only un-degrade the value — never widen visibility. If the probe also
+  // fails (same enum fragility), the conservative default stands.
+  // ---------------------------------------------------------------------------
+  if (product && degraded) {
+    const { data: probe, error: probeError } = await supabase
+      .from("products")
+      .select("status")
+      .eq("id", idKey)
+      .maybeSingle<{ status: string }>();
+    if (probeError) console.error("[/product] status probe failed:", probeError.message);
+    if (typeof probe?.status === "string") {
+      product = { ...product, status: probe.status };
     }
   }
 

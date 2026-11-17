@@ -68,7 +68,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const { id } = await params; // Next.js 16: params is a Promise
   // Digits-only AND within PostgreSQL bigint (int8) range — 19 digits max.
   // "/product/abc" and 1000-digit junk get a clean 404 BEFORE any DB round-trip;
-  // valid bigint ids travel as their original string (no Number() precision loss).
+  // the loader (src/lib/product-detail.ts resolveIdKey) then queries with the
+  // number when it is a safe JS integer, or the EXACT digits string beyond
+  // 2^53 — so oversized-but-valid bigint ids can never round to a wrong row.
   if (!/^\d+$/.test(id) || id.length > 19) notFound();
 
   const data = await loadProductPageData(id); // bigint-exact string id

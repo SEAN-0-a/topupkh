@@ -82,7 +82,6 @@ export function parseProductDetail(
     description: str(r.description) ?? "",
     image_url: str(r.image_url),
     images: strArray(r.images),
-    game_name: str(r.game_name),
     price_usd: num(r.price_usd),
     original_price_usd: num(r.original_price_usd),
     delivery_method: str(r.delivery_method) ?? "in_game",

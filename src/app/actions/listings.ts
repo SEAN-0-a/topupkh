@@ -56,7 +56,7 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
 
     const validation = validateListingInput(input);
     if (!validation.ok) return validation;
-    const { title, gameName, warrantyDays, deliveryTime, inventoryValue, images } = validation.values;
+    const { title, images } = validation.values;
 
     // ---------- seller row must exist (KYC-created) and not be suspended ----------
     const { data: seller } = await supabase
@@ -170,12 +170,16 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
      *  fallback insert for an unlimited-stock listing that omitted it would
      *  create stock=0 / flag=false — failing BOTH branches of the grid's
      *  in-stock filter (stock_is_unlimited.eq.true,stock.gt.0) and making the
-     *  listing permanently invisible on the marketplace/homepage. */
+     *  listing permanently invisible on the marketplace/homepage.
+     *
+     *  LIVE SCHEMA: `products` no longer carries category_id, template_id or
+     *  the 0013 Eldorado columns. The category is still used ABOVE for the
+     *  eligibility_rules lookup, the product_templates group row and the
+     *  stock model — it simply is not a column on `products` any more, so it
+     *  (and template_id) must never appear in this INSERT payload. */
     const basicOnlyPayload = {
       seller_id: seller.id,
       game_id: input.gameId,
-      category_id: input.categoryId,
-      template_id: templateId,
       title,
       description: input.description,
       price_usd: input.priceUsd,
@@ -191,18 +195,16 @@ export async function createListing(input: CreateListingInput): Promise<CreateLi
         .from("products")
         .insert({
           ...basicOnlyPayload,
+          // Only columns that exist on the live `products` table are sent.
+          // `game_name`, `original_email`, `open_email_access`,
+          // `warranty_days`, `delivery_time` and `inventory_value` were
+          // pruned with category_id/template_id — keeping them here made
+          // every submission fail with PostgREST 42703.
           image_url: (images[0] || input.imageUrl) || null,
-          game_name: gameName || null,
-          original_email: input.originalEmail ?? true,
-          open_email_access: input.openEmailAccess ?? true,
-          warranty_days: warrantyDays,
-          delivery_time: deliveryTime || null,
-          inventory_value: inventoryValue || null,
           images,
           original_price_usd: input.originalPriceUsd,
           delivery_method: input.deliveryMethod,
           delivery_details: input.deliveryDetails,
-          stock_is_unlimited: input.stockIsUnlimited,
           estimated_minutes: input.estimatedMinutes,
           refund_policy: input.refundPolicy.slice(0, 1000),
           ownership_note: input.ownershipNote.slice(0, 1000),

@@ -23,8 +23,6 @@ export type ProductDetail = {
   image_url: string | null;
   /** Gallery URLs (0013) — first entry mirrors image_url; [] in degraded reads. */
   images: string[];
-  /** Seller-facing game label — drives the game-themed no-cover fallback. */
-  game_name: string | null;
   /** null (missing column) renders as "Price unavailable" — never fake $0.00. */
   price_usd: number | null;
   original_price_usd: number | null;
@@ -50,13 +48,13 @@ export type ProductDetail = {
  *  underlying prepared plan enum-free where possible and make the read
  *  succeed or fail on its own merits. */
 const PRODUCT_COLUMNS =
-  "id, seller_id, title, description, image_url, images, game_name, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
   "delivery_method, delivery_details, stock, stock_is_unlimited, estimated_minutes, " +
   "refund_policy, ownership_note, status, sold_count, rating_sum, rating_count, created_at";
 
 /** Primitive-only fallback (no enum-typed columns: delivery_method, status). */
 const PRODUCT_STUB_COLUMNS =
-  "id, seller_id, title, description, image_url, images, game_name, price_usd, original_price_usd, " +
+  "id, seller_id, title, description, image_url, images, price_usd, original_price_usd, " +
   "delivery_details, stock, stock_is_unlimited, estimated_minutes, refund_policy, " +
   "ownership_note, sold_count, rating_sum, rating_count, created_at";
 
@@ -65,7 +63,7 @@ const PRODUCT_STUB_COLUMNS =
  *  (sold_count / rating_sum / …) or the is_deleted predicate itself, this
  *  still proves the row exists — the page renders owner-gated instead of 404. */
 const PRODUCT_MINIMAL_COLUMNS =
-  "id, seller_id, title, description, image_url, game_name, price_usd, stock, " +
+  "id, seller_id, title, description, image_url, price_usd, stock, " +
   "stock_is_unlimited, is_deleted, created_at";
 
 export interface ProductLoadResult {
@@ -150,35 +148,10 @@ export async function loadProductDetail(
   }
 
   // ---------------------------------------------------------------------------
-  // TEMPLATE-ID FALLBACK — the second id-shape the route receives. Historical
-  // surfaces (offer groups, /offer/[id], older share links) carry the
-  // product_templates PK, and /product/<templateId> 404'd even though LIVE
-  // approved offers exist under that template. Resolve the template to its
-  // cheapest live approved offer (status = 'approved' — a public surface must
-  // never leak pending rows; RLS gates visibility server-side regardless).
+  // No TEMPLATE-ID FALLBACK: the live `products` table no longer has
+  // template_id, so product_templates can no longer point at a live offer.
+  // The id is either a products.id (read #1 above) or an honest 404.
   // ---------------------------------------------------------------------------
-  if (!product) {
-    const { data: template, error: templateError } = await supabase
-      .from("product_templates")
-      .select("id")
-      .eq("id", idKey)
-      .maybeSingle<{ id: number }>();
-    if (templateError) console.error("[/product] template lookup failed:", templateError.message);
-
-    if (template) {
-      const { data: offer, error: offerError } = await supabase
-        .from("products")
-        .select(PRODUCT_COLUMNS)
-        .eq("template_id", template.id)
-        .eq("is_deleted", false)
-        .eq("status", "approved")
-        .order("price_usd", { ascending: true })
-        .limit(1)
-        .maybeSingle<unknown>();
-      if (offerError) console.error("[/product] template-offer read failed:", offerError.message);
-      product = parseProductDetail(offer);
-    }
-  }
 
   // the caller's own sellers row id — mirrors the exact predicate
   // products_read RLS uses (`seller_id in (select s.id from sellers s

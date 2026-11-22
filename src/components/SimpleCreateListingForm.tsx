@@ -138,6 +138,11 @@ export default function SimpleCreateListingForm({ games, categories }: Props) {
     // ---- STEP 2 · insert the listing row (image_url = the public URL) ----
     // Stock follows the category's own model: service categories (boosting,
     // creator services…) stay live forever; one-off items list 1 unit.
+    // The category itself is NOT a `products` column any more: it is only
+    // sent to the action for the eligibility check, the product_templates
+    // group row and this stock decision. The action's INSERT carries just the
+    // live columns (title, description, image_url, price_usd,
+    // delivery_details, status, …).
     setUploadStep({ step: "publishing" });
     const stockIsUnlimited = categories.find((c) => c.id === categoryId)?.stock_model === "unlimited";
     try {

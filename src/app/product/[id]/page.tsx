@@ -117,7 +117,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <ProductHeroImage
             src={cover}
             alt={product.title ?? "Product image"}
-            gameName={product.game_name ?? null}
             verified={product.status === "approved"}
             className="h-72 w-full"
           />

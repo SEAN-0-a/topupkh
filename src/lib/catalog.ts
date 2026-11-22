@@ -78,6 +78,44 @@ function sanitizeIlike(term: string) {
 export const JUNK_TITLE_PATTERN =
   "(?i)(^|[^a-z])(test|tests|testing|tested|demo|asdf|asdfgh|qwerty|dummy|mock|lorem|ipsum|placeholder)([^a-z]|$)|([a-z])\\1{2,}|^([a-z0-9]{2,8})\\1$";
 
+/**
+ * Explicit `products` column list shared by every catalog read.
+ *
+ * Mirrors the LIVE table. The pruned 0013-era columns — category_id,
+ * template_id, game_name, original_email, open_email_access, warranty_days,
+ * delivery_time, inventory_value — must never appear here: PostgREST rejects
+ * the WHOLE read with 42703 when a select names a missing column.
+ *
+ * is_deleted, sold_count, rating_sum/rating_count and created_at are still
+ * active and are kept because the grid filters and sorts on them; the
+ * remaining columns map 1:1 to the seller listing form.
+ */
+const PRODUCT_COLUMNS = [
+  "id",
+  "seller_id",
+  "game_id",
+  "title",
+  "description",
+  "image_url",
+  "images",
+  "price_usd",
+  "original_price_usd",
+  "delivery_method",
+  "delivery_details",
+  "stock",
+  "stock_is_unlimited",
+  "estimated_minutes",
+  "refund_policy",
+  "ownership_note",
+  "status",
+  "is_deleted",
+  "sold_count",
+  "rating_sum",
+  "rating_count",
+  "created_at",
+].join(", ");
+
+
 async function fetchProductsPage(
   query: CatalogQuery,
   strict: boolean,
@@ -86,16 +124,17 @@ async function fetchProductsPage(
   const page = Math.max(1, query.page ?? 1);
   const perPage = Math.min(48, Math.max(1, query.perPage ?? 12));
 
-  // NOTE: the relational table is `product_categories` — embedding/filtering it
-  // as `categories` makes PostgREST fail (no such relationship), leaving the
-  // grid with empty game/category/seller joins.
+  // products no longer carries category_id, so there is NO PostgREST
+  // relationship to product_categories: embedding it (or filtering on
+  // product_categories.slug) fails the entire read. Only the two surviving
+  // FKs — game_id → games and seller_id → sellers — are embedded.
   const joinShape = strict
-    ? `games!inner ( name, slug, icon_url ), product_categories!inner ( name, slug ), sellers!inner ( display_name, rating_sum, rating_count, completed_sales )`
-    : `games ( name, slug, icon_url ), product_categories ( name, slug ), sellers ( display_name, rating_sum, rating_count, completed_sales )`;
+    ? `games!inner ( name, slug, icon_url ), sellers!inner ( display_name, rating_sum, rating_count, completed_sales )`
+    : `games ( name, slug, icon_url ), sellers ( display_name, rating_sum, rating_count, completed_sales )`;
 
   let qb = supabase
     .from("products")
-    .select(`*, ${joinShape}`, { count: "exact" })
+    .select(`${PRODUCT_COLUMNS}, ${joinShape}`, { count: "exact" })
     .eq("is_deleted", false)
     .eq("status", "approved");
 
@@ -107,8 +146,9 @@ async function fetchProductsPage(
     qb = qb.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
   }
   if (query.game && query.game !== "all") qb = qb.eq("games.slug", query.game);
-  if (query.category && query.category !== "all")
-    qb = qb.eq("product_categories.slug", query.category);
+  // NOTE: query.category is accepted for URL compatibility but cannot be
+  // applied — products lost category_id, so no product→category relationship
+  // exists. The game filter above is the strongest honest predicate.
   if (query.minPrice !== undefined) qb = qb.gte("price_usd", query.minPrice);
   if (query.maxPrice !== undefined) qb = qb.lte("price_usd", query.maxPrice);
   if (query.delivery) qb = qb.eq("delivery_method", query.delivery);
@@ -148,7 +188,8 @@ async function fetchProductsPage(
       images: r.images ?? [],
       joined: {
         games: r.games ?? null,
-        product_categories: r.product_categories ?? null,
+        // No product→category relationship exists on the live schema.
+        product_categories: null,
         sellers: r.sellers ?? null,
       },
     };
@@ -269,61 +310,29 @@ type BaseOfferRow = {
 const sellerStatusOf = (o: BaseOfferRow): string | null => one(o.sellers)?.status ?? null;
 
 /**
- * product_templates row for the /marketplace/[game]/[category] grid:
- * the canonical item plus every competing offer row (products.template_id).
+ * A live `products` row surfaced as a one-offer group by listTemplates.
+ * There is no products.template_id any more, so every product stands alone.
  */
-type mapToTemplateRow = {
-  id: number | string;
-  slug: string;
-  title: string;
-  image_url: string | null;
-  games: MaybeArray<Pick<Game, "name" | "slug">> | null;
-  product_categories: MaybeArray<Pick<ProductCategory, "name" | "slug">> | null;
-  /** one-to-many embed: always an array (possibly empty) */
-  products: BaseOfferRow[] | null;
-};
-
-/**
- * standalone `products` row (template_id NULL / legacy seeded offer) surfaced
- * as its own one-offer group when listTemplates maps the grid results.
- */
-type standaloneRow = {
+type standaloneRow = BaseOfferRow & {
   id: number | string;
   title: string;
   image_url: string | null;
   price_usd: number | string | null;
   games: MaybeArray<Pick<Game, "name" | "slug">> | null;
-  product_categories: MaybeArray<Pick<ProductCategory, "name" | "slug">> | null;
 };
 
 /**
- * product_templates row for /offer/[id]: the canonical group named
- * offers:products(), additional competing offers, and seller info per offer.
+ * `products` row for the /offer/[id] group page. The product IS the offer:
+ * its own seller and game join are enough (no template/category relationship
+ * survives on the live schema).
  */
-type mapToOfferRow = {
-  id: number | string;
-  title: string;
-  description: string | null;
-  image_url: string | null;
-  games: MaybeArray<Pick<Game, "name" | "slug">> | null;
-  product_categories: MaybeArray<Pick<ProductCategory, "name" | "slug">> | null;
-  /** offers:products() — one-to-many embed: always an array (possibly empty) */
-  offers: BaseOfferRow[] | null;
-};
-
-/**
- * `products` row for the /offer/[id] standalone fallback (unknown template or
- * direct product link): own seller, games/category joins and template_id.
- */
-type groupTemplateProductRow = BaseOfferRow & {
+type groupProductRow = BaseOfferRow & {
   id: number | string;
   title: string;
   description: string | null;
   image_url: string | null;
   images?: string[] | null;
-  template_id: number | string | null;
   games: MaybeArray<Pick<Game, "name" | "slug">> | null;
-  product_categories: MaybeArray<Pick<ProductCategory, "name" | "slug">> | null;
   sellers: MaybeArray<SellerJoin> | null;
 };
 
@@ -343,91 +352,50 @@ function toPrice(v: unknown): number | null {
 }
 
 /**
- * Canonical product groups for /marketplace/[game]/[category] — the Eldorado
- * model. `products` rows are OFFERS; the canonical groups live in
- * `product_templates` (0007) and aggregate every competing offer via the
- * products.template_id FK. Legacy/standalone offers (seeded rows with
- * template_id NULL) are included as one-offer groups — both id shapes are
- * numeric, which is what the /offer/[id] route accepts.
+ * Product groups for /marketplace/[game]/[category] and /offer/[id].
+ *
+ * The old Eldorado model grouped offers under product_templates via
+ * products.template_id. That FK is gone from the live table, so a product can
+ * no longer be attached to a template OR a category — every live product is
+ * now its own one-offer group, and /offer/[id] accepts the products.id.
+ *
+ * `_categorySlug` stays in the signature because the routes and the game-page
+ * tabs pass it positionally, but the live schema has no product→category link
+ * to filter on; filtering by game is the strongest honest predicate.
  */
-export async function listTemplates(gameSlug: string, categorySlug: string): Promise<TemplateSummary[]> {
+export async function listTemplates(
+  gameSlug: string,
+  _categorySlug: string,
+): Promise<TemplateSummary[]> {
   const supabase = await createSupabaseServerClient();
 
-  const [templatesRes, standaloneRes] = await Promise.all([
-    supabase
-      .from("product_templates")
-      .select(`
-        id, slug, title, image_url,
-        games ( name, slug ),
-        product_categories ( name, slug ),
-        products (
-          id, price_usd, stock, stock_is_unlimited, status, is_deleted,
-          sellers ( status )
-        )
-      `)
-      .eq("games.slug", gameSlug)
-      .eq("product_categories.slug", categorySlug),
-    supabase
-      .from("products")
-      .select(`
-        id, title, image_url, price_usd,
-        games ( name, slug ),
-        product_categories ( name, slug )
-      `)
-      .eq("games.slug", gameSlug)
-      .eq("product_categories.slug", categorySlug)
-      .is("template_id", null)
-      .eq("status", "approved")
-      .eq("is_deleted", false)
-      .eq("sellers.status", "approved")
-      .or("stock_is_unlimited.eq.true,stock.gt.0")
-      .order("sold_count", { ascending: false }),
-  ]);
+  const { data, error } = await supabase
+    .from("products")
+    .select(`${PRODUCT_COLUMNS}, games!inner ( name, slug ), sellers!inner ( status )`)
+    .eq("games.slug", gameSlug)
+    .eq("status", "approved")
+    .eq("is_deleted", false)
+    .eq("sellers.status", "approved")
+    .or("stock_is_unlimited.eq.true,stock.gt.0")
+    .order("sold_count", { ascending: false });
 
-  // If one source fails, keep the other — only give up when both fail.
-  if (templatesRes.error && standaloneRes.error) return [];
-  const templateRows: mapToTemplateRow[] = templatesRes.error
-    ? []
-    : (templatesRes.data ?? []) as mapToTemplateRow[];
-  const standaloneRows: standaloneRow[] = standaloneRes.error
-    ? []
-    : (standaloneRes.data ?? []) as standaloneRow[];
-
-  const summaries: TemplateSummary[] = templateRows.map((t) => {
-    const liveOffers = (t.products ?? []).filter(isLiveOfferRow);
-    const prices = liveOffers
-      .map((o) => toPrice(o.price_usd))
-      .filter((p): p is number => p !== null);
-    return {
-      id: String(t.id),
-      name: t.title,
-      slug: String(t.slug),
-      image_url: t.image_url ?? null,
-      title: t.title,
-      game: one(t.games),
-      category: one(t.product_categories),
-      offerCount: liveOffers.length,
-      minPrice: prices.length > 0 ? Math.min(...prices) : null,
-    };
-  });
-
-  // Legacy/standalone offers (template_id NULL) are their own one-offer groups —
-  // the /offer/[id] route accepts their products.id just like a template id.
-  for (const s of standaloneRows) {
-    summaries.push({
-      id: String(s.id),
-      name: s.title,
-      slug: String(s.id),
-      image_url: s.image_url ?? null,
-      title: s.title,
-      game: one(s.games),
-      category: one(s.product_categories),
-      offerCount: 1,
-      minPrice: toPrice(s.price_usd),
-    });
+  if (error) {
+    console.error("Catalog template list failed:", error.message);
+    return [];
   }
 
-  return summaries;
+  const rows = (data ?? []) as unknown as standaloneRow[];
+  return rows.filter(isLiveOfferRow).map((p) => ({
+    id: String(p.id),
+    name: p.title,
+    slug: String(p.id),
+    image_url: p.image_url ?? null,
+    title: p.title,
+    game: one(p.games),
+    category: null,
+    offerCount: 1,
+    minPrice: toPrice(p.price_usd),
+  }));
 }
 
 /** offers → OfferRow with strict typing (numeric columns can arrive as strings). */
@@ -452,96 +420,40 @@ function toOfferRow(raw: BaseOfferRow): OfferRow {
   };
 }
 
-/** In-stock offers first (sorted), sold-out keep their place at the end. */
-function sortOffers(offers: OfferRow[], sort: "price" | "speed"): OfferRow[] {
-  const inStock = offers.filter((o) => o.stock_is_unlimited || o.stock > 0);
-  const soldOut = offers.filter((o) => !(o.stock_is_unlimited || o.stock > 0));
-  const byKey = (a: OfferRow, b: OfferRow) =>
-    sort === "speed"
-      ? (a.estimated_minutes ?? Number.POSITIVE_INFINITY) - (b.estimated_minutes ?? Number.POSITIVE_INFINITY) ||
-        a.price_usd - b.price_usd
-      : a.price_usd - b.price_usd ||
-        (a.estimated_minutes ?? Number.POSITIVE_INFINITY) - (b.estimated_minutes ?? Number.POSITIVE_INFINITY);
-  inStock.sort(byKey);
-  soldOut.sort(byKey);
-  return [...inStock, ...soldOut];
-}
-
 /**
- * The full offer-group payload for /offer/[id]:
- *   1. id = product_templates.id → the canonical item + every competing offer
- *      (products.template_id FK), sorted by price or delivery speed.
- *   2. id = products.id (legacy seeds / links that skipped the group page) →
- *      resolved to its canonical group when it has a template, otherwise shown
- *      as a one-offer group.
+ * The offer-group payload for /offer/[id].
+ *
+ * A products.id is now the ONLY id shape: the live `products` table has no
+ * template_id, so product_templates can no longer own competing offers. The
+ * row is surfaced as a single-offer group (the legacy template path was
+ * removed together with the pruned FK).
+ *
  * RLS already hides non-approved products/sellers from the public; the
  * explicit filters keep direct 404s honest for own-owner leftovers.
  */
 export async function getOfferGroup(
   id: string,
-  sort: "price" | "speed" = "price",
+  _sort: "price" | "speed" = "price",
 ): Promise<OfferGroup | null> {
   const supabase = await createSupabaseServerClient();
   if (!/^\d+$/.test(id)) return null;
   const numeric = Number(id);
 
-  // 1) canonical template group
-  const { data: template } = await supabase
-    .from("product_templates")
-    .select(`
-      id, title, description, image_url,
-      games ( name, slug ),
-      product_categories ( name, slug ),
-      offers:products (
-        id, price_usd, original_price_usd, delivery_method, estimated_minutes,
-        stock, stock_is_unlimited, status, is_deleted,
-        sellers ( display_name, rating_sum, rating_count, completed_sales, status )
-      )
-    `)
-    .eq("id", numeric)
-    .maybeSingle<mapToOfferRow>();
-
-  if (template) {
-    const approved = (template.offers ?? [])
-      .filter(
-        (o) => o.status === "approved" && !o.is_deleted && sellerStatusOf(o) === "approved",
-      )
-      .map(toOfferRow);
-    const sorted = sortOffers(approved, sort);
-    return {
-      id: Number(template.id),
-      title: template.title,
-      description: template.description ?? "",
-      image_url: template.image_url ?? null,
-      games: one(template.games),
-      categories: one(template.product_categories),
-      offers: sorted,
-      offerCount: sorted.length,
-      minPrice: sorted.length > 0
-        ? Math.min(...sorted.map((o) => o.price_usd).filter(Number.isFinite))
-        : null,
-    };
-  }
-
-  // 2) fallback: a products.id (no template, or a direct /offer/<productId> link)
-  const { data: product } = await supabase
+  const { data: product, error } = await supabase
     .from("products")
     .select(`
-      id, title, description, image_url, images, template_id,
-      price_usd, original_price_usd, delivery_method, estimated_minutes,
-      stock, stock_is_unlimited, status, is_deleted,
+      ${PRODUCT_COLUMNS},
       games ( name, slug ),
-      product_categories ( name, slug ),
       sellers ( display_name, rating_sum, rating_count, completed_sales, status )
     `)
     .eq("id", numeric)
-    .maybeSingle<groupTemplateProductRow>();
+    .maybeSingle<groupProductRow>();
 
-  if (!product) return null;
-  if (product.template_id) {
-    // canonical flow: the template group holds this offer (and competitors)
-    return getOfferGroup(String(product.template_id), sort);
+  if (error) {
+    console.error("Offer group read failed:", error.message);
+    return null;
   }
+  if (!product) return null;
   if (product.status !== "approved" || product.is_deleted) return null;
 
   const offer = toOfferRow(product);
@@ -554,7 +466,8 @@ export async function getOfferGroup(
     description: product.description ?? "",
     image_url: coverRaw ? resolveProductImageSrc(supabase, coverRaw) : null,
     games: one(product.games),
-    categories: one(product.product_categories),
+    // No product→category relationship survives on the live schema.
+    categories: null,
     offers: [offer],
     offerCount: 1,
     minPrice: Number(product.price_usd),
@@ -563,6 +476,5 @@ export async function getOfferGroup(
 
 type RawProductRow = Product & {
   games: Pick<Game, "name" | "slug"> | null;
-  product_categories: Pick<ProductCategory, "name" | "slug"> | null;
   sellers: Pick<Seller, "display_name" | "rating_sum" | "rating_count" | "completed_sales"> | null;
 };

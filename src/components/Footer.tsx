@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
-import TelegramBanner from "@/components/TelegramBanner";
+import { TelegramBanner } from "@/components/TelegramBanner";
 
 /**
  * RomdoulKHShop site footer — sleek dark surface (#0d0f1d) with a

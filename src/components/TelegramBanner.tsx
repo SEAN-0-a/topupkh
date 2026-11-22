@@ -1,20 +1,21 @@
 /**
  * Animated Telegram community pill.
- *
- * Links to the official RomdoulKHShop Telegram support/community handle.
- * The aura pulse and icon rotation are CSS-only; motion is suppressed for
- * visitors who prefer reduced motion.
+ * CSS-only motion; reduced-motion users keep the static pill.
  */
-const TELEGRAM_URL = "https://t.me/RomdoulKHShopSupport";
+type TelegramBannerProps = {
+  telegramUrl?: string;
+};
 
-export default function TelegramBanner({ href = TELEGRAM_URL }: { href?: string }) {
+export function TelegramBanner({
+  telegramUrl = "https://t.me/RomdoulKHshop",
+}: TelegramBannerProps) {
   return (
     <a
-      href={href}
+      href={telegramUrl}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Join the RomdoulKHShop Telegram community"
-      className="group inline-flex items-center gap-3 rounded-full border border-cyan-400/30 bg-[#0b1120] px-5 py-2.5 shadow-[0_0_24px_-4px_rgba(34,211,238,0.35)] transition-all duration-300 hover:border-cyan-300/60 hover:shadow-[0_0_36px_-4px_rgba(34,211,238,0.5)]"
+      className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full border border-cyan-400/30 bg-[#0b1120]/90 px-5 py-2.5 shadow-[0_0_24px_-4px_rgba(34,211,238,0.4)] transition-all duration-300 will-change-transform hover:border-cyan-300/60 hover:bg-[#0b1120] hover:shadow-[0_0_36px_-4px_rgba(34,211,238,0.55)] motion-safe:hover:-translate-y-0.5"
     >
       <span className="relative flex h-10 w-10 shrink-0 items-center justify-center">
         {/* Pulsing gradient aura */}
@@ -23,7 +24,7 @@ export default function TelegramBanner({ href = TELEGRAM_URL }: { href?: string 
           className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-400 via-sky-400 to-blue-600 opacity-50 blur-md motion-safe:animate-pulse group-hover:opacity-80"
         />
 
-        {/* Authentic Telegram gradient mark */}
+        {/* Telegram gradient mark */}
         <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#2AABEE] to-[#229ED9] shadow-[0_2px_10px_rgba(34,158,217,0.45)] transition-transform duration-500 motion-safe:group-hover:rotate-12">
           <svg
             viewBox="0 0 24 24"
@@ -42,6 +43,12 @@ export default function TelegramBanner({ href = TELEGRAM_URL }: { href?: string 
           TELEGRAM · FREE
         </span>
       </span>
+
+      {/* Cyan bottom highlight */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
+      />
     </a>
   );
 }

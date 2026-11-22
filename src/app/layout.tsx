@@ -1,4 +1,5 @@
 import "./globals.css";
+import MotionBackground from "@/components/MotionBackground";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ThemeProvider from "@/components/ThemeProvider";
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-page text-slate-900 dark:text-white antialiased transition-colors duration-200">
+        <MotionBackground />
         <ThemeProvider>
           <LanguageProvider>
             <div className="flex min-h-screen flex-col">

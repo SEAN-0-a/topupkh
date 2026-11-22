@@ -192,13 +192,13 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
 
       {/* Main Login Card */}
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-2xl p-8 transition-colors duration-200 space-y-6">
+      <div className="w-full max-w-md bg-[#0b1120]/85 backdrop-blur-md border border-white/10 shadow-2xl shadow-black/40 rounded-2xl p-8 space-y-6">
 
         {/* Brand Logo */}
-        <div className="flex items-center justify-center gap-2 text-2xl font-bold text-slate-900 dark:text-white">
+        <div className="flex items-center justify-center gap-2 text-2xl font-bold text-slate-100">
           <img
             src="/image/RomdoulKHshop.LOGO-01.png"
             alt="RomdoulKHShop"
@@ -207,7 +207,7 @@ export default function LoginForm() {
           <span>RomdoulKHShop</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white text-center">
+        <h1 className="text-2xl font-bold text-slate-100 text-center">
           {isSignUp ? "Create an account" : "Sign in"}
         </h1>
 
@@ -216,7 +216,7 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => handleOAuthLogin("google")}
-            className="w-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
+            className="w-full bg-white/5 hover:bg-white/10 text-slate-100 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/10"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -230,7 +230,7 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => handleOAuthLogin("facebook")}
-            className="w-full bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
+            className="w-full bg-white/5 hover:bg-white/10 text-slate-100 font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/10"
           >
             <svg className="w-5 h-5 mr-2" fill="#1877F2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -241,15 +241,15 @@ export default function LoginForm() {
 
         {/* Divider */}
         <div className="relative flex py-2 items-center">
-          <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
-          <span className="px-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase bg-white dark:bg-slate-900">
+          <div className="flex-grow border-t border-white/10" />
+          <span className="px-3 text-xs font-semibold text-slate-400 uppercase bg-[#0b1120]">
             Or
           </span>
         </div>
 
         {/* Form Error Banner */}
         {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 p-3 rounded-xl text-xs text-center">
+          <div className="bg-red-500/10 border border-red-500/30 text-[#fca5a5] p-3 rounded-xl text-xs text-center">
             {errorMsg}
           </div>
         )}
@@ -257,7 +257,7 @@ export default function LoginForm() {
         {/* Email Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">
+            <label className="block text-sm font-medium text-slate-200 mb-1.5">
               Email address
             </label>
             <input
@@ -266,12 +266,12 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all"
+              className="w-full bg-white/5 border border-white/10 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-400 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-800 dark:text-slate-200 mb-1.5">
+            <label className="block text-sm font-medium text-slate-200 mb-1.5">
               Password
             </label>
             <input
@@ -280,7 +280,7 @@ export default function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all"
+              className="w-full bg-white/5 border border-white/10 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-400 transition-all"
             />
           </div>
 
@@ -306,7 +306,7 @@ export default function LoginForm() {
         </form>
 
         {/* Footer Toggle */}
-        <p className="text-center text-xs text-slate-600 dark:text-gray-400">
+        <p className="text-center text-xs text-slate-400">
           {isSignUp ? "Already have an account?" : "New user?"}{" "}
           <button
             type="button"

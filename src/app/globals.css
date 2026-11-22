@@ -223,3 +223,75 @@ html:not(.dark) .group-hover\:text-gold:hover {
 html:not(.dark) .text-royal {
   color: #1749e8;
 }
+
+/* ============================================== ambient motion background ==
+   Drifting glow orbs rendered by <MotionBackground />. Transform-only
+   keyframes (translate3d + scale3d) stay on the compositor, so the
+   full-viewport backdrop animates without repainting the page. */
+@keyframes floatSlowA {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+  33% {
+    transform: translate3d(6vw, -4vh, 0) scale3d(1.15, 1.15, 1);
+  }
+  66% {
+    transform: translate3d(-3vw, 3vh, 0) scale3d(0.92, 0.92, 1);
+  }
+}
+
+@keyframes floatSlowB {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+  40% {
+    transform: translate3d(-5vw, 6vh, 0) scale3d(0.9, 0.9, 1);
+  }
+  70% {
+    transform: translate3d(3vw, -3vh, 0) scale3d(1.12, 1.12, 1);
+  }
+}
+
+@keyframes floatSlowC {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+  35% {
+    transform: translate3d(4vw, 3vh, 0) scale3d(1.1, 1.1, 1);
+  }
+  65% {
+    transform: translate3d(-6vw, -5vh, 0) scale3d(0.88, 0.88, 1);
+  }
+}
+
+.motion-orb-1,
+.motion-orb-2,
+.motion-orb-3 {
+  will-change: transform;
+}
+
+.motion-orb-1 {
+  animation: floatSlowA 24s ease-in-out infinite;
+}
+
+.motion-orb-2 {
+  animation: floatSlowB 30s ease-in-out infinite;
+}
+
+.motion-orb-3 {
+  animation: floatSlowC 27s ease-in-out infinite;
+}
+
+/* Motion sensitivity: park the orbs instead of animating them. */
+@media (prefers-reduced-motion: reduce) {
+  .motion-orb-1,
+  .motion-orb-2,
+  .motion-orb-3 {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+}

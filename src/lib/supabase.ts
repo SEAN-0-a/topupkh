@@ -22,5 +22,10 @@ export const supabase = createBrowserClient(
       persistSession: true,
       detectSessionInUrl: true,
     },
+    global: {
+      // Product/catalog reads must never be served from the browser HTTP cache
+      // after a database reset.
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   },
 );

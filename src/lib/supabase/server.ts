@@ -15,6 +15,11 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-key",
     {
+      global: {
+        // Belt-and-braces with route-level force-dynamic: never reuse a
+        // cached PostgREST response after the database is reset.
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -9,5 +9,10 @@ export function createSupabaseBrowserClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-key",
+    {
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
+    },
   );
 }

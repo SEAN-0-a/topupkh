@@ -120,6 +120,7 @@ async function fetchProductsPage(
   query: CatalogQuery,
   strict: boolean,
 ): Promise<CatalogPage> {
+  console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
   const supabase = await createSupabaseServerClient();
   const page = Math.max(1, query.page ?? 1);
   const perPage = Math.min(48, Math.max(1, query.perPage ?? 12));

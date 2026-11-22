@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
+import TelegramBanner from "@/components/TelegramBanner";
 
 /**
  * RomdoulKHShop site footer — sleek dark surface (#0d0f1d) with a
@@ -86,8 +87,13 @@ export default function Footer({ lang }: { lang?: FooterLang }) {
           ))}
         </div>
 
+        {/* Telegram community */}
+        <div className="mt-10 flex justify-center">
+          <TelegramBanner />
+        </div>
+
         {/* Bottom bar */}
-        <div className="mt-10 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+        <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
           <p>
             © {new Date().getFullYear()} RomdoulKHShop ·{" "}
             {active === "kh" ? "រក្សាសិទ្ធិគ្រប់យ៉ាង" : "All rights reserved"}

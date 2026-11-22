@@ -5,6 +5,7 @@ import { listGames, listActiveCategories, listTemplates } from "@/lib/catalog";
 import type { Game } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Props = { params: Promise<{ game: string }> };
 

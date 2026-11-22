@@ -6,6 +6,7 @@ import { listGames, listProducts, listActiveCategories } from "@/lib/catalog";
 import type { Product, Game, ProductCategory } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function HomePage() {
   // Parallel, server-side queries — no client fetch for first paint.
@@ -20,7 +21,6 @@ export default async function HomePage() {
   const recentItems: Product[] = recent.status === "fulfilled" ? recent.value.items : [];
   const gamesList: Game[] = settledValue(games, []);
   const categoryList = settledValue(categories, []);
-  const dbReady = featured.status === "fulfilled" && recent.status === "fulfilled";
 
   return (
     <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 text-slate-900 dark:text-white">
@@ -127,28 +127,23 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* empty-state honesty banners */}
-      {dbReady && featuredItems.length === 0 && (
-        <Banner>
-          No published products yet. Seller offers are auto-published as soon as their game/category
-          pair is configured — offers on unconfigured pairs go to the admin review queue first. We
-          do not display fake demo products.
-        </Banner>
-      )}
-
       {/* ================= FEATURED ================= */}
       <section>
         <SectionHeader
           title="🔥 Popular items"
           subtitle="Ranked by real completed orders on the platform"
         />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {featuredItems.map((p, i) => (
-            <Reveal key={p.id} delay={(i % 4) * 0.06}>
-              <ProductCard product={p} />
-            </Reveal>
-          ))}
-        </div>
+        {featuredItems.length === 0 ? (
+          <EmptyItems />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {featuredItems.map((p, i) => (
+              <Reveal key={p.id} delay={(i % 4) * 0.06}>
+                <ProductCard product={p} />
+              </Reveal>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ================= TOP SELLERS ================= */}
@@ -157,13 +152,17 @@ export default async function HomePage() {
       {/* ================= NEWLY LISTED ================= */}
       <section>
         <SectionHeader title="🆕 Recently added" subtitle="Freshly approved listings" />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {recentItems.map((p, i) => (
-            <Reveal key={p.id} delay={(i % 4) * 0.06}>
-              <ProductCard product={p} />
-            </Reveal>
-          ))}
-        </div>
+        {recentItems.length === 0 ? (
+          <EmptyItems />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {recentItems.map((p, i) => (
+              <Reveal key={p.id} delay={(i % 4) * 0.06}>
+                <ProductCard product={p} />
+              </Reveal>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ================= CATEGORIES ================= */}
@@ -232,12 +231,10 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
-function Banner({ children }: { children: React.ReactNode }) {
-  // Same class of bug: pastel yellow-200 is written for charcoal backgrounds
-  // and drops to ~1.8:1 on the light #F5F5F5 page — pair it per theme.
+function EmptyItems() {
   return (
-    <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-800 dark:border-yellow-600/40 dark:bg-yellow-500/10 dark:text-yellow-200">
-      {children}
-    </div>
+    <p className="rounded-2xl border border-hairline bg-surface p-6 text-center text-sm text-muted">
+      No items available
+    </p>
   );
 }

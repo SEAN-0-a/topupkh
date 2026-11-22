@@ -4,10 +4,8 @@ import type { Game, ProductCategory } from "@/lib/types";
 // =============================================================================
 // Seller form catalogue loader — shared by the create-listing routes.
 // Returns the active games + non-prohibited categories for the dropdowns and
-// the caller's seller status (for the "approved?" gate), with a static
-// FALLBACK catalogue so a transient DB failure still renders usable selects
-// (the placeholder NEGATIVE ids can never collide with real row ids and the
-// server action surfaces the FK error honestly if they get submitted).
+// the caller's seller status (for the "approved?" gate). Empty arrays are
+// honest: after a database reset the form must not offer fake fallback rows.
 // =============================================================================
 
 export type SimpleGameOption = Pick<Game, "id" | "name" | "slug">;
@@ -20,8 +18,6 @@ export type SellerFormCatalogue = {
   games: SimpleGameOption[];
   categories: SimpleCategoryOption[];
   sellerStatus: string | null;
-  /** true when the static fallback catalogue is in use (DB unreachable). */
-  usingFallback: boolean;
 };
 
 export async function loadSellerFormCatalogue(
@@ -51,40 +47,9 @@ export async function loadSellerFormCatalogue(
         c !== null,
     );
 
-  const gamesOk = gamesRes.data != null && gamesRes.data.length > 0;
-  const categoriesOk = categories.length > 0;
-
   return {
-    games: gamesOk
-      ? gamesRes.data!
-      : FALLBACK_GAMES.map((name, i) => ({ id: -(i + 1), name, slug: slugify(name) })),
-    categories: categoriesOk
-      ? categories
-      : FALLBACK_CATEGORIES.map((name, i) => ({
-          id: -(i + 1),
-          name,
-          slug: slugify(name),
-          stock_model: name === "Boosting" ? ("unlimited" as const) : ("finite" as const),
-        })),
+    games: gamesRes.data ?? [],
+    categories,
     sellerStatus: sellerRes.data?.status ?? null,
-    usingFallback: !gamesOk || !categoriesOk,
   };
 }
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-const FALLBACK_GAMES = ["Roblox", "Mobile Legends", "PUBG Mobile", "Free Fire", "Valorant"];
-
-const FALLBACK_CATEGORIES = [
-  "Currency",
-  "Accounts",
-  "Top Ups",
-  "Items",
-  "Boosting",
-  "Gift Cards",
-];

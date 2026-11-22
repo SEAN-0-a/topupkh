@@ -68,7 +68,7 @@ const en = {
   "market.loading_filters": "· loading…",
 
   // ---- marketplace states ----
-  "market.no_results": "No products match these filters yet.",
+  "market.no_results": "No items available yet.",
   "market.no_results_hint": "Try clearing filters, or check back — new offers from verified sellers are published instantly.",
   "market.prev": "← Prev",
   "market.next": "Next →",

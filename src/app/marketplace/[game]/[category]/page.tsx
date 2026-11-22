@@ -8,6 +8,7 @@ import SafeProductImage from "@/components/SafeProductImage";
 import Reveal from "@/components/motion/Reveal";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Props = { params: Promise<{ game: string; category: string }> };
 

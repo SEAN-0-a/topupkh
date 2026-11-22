@@ -73,7 +73,7 @@ export default async function OfferGroupsPage({ params }: Props) {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">{error}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">{error}</div>
       )}
 
       {!error && templates.length === 0 && (

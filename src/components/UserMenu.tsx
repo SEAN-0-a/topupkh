@@ -202,13 +202,13 @@ export default function UserMenu({ user }: { user: User }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-gray-800 bg-[#1d2029] shadow-2xl"
+          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-[#1d2029]"
         >
           {/* Header profile info → /settings */}
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
-            className="block border-b border-gray-800 bg-[#23262f] px-4 py-3.5 transition-all hover:bg-[#2b2f3a]"
+            className="block border-b border-slate-200 bg-slate-50 px-4 py-3.5 transition-all hover:bg-slate-100 dark:border-gray-800 dark:bg-[#23262f] dark:hover:bg-[#2b2f3a]"
           >
             <div className="flex items-center gap-3">
               <Avatar src={info.avatarUrl} name={info.displayName} sizePx={40} />

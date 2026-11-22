@@ -66,7 +66,7 @@ export default function Footer({ lang }: { lang?: FooterLang }) {
   const active: FooterLang = lang ?? (contextLang === "km" ? "kh" : "en");
 
   return (
-    <footer className="mt-16 bg-[#0d0f1d] text-gray-400">
+    <footer className="mt-16 border-t border-slate-200 bg-slate-50 text-slate-600 dark:border-transparent dark:bg-[#0d0f1d] dark:text-gray-400">
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {FOOTER_COLUMNS.map((column, index) => (
@@ -76,7 +76,7 @@ export default function Footer({ lang }: { lang?: FooterLang }) {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="transition-colors hover:text-white"
+                      className="transition-colors hover:text-slate-900 dark:hover:text-white"
                     >
                       {active === "kh" ? link.kh : link.en}
                     </Link>
@@ -93,7 +93,7 @@ export default function Footer({ lang }: { lang?: FooterLang }) {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+        <div className="mt-8 border-t border-slate-200 pt-6 text-center text-xs text-slate-500 dark:border-white/10 dark:text-gray-500">
           <p>
             © {new Date().getFullYear()} RomdoulKHShop ·{" "}
             {active === "kh" ? "រក្សាសិទ្ធិគ្រប់យ៉ាង" : "All rights reserved"}

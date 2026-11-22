@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-950">
       <AdminTabs />
       {children}
     </div>
@@ -42,11 +42,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
 function AccessDenied({ role }: { role: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 px-4">
-      <div className="w-full max-w-md rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-gray-950">
+      <div className="w-full max-w-md rounded-3xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-500/30 dark:bg-red-500/10">
         <p className="text-4xl">⛔</p>
-        <h1 className="mt-3 text-lg font-bold text-red-300">Access Denied</h1>
-        <p className="mt-2 text-xs leading-relaxed text-red-200/80">
+        <h1 className="mt-3 text-lg font-bold text-red-700 dark:text-red-300">Access Denied</h1>
+        <p className="mt-2 text-xs leading-relaxed text-red-700/80 dark:text-red-200/80">
           Your account (role: <span className="font-bold capitalize">{role}</span>) does not
           have permission to view admin tools. This area is restricted to platform
           staff. If you believe this is a mistake, contact support.

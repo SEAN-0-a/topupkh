@@ -17,11 +17,11 @@ export default function AdminError({
   console.error("[admin] route error:", error.message, error.digest);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 px-4">
-      <div className="w-full max-w-md rounded-3xl border border-red-500/40 bg-red-500/10 p-8 text-center">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-gray-950">
+      <div className="w-full max-w-md rounded-3xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-500/40 dark:bg-red-500/10">
         <p className="text-4xl">⚠️</p>
-        <h1 className="mt-3 text-lg font-bold text-red-300">Something went wrong</h1>
-        <p className="mt-2 text-xs leading-relaxed text-red-200/80">
+        <h1 className="mt-3 text-lg font-bold text-red-700 dark:text-red-300">Something went wrong</h1>
+        <p className="mt-2 text-xs leading-relaxed text-red-700/80 dark:text-red-200/80">
           The admin page failed to load. {error.digest ? `(ref: ${error.digest})` : null}
         </p>
         <div className="mt-5 flex justify-center gap-3">

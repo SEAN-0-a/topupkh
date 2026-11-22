@@ -73,7 +73,7 @@ export default function MotionBackground() {
       ref={layerRef}
       aria-hidden="true"
       style={INITIAL_MOUSE_VARS}
-      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#050811]"
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-slate-50 opacity-35 dark:bg-[#050811] dark:opacity-100"
     >
       {/* Ambient static corner glows */}
       <div className="absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-amber-500/10 blur-[120px]" />

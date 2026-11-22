@@ -140,7 +140,7 @@ export default function AdminDisputesPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">Order #{dispute.id}</span>
-                    <span className="text-[10px] bg-red-950 text-red-400 border border-red-800 px-2 py-0.5 rounded-md font-semibold">
+                    <span className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
                       DISPUTED
                     </span>
                   </div>

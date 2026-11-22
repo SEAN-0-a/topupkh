@@ -70,10 +70,12 @@ export default async function InfoPage({ params }: { params: Promise<{ slug: str
 /* ── Block renderer ─────────────────────────────────────────────────── */
 
 const CALLOUT_TONE: Record<string, string> = {
-  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  sky: "border-sky-500/30 bg-sky-500/10 text-sky-200",
-  red: "border-red-500/40 bg-red-500/10 text-red-200",
+  emerald:
+    "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200",
+  amber:
+    "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
+  sky: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200",
+  red: "border-red-200 bg-red-50 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200",
 };
 
 function InfoBlock({ block }: { block: Block }) {

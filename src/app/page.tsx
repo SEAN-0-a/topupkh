@@ -236,7 +236,7 @@ function Banner({ children }: { children: React.ReactNode }) {
   // Same class of bug: pastel yellow-200 is written for charcoal backgrounds
   // and drops to ~1.8:1 on the light #F5F5F5 page — pair it per theme.
   return (
-    <div className="rounded-2xl border border-yellow-600/40 bg-yellow-500/10 p-4 text-xs text-yellow-700 dark:text-yellow-200">
+    <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-800 dark:border-yellow-600/40 dark:bg-yellow-500/10 dark:text-yellow-200">
       {children}
     </div>
   );

@@ -70,7 +70,7 @@ export default async function OffersPage({ params, searchParams }: Props) {
       </div>
 
       {/* escrow trust strip */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-200">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
         🔒 All offers below go through RomdoulKHShop escrow-ready checkout: your KHQR payment is verified
         by an admin, the seller delivers, <b>and</b> you confirm — only then are funds released to
         the seller. Never pay a seller directly.

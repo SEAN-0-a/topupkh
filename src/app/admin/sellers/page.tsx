@@ -161,7 +161,7 @@ export default async function AdminSellersPage() {
         </div>
 
         {dbError && (
-          <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
             Failed to load KYC applications: {dbError}
           </div>
         )}

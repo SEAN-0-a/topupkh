@@ -85,10 +85,10 @@ export default async function SettingsPage() {
       <div className="min-h-screen bg-page">
         <div className="mx-auto max-w-2xl px-4 py-8">
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">Account settings</h1>
-          <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
             <p className="font-bold">We couldn&apos;t load your account data.</p>
-            <p className="mt-1 text-xs text-red-200/80">Details: {dbError}</p>
-            <p className="mt-3 text-xs text-red-200/60">
+            <p className="mt-1 text-xs text-red-700/80 dark:text-red-200/80">Details: {dbError}</p>
+            <p className="mt-3 text-xs text-red-700/60 dark:text-red-200/60">
               Try refreshing the page. If it persists, your session may have expired —
               sign out and back in, or contact support.
             </p>

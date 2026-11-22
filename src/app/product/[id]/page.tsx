@@ -102,7 +102,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       </Link>
 
       {degraded && (
-        <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300">
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
           ⚠️ Some listing fields are temporarily unavailable (database hiccup). Your offer itself
           is saved safely — reload in a moment for the full details.
         </div>

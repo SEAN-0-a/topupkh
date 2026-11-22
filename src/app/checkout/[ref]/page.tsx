@@ -141,7 +141,7 @@ export default async function CheckoutOrderPage({
       )}
 
       {(order.status === "pending_verification" || order.status === "in_escrow") && (
-        <div className="rounded-3xl border border-yellow-600/40 bg-yellow-500/10 p-6 text-xs text-yellow-200">
+        <div className="rounded-3xl border border-yellow-200 bg-yellow-50 p-6 text-xs text-yellow-800 dark:border-yellow-600/40 dark:bg-yellow-500/10 dark:text-yellow-200">
           Payment claim received. An administrator will verify the transfer in the ABA/Bakong
           statement shortly. This page updates automatically once verified — a support ticket is
           available if it takes more than a few hours.

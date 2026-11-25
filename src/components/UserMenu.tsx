@@ -4,6 +4,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import {
+  AlertTriangle,
+  Bell,
+  ChevronDown,
+  LogOut,
+  MessageSquare,
+  Repeat,
+  Rocket,
+  Settings,
+  ShieldCheck,
+  ShoppingCart,
+  Star,
+  Store,
+  Tag,
+  Wallet,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Avatar from "@/components/Avatar";
 import { computeRank } from "@/lib/rank";
@@ -45,7 +62,7 @@ function metadataRole(user: User): user_role | null {
     : null;
 }
 
-type MenuItem = { icon: string; label: string; href: string };
+type MenuItem = { Icon: LucideIcon; label: string; href: string };
 
 /**
  * User avatar dropdown in the navbar. Header shows the profile summary
@@ -156,29 +173,29 @@ export default function UserMenu({ user }: { user: User }) {
     ...(isAdmin
       ? [
           {
-            icon: "🛠️",
+            Icon: ShieldCheck,
             label: "Admin Panel",
             href: "/admin/sellers",
           },
         ]
       : []),
-    { icon: "🧾", label: "Orders", href: "/orders" },
-    { icon: "📦", label: "Offers", href: "/offers" },
-    { icon: "🚀", label: "Boosting", href: "/boosting" },
-    { icon: "🎁", label: "Loyalty", href: "/loyalty" },
-    { icon: "💼", label: "Wallet", href: "/wallet" },
+    { Icon: ShoppingCart, label: "Orders", href: "/orders" },
+    { Icon: Tag, label: "Offers", href: "/offers" },
+    { Icon: Rocket, label: "Boosting", href: "/boosting" },
+    { Icon: Repeat, label: "Loyalty", href: "/loyalty" },
+    { Icon: Wallet, label: "Wallet", href: "/wallet" },
     {
-      icon: verified ? "🏪" : "🏆",
+      Icon: Store,
       label: verified ? "Seller dashboard" : "Become a Seller",
       // Unverified users land on the KYC state machine (/seller/verify):
       // 'unverified' → application form, 'pending' → under review,
       // 'rejected' → re-apply. Verified sellers go to the dashboard.
       href: verified ? "/seller/dashboard" : "/seller/verify",
     },
-    { icon: "💬", label: "Messages", href: "/messages" },
-    { icon: "🔔", label: "Notifications", href: "/notifications" },
-    { icon: "📝", label: "Feedback", href: "/feedback" },
-    { icon: "⚙️", label: "Account settings", href: "/settings" },
+    { Icon: MessageSquare, label: "Messages", href: "/messages" },
+    { Icon: Bell, label: "Notifications", href: "/notifications" },
+    { Icon: Star, label: "Feedback", href: "/feedback" },
+    { Icon: Settings, label: "Account settings", href: "/settings" },
   ];
 
   return (
@@ -195,32 +212,36 @@ export default function UserMenu({ user }: { user: User }) {
         <span className="hidden max-w-[10rem] truncate text-xs font-bold text-gray-200 sm:block">
           {info.displayName || "Account"}
         </span>
-        <span className="text-[10px] text-gray-400">{open ? "▲" : "▼"}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
       </button>
 
       {/* Dropdown */}
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-[#1d2029]"
+          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-gray-800 bg-[#1d2029] shadow-2xl shadow-black/50"
         >
           {/* Header profile info → /settings */}
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
-            className="block border-b border-slate-200 bg-slate-50 px-4 py-3.5 transition-all hover:bg-slate-100 dark:border-gray-800 dark:bg-[#23262f] dark:hover:bg-[#2b2f3a]"
+            className="block border-b border-gray-800 bg-[#23262f] px-4 py-3.5 transition-colors hover:bg-[#2b2f3a]"
           >
             <div className="flex items-center gap-3">
               <Avatar src={info.avatarUrl} name={info.displayName} sizePx={40} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{info.displayName}</p>
+                <p className="truncate text-xs font-bold text-white">{info.displayName}</p>
                 {info.username && (
                   <p className="truncate text-[11px] text-gray-400">@{info.username}</p>
                 )}
               </div>
               {verified && (
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                  ✓ Verified
+                <span className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                  <ShieldCheck className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                  Verified
                 </span>
               )}
             </div>
@@ -228,10 +249,11 @@ export default function UserMenu({ user }: { user: User }) {
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${rank.classes}`}>
                 {rank.label}
               </span>
-              <span className="text-[11px] text-gray-300">
-                💵 {info.balance !== null ? `$${Number(info.balance).toFixed(2)}` : "—"}
+              <span className="flex items-center gap-1 text-[11px] text-slate-300">
+                <Wallet className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                {info.balance !== null ? `$${Number(info.balance).toFixed(2)}` : "—"}
               </span>
-              <span className="ml-auto text-[10px] text-gray-500">Account settings →</span>
+              <span className="ml-auto text-[10px] text-slate-500">Account settings →</span>
             </div>
           </Link>
 
@@ -241,27 +263,36 @@ export default function UserMenu({ user }: { user: User }) {
             <Link
               href="/seller/verify"
               onClick={() => setOpen(false)}
-              className="block border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[11px] font-bold text-amber-300 transition-all hover:bg-amber-500/20"
+              className="group flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500/20"
             >
-              ⚠️ Verification required to sell — tap to complete
+              <AlertTriangle
+                className="h-3.5 w-3.5 shrink-0"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              Verification required to sell — tap to complete
             </Link>
           )}
 
           {/* Menu items */}
-          <div className="max-h-[19rem] overflow-y-auto py-1">
-            {items.map((item) => (
+          <div className="max-h-[19rem] space-y-0.5 overflow-y-auto p-1.5">
+            {items.map(({ Icon, label, href }) => (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 onClick={() => setOpen(false)}
-                className={`flex w-full items-center gap-2.5 px-4 py-2 text-xs transition-all ${
-                  pathname === item.href
-                    ? "bg-gray-800 font-bold text-emerald-400"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white"
+                className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs transition-colors ${
+                  pathname === href
+                    ? "bg-white/[0.08] font-semibold text-white"
+                    : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
                 }`}
               >
-                <span className="text-sm">{item.icon}</span>
-                {item.label}
+                <Icon
+                  className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-white"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{label}</span>
               </Link>
             ))}
           </div>
@@ -271,9 +302,13 @@ export default function UserMenu({ user }: { user: User }) {
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="flex w-full items-center gap-2.5 border-t border-gray-800 px-4 py-3 text-xs font-bold text-red-400 transition-all hover:bg-red-500/10 disabled:opacity-50"
+            className="group flex w-full items-center gap-3 border-t border-white/5 px-4 py-3 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
           >
-            <span className="text-sm">🚪</span>
+            <LogOut
+              className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-red-300"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             {signingOut ? "Signing out..." : "Log out"}
           </button>
         </div>
